@@ -392,24 +392,34 @@ async function claudeJSON(prompt) {
 }
 
 async function fetchRichMeta(url, type) {
-  const isShortLink = url.includes("boxd.it") || url.includes("gr.net") || url.includes("a.co");
   const isLetterboxd = url.includes("letterboxd") || url.includes("boxd.it");
   const isGoodreads = url.includes("goodreads") || url.includes("gr.net");
   const site = isLetterboxd ? "Letterboxd" : isGoodreads ? "Goodreads" : (type==="movie" ? "Letterboxd" : "Goodreads");
 
-  if (isShortLink) {
-    // Short links like boxd.it/1SJU have no readable slug — ask Claude to identify
-    // from the short code if it can, otherwise return a partial result for manual fill
-    return claudeJSON(`A user pasted this shortened ${site} URL: ${url}
-This is a short link with an opaque ID — you cannot determine the title from the URL alone.
-Return JSON: { "title": null, "subtitle": null, "year": null, "rating": null, "genre": null, "source": "${site}", "shortLink": true }
-Always return shortLink: true for boxd.it or similar short URLs.`);
-  }
+  // Step 1: fetch the real page server-side (follows redirects for short links)
+  let pageData = null;
+  try {
+    const r = await fetch("/api/claude", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "fetch-url", url })
+    });
+    pageData = await r.json();
+  } catch {}
 
-  return claudeJSON(`I have a ${site} URL: ${url}
-Based on the URL slug/structure alone (the words in the path), infer the metadata.
-Return JSON: { "title": string, "subtitle": string (author for books / director for movies), "year": string|null, "rating": string|null, "genre": string|null, "source": "${site}", "shortLink": false }
-Make your best inference from the URL slug. Use null only if truly unknowable.`);
+  // Build context for Claude from what we fetched
+  const pageContext = pageData ? `
+Final URL after redirects: ${pageData.finalUrl || url}
+Page title tag: ${pageData.title || "none"}
+OG title: ${pageData.ogTitle || "none"}
+OG description: ${pageData.ogDesc || "none"}
+Page text snippet: ${pageData.bodySnippet || "none"}
+` : `URL: ${url}`;
+
+  return claudeJSON(`Extract metadata for this ${site} ${type==="movie"?"film":"book"} page.
+${pageContext}
+Return JSON: { "title": string, "subtitle": string (${type==="movie"?"director":"author"} name), "year": string|null, "rating": string|null, "genre": string|null, "source": "${site}" }
+Use the page content to extract accurate metadata. Title and subtitle are required.`);
 }
 
 async function searchItems(query, type) {
@@ -531,11 +541,7 @@ function AddModal({type,onAdd,onClose,theme}){
     const u=urlVal.trim();if(!u)return;
     setStatus("loading");
     const meta=await fetchRichMeta(u,type);
-    if(meta?.shortLink){
-      // Short link (e.g. boxd.it) — can't read slug, drop into manual with source pre-filled
-      setPreview({title:null,subtitle:null,year:null,rating:null,genre:null,source:meta.source||null,url:u,shortLink:true});
-      setStatus("shortlink");
-    } else if(meta?.title){
+    if(meta?.title){
       setPreview({...meta,url:u});
       setStatus("preview");
     } else {
@@ -556,8 +562,7 @@ function AddModal({type,onAdd,onClose,theme}){
 
   const isGoodreads=urlVal.includes("goodreads")||urlVal.includes("gr.net");
   const isLetterboxd=urlVal.includes("letterboxd")||urlVal.includes("boxd.it");
-  const isShortLink=urlVal.includes("boxd.it")||urlVal.includes("gr.net")||urlVal.includes("a.co");
-  const urlHint=isLetterboxd?"🎬 Letterboxd":isGoodreads?"📚 Goodreads":urlVal.trim()?"↗ Custom URL":"";
+  const urlHint=isLetterboxd?"🎬 Letterboxd (short links work!)":isGoodreads?"📚 Goodreads":urlVal.trim()?"↗ Custom URL":"";
 
   const tabBtn=(id,lbl2)=><button onClick={()=>{setMode(id);setStatus("idle");setPreview(null);setResults([]);}} style={{flex:1,padding:"10px",border:`2px solid ${mode===id?t.accent:t.border}`,background:mode===id?t.accent:"transparent",color:mode===id?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:2,boxShadow:mode===id?`2px 2px 0 ${t.border}`:"none"}}>{lbl2}</button>;
 
