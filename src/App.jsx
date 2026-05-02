@@ -372,10 +372,20 @@ function AddHabitModal({catId,subId,cats,subcats,onAdd,onClose,theme}){
 
 // ─── AI HELPERS ──────────────────────────────────────────────────────────────
 async function claudeJSON(prompt) {
+  const apiKey = import.meta.env.VITE_ANTHROPIC_KEY;
+  if (!apiKey) {
+    console.warn("No VITE_ANTHROPIC_KEY set — search/import unavailable");
+    return null;
+  }
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-allow-browser": "true",
+      },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 800,
@@ -384,7 +394,6 @@ async function claudeJSON(prompt) {
     });
     const data = await res.json();
     const raw = data?.content?.[0]?.text?.trim() || "";
-    // Strip any accidental markdown fences
     const clean = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
     return JSON.parse(clean);
   } catch { return null; }
@@ -528,6 +537,7 @@ function AddModal({type,onAdd,onClose,theme}){
 
   const doImport=async()=>{
     const u=urlVal.trim();if(!u)return;
+    if(!import.meta.env.VITE_ANTHROPIC_KEY){setStatus("nokey");return;}
     setStatus("loading");
     const meta=await fetchRichMeta(u,type);
     if(meta?.shortLink){
@@ -543,6 +553,7 @@ function AddModal({type,onAdd,onClose,theme}){
   };
   const doSearch=async()=>{
     const q=searchVal.trim();if(!q)return;
+    if(!import.meta.env.VITE_ANTHROPIC_KEY){setStatus("nokey");return;}
     setStatus("loading");
     const res=await searchItems(q,type);
     if(res.length){setResults(res);setStatus("results");}
@@ -586,6 +597,16 @@ function AddModal({type,onAdd,onClose,theme}){
           {mode==="manual"&&<ManualAddForm type={type} onAdd={addItem} theme={theme}/>}
 
           {status==="loading"&&<div style={{textAlign:"center",padding:"22px",border:`2px dashed ${t.border}`}}><div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:t.accent,letterSpacing:3}}>LOOKING IT UP...</div></div>}
+
+          {status==="nokey"&&<div style={{padding:"14px",border:`2px solid ${t.accent}`,background:`${t.accent}11`,marginBottom:10}}>
+            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.accent,letterSpacing:2,marginBottom:6}}>API KEY NEEDED</div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.textSub,letterSpacing:1,lineHeight:1.6}}>
+              1. Get a free key at console.anthropic.com<br/>
+              2. In Vercel → Settings → Environment Variables<br/>
+              3. Add: VITE_ANTHROPIC_KEY = your key<br/>
+              4. Redeploy — search will work instantly
+            </div>
+          </div>}
 
           {status==="error"&&<div style={{padding:"14px",border:`2px solid ${t.accent2}`,background:`${t.accent2}11`,marginBottom:10}}><div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.accent2,letterSpacing:2}}>COULDN'T FIND IT. TRY THE MANUAL TAB.</div></div>}
 
