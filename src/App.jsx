@@ -372,20 +372,12 @@ function AddHabitModal({catId,subId,cats,subcats,onAdd,onClose,theme}){
 
 // ─── AI HELPERS ──────────────────────────────────────────────────────────────
 async function claudeJSON(prompt) {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_KEY;
-  if (!apiKey) {
-    console.warn("No VITE_ANTHROPIC_KEY set — search/import unavailable");
-    return null;
-  }
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    // Calls our own Vercel serverless proxy at /api/claude
+    // which forwards to Anthropic server-side (avoids CORS)
+    const res = await fetch("/api/claude", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-allow-browser": "true",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 800,
@@ -537,7 +529,6 @@ function AddModal({type,onAdd,onClose,theme}){
 
   const doImport=async()=>{
     const u=urlVal.trim();if(!u)return;
-    if(!import.meta.env.VITE_ANTHROPIC_KEY){setStatus("nokey");return;}
     setStatus("loading");
     const meta=await fetchRichMeta(u,type);
     if(meta?.shortLink){
@@ -553,7 +544,6 @@ function AddModal({type,onAdd,onClose,theme}){
   };
   const doSearch=async()=>{
     const q=searchVal.trim();if(!q)return;
-    if(!import.meta.env.VITE_ANTHROPIC_KEY){setStatus("nokey");return;}
     setStatus("loading");
     const res=await searchItems(q,type);
     if(res.length){setResults(res);setStatus("results");}
