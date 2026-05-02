@@ -380,7 +380,7 @@ async function claudeJSON(prompt) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 800,
+        max_tokens: 1200,
         messages: [{ role: "user", content: prompt + "\n\nRespond ONLY with valid JSON. No markdown fences, no explanation, no extra text — just the raw JSON." }]
       })
     });
@@ -423,9 +423,20 @@ Use the page content to extract accurate metadata. Title and subtitle are requir
 }
 
 async function searchItems(query, type) {
-  const res = await claudeJSON(`List 5 well-known real ${type==="movie"?"movies":"books"} that best match: "${query}"
-Return a JSON array of exactly 5 objects: [{ "title": string, "subtitle": string (director or author), "year": string, "rating": string, "genre": string }]
-Only use real, well-known titles.`);
+  const res = await claudeJSON(`Search for ${type==="movie"?"movies":"books"} matching: "${query}"
+
+Rules:
+- Return up to 10 results, ordered by relevance to the search query
+- Include EXACT title matches first, then close matches, then related results
+- Include both well-known AND obscure titles if they match the query
+- For books: include the exact author name as subtitle
+- For movies: include the director as subtitle
+- Include real ratings where you know them (e.g. IMDb for movies, Goodreads avg for books)
+- If the query looks like a specific title, prioritize exact and partial title matches
+- If the query looks like an author or director name, return their works
+
+Return a JSON array: [{ "title": string, "subtitle": string, "year": string, "rating": string, "genre": string }]
+Return ONLY the JSON array, nothing else.`);
   return Array.isArray(res) ? res : [];
 }
 
