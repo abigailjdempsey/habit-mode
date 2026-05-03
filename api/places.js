@@ -7,7 +7,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const fsKey = process.env.FOURSQUARE_KEY;
-  if (!fsKey) return res.status(500).json({ error: "Foursquare key not configured", env_keys: Object.keys(process.env).filter(k => k.toLowerCase().includes("four")) });
+  if (!fsKey) return res.status(500).json({ error: "Foursquare key not configured" });
 
   const { query, near } = req.body;
   if (!query) return res.status(400).json({ error: "query required" });
@@ -34,12 +34,15 @@ module.exports = async function handler(req, res) {
     catch { return res.status(500).json({ error: "Bad JSON", raw: text.slice(0, 300) }); }
 
     if (!response.ok) {
-      return res.status(response.status).json({ error: data.message || data.detail || `Error ${response.status}`, detail: data });
+      return res.status(response.status).json({
+        error: data.message || data.detail || "Foursquare error " + response.status,
+        detail: data
+      });
     }
 
     const places = (data.results || []).map(p => {
       const loc = p.location || {};
-      const cat = p.categories?.[0];
+      const cat = p.categories && p.categories[0];
       const catName = cat ? cat.name : "Place";
       const cn = catName.toLowerCase();
       const emoji =
