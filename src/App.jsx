@@ -973,175 +973,66 @@ function PlaceCard({place, onToggle, onDelete, theme, t}) {
 }
 
 function AddPlaceModal({onAdd, onClose, theme, t, uid}) {
-  const [mode,setMode]=useState("search");
-  const [searchVal,setSearchVal]=useState("");
-  const [locationVal,setLocationVal]=useState("");
-  const [urlVal,setUrlVal]=useState("");
-  const [mapsNameVal,setMapsNameVal]=useState(""); // fallback for opaque maps links
-  const [status,setStatus]=useState("idle");
-  const [results,setResults]=useState([]);
-  const [preview,setPreview]=useState(null);
-  const [manualForm,setManualForm]=useState({name:"",category:PLACE_CATS[0],city:"",neighborhood:"",address:"",description:""});
-
-  const inp={width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"10px 12px",color:t.text,fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:8};
-  const lbl={fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:4,textTransform:"uppercase"};
-
-  const isMapsShortLink = urlVal.includes("maps.app.goo.gl")||urlVal.includes("goo.gl/maps")||urlVal.includes("g.co/");
-
-  const doSearch=async()=>{
-    if(!searchVal.trim())return;
-    setStatus("loading");
-    const res=await searchPlace(searchVal.trim(), locationVal.trim()||null);
-    if(res?.error){setResults([{_error:res.error}]);setStatus("apierror");return;}
-    if(Array.isArray(res)&&res.length){setResults(res);setStatus("results");}
-    else setStatus("noresults");
-  };
-
-  const doImport=async()=>{
-    if(!urlVal.trim())return;
-    setStatus("loading");
-    const meta=await fetchPlaceMeta(urlVal.trim());
-    if(meta?._mapsShortLink){
-      setStatus("mapsshort"); // need place name from user
-    } else if(meta?.name){
-      setPreview({...meta,url:urlVal.trim()});
-      setStatus("preview");
-    } else {
-      setStatus("error");
-    }
-  };
-
-  const doMapsShortLookup=async()=>{
-    if(!mapsNameVal.trim())return;
-    setStatus("loading");
-    const res=await searchPlace(mapsNameVal.trim(), null);
-    if(res.length){
-      setPreview({...res[0],url:urlVal.trim()});
-      setStatus("preview");
-    } else setStatus("error");
-  };
-
-  const addPlace=(p)=>{
-    onAdd({id:uid(),name:p.name||"Unnamed",category:p.category||PLACE_CATS[0],city:p.city||"",neighborhood:p.neighborhood||"",address:p.address||"",description:p.description||"",url:p.url||p.website||"",rating:p.rating||null,visited:false,addedDate:new Date().toISOString().split("T")[0]});
+  const [form,setForm]=useState({name:"",category:PLACE_CATS[0],city:"",neighborhood:"",address:"",description:"",url:""});
+  const fld=(k,v)=>setForm(p=>({...p,[k]:v}));
+  const inp={width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"11px 13px",color:t.text,fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:8};
+  const lbl={fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:4};
+  const canAdd=form.name.trim()&&form.city.trim();
+  const add=()=>{
+    if(!canAdd)return;
+    onAdd({id:uid(),name:form.name.trim(),category:form.category,city:form.city.trim(),neighborhood:form.neighborhood.trim(),address:form.address.trim(),description:form.description.trim(),url:form.url.trim(),visited:false,addedDate:new Date().toISOString().split("T")[0]});
     onClose();
   };
-
-  const tabBtn=(id,lbl2)=><button onClick={()=>{setMode(id);setStatus("idle");setResults([]);setPreview(null);}} style={{flex:1,padding:"9px",border:`2px solid ${mode===id?t.accent:t.border}`,background:mode===id?t.accent:"transparent",color:mode===id?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,boxShadow:mode===id?`2px 2px 0 ${t.border}`:"none"}}>{lbl2}</button>;
-
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
-      <div style={{background:t.bg,width:"100%",maxWidth:500,border:`3px solid ${t.border}`,borderBottom:"none",boxShadow:`-6px -6px 0 ${t.border}`,maxHeight:"90vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
-        <div style={{padding:"18px 18px 0",flexShrink:0}}>
-          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:20,color:t.text,letterSpacing:4,marginBottom:12}}>📍 ADD A PLACE</div>
-          <div style={{display:"flex",gap:6,marginBottom:14}}>{tabBtn("search","SEARCH")}{tabBtn("url","PASTE URL")}{tabBtn("manual","MANUAL")}</div>
+      <div style={{background:t.bg,width:"100%",maxWidth:500,border:`3px solid ${t.border}`,borderBottom:"none",boxShadow:`-6px -6px 0 ${t.border}`,maxHeight:"92vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
+        <div style={{padding:"18px 18px 12px",borderBottom:`2px solid ${t.border}`,flexShrink:0}}>
+          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:20,color:t.text,letterSpacing:4}}>📍 ADD A PLACE</div>
         </div>
-        <div style={{padding:"0 18px 14px",overflowY:"auto",flex:1}}>
-          {mode==="search"&&<>
-            <div style={lbl}>WHAT ARE YOU LOOKING FOR?</div>
-            <div style={{display:"flex",gap:6,marginBottom:8}}>
-              <input style={{...inp,flex:1,marginBottom:0}} placeholder="bagels, ramen, vintage stores..." value={searchVal} onChange={e=>setSearchVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doSearch()} autoFocus/>
-              <button onClick={doSearch} disabled={!searchVal.trim()||status==="loading"} style={{padding:"10px 14px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:1,opacity:!searchVal.trim()?0.4:1,boxShadow:`2px 2px 0 ${t.border}`,flexShrink:0}}>{status==="loading"?"...":"GO"}</button>
+        <div style={{padding:"14px 18px",overflowY:"auto",flex:1}}>
+          <input style={{...inp,fontSize:15,fontFamily:"'Black Han Sans',sans-serif",letterSpacing:2,marginBottom:10}} placeholder="PLACE NAME *" value={form.name} onChange={e=>fld("name",e.target.value)} onKeyDown={e=>e.key==="Enter"&&add()} autoFocus/>
+          <div style={{display:"flex",gap:8}}>
+            <div style={{flex:1}}>
+              <div style={lbl}>CITY *</div>
+              <input style={inp} placeholder="e.g. Los Angeles" value={form.city} onChange={e=>fld("city",e.target.value)}/>
             </div>
-            <div style={lbl}>LOCATION (CITY OR NEIGHBORHOOD)</div>
-            <input style={{...inp,marginBottom:10}} placeholder="e.g. Brooklyn, Lower East Side, Tokyo..." value={locationVal} onChange={e=>setLocationVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doSearch()}/>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginBottom:8}}>
-              TIP: Include location in your search too for best results — e.g. "bagels Lower East Side"
+            <div style={{flex:1}}>
+              <div style={lbl}>NEIGHBORHOOD</div>
+              <input style={inp} placeholder="e.g. Silver Lake" value={form.neighborhood} onChange={e=>fld("neighborhood",e.target.value)}/>
             </div>
-          </>}
-          {mode==="url"&&<>
-            <div style={lbl}>PASTE GOOGLE MAPS, YELP, OR ANY URL</div>
-            <div style={{display:"flex",gap:6,marginBottom:isMapsShortLink?4:10}}>
-              <input style={{...inp,flex:1,marginBottom:0}} placeholder="maps.app.goo.gl/... or yelp.com/..." value={urlVal} onChange={e=>{setUrlVal(e.target.value);setStatus("idle");setPreview(null);}} onKeyDown={e=>e.key==="Enter"&&doImport()} autoFocus/>
-              <button onClick={doImport} disabled={!urlVal.trim()||status==="loading"} style={{padding:"10px 14px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:1,opacity:!urlVal.trim()?0.4:1,boxShadow:`2px 2px 0 ${t.border}`,flexShrink:0}}>{status==="loading"?"...":"IMPORT"}</button>
-            </div>
-            {isMapsShortLink&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.accent,letterSpacing:1,marginBottom:8}}>🗺️ Short Maps link detected — type place name below if import fails</div>}
-          </>}
-          {status==="mapsshort"&&<div style={{border:`2px solid ${t.accent}`,marginBottom:10}}>
-            <div style={{background:`${t.accent}18`,borderBottom:`2px solid ${t.accent}`,padding:"7px 12px"}}>
-              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.accent,letterSpacing:2}}>🗺️ SHORT MAPS LINK — WHAT'S THE PLACE CALLED?</span>
-            </div>
-            <div style={{padding:"12px",display:"flex",gap:6}}>
-              <input style={{...inp,flex:1,marginBottom:0}} placeholder="Type the place name..." value={mapsNameVal} onChange={e=>setMapsNameVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doMapsShortLookup()} autoFocus/>
-              <button onClick={doMapsShortLookup} disabled={!mapsNameVal.trim()||status==="loading"} style={{padding:"10px 14px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:1,flexShrink:0}}>FIND</button>
-            </div>
-            <div style={{padding:"0 12px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1}}>The Maps link will be saved with the place.</div>
-          </div>}
-          {mode==="manual"&&<>
-            <input style={inp} placeholder="PLACE NAME" value={manualForm.name} onChange={e=>setManualForm(f=>({...f,name:e.target.value}))} autoFocus/>
-            <div style={lbl}>CATEGORY</div>
-            <select style={{...inp,marginBottom:8,cursor:"pointer"}} value={manualForm.category} onChange={e=>setManualForm(f=>({...f,category:e.target.value}))}>
-              {PLACE_CATS.map(c=><option key={c} value={c}>{c}</option>)}
-            </select>
-            <div style={{display:"flex",gap:6}}>
-              <input style={{...inp,flex:1}} placeholder="CITY" value={manualForm.city} onChange={e=>setManualForm(f=>({...f,city:e.target.value}))}/>
-              <input style={{...inp,flex:1}} placeholder="NEIGHBORHOOD" value={manualForm.neighborhood} onChange={e=>setManualForm(f=>({...f,neighborhood:e.target.value}))}/>
-            </div>
-            <input style={inp} placeholder="ADDRESS (OPTIONAL)" value={manualForm.address} onChange={e=>setManualForm(f=>({...f,address:e.target.value}))}/>
-            <input style={inp} placeholder="NOTES (OPTIONAL)" value={manualForm.description} onChange={e=>setManualForm(f=>({...f,description:e.target.value}))}/>
-            <button onClick={()=>manualForm.name.trim()&&addPlace(manualForm)} disabled={!manualForm.name.trim()} style={{width:"100%",padding:"12px",border:`2px solid ${t.border}`,background:manualForm.name.trim()?t.addBtn:"transparent",color:manualForm.name.trim()?t.addBtnText:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,cursor:manualForm.name.trim()?"pointer":"default",letterSpacing:3,boxShadow:manualForm.name.trim()?`2px 2px 0 ${t.border}`:"none",opacity:manualForm.name.trim()?1:0.4}}>ADD PLACE</button>
-          </>}
-
-          {status==="loading"&&<div style={{textAlign:"center",padding:"22px",border:`2px dashed ${t.border}`}}><div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.accent,letterSpacing:3}}>LOOKING IT UP...</div></div>}
-          {status==="error"&&<div style={{padding:"12px",border:`2px solid ${t.accent2}`,background:`${t.accent2}11`,marginTop:8}}><div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.accent2,letterSpacing:2}}>COULDN'T FIND IT. TRY MANUAL.</div></div>}
-          {status==="apierror"&&results[0]?._error&&<div style={{padding:"14px",border:`2px solid ${t.accent2}`,background:`${t.accent2}11`,marginTop:8}}>
-            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.accent2,letterSpacing:2,marginBottom:4}}>API ERROR</div>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginBottom:8}}>{results[0]._error}</div>
-            <button onClick={()=>setMode("manual")} style={{width:"100%",padding:"9px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>ADD MANUALLY</button>
-          </div>}
-          {status==="noresults"&&<div style={{padding:"14px",border:`2px solid ${t.border}`,background:t.bgCard,marginTop:8}}>
-            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:2,marginBottom:6}}>NO RESULTS FOUND</div>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,lineHeight:1.6,marginBottom:10}}>
-              Try being more specific — e.g. "Playita Silver Lake Los Angeles" or add a location in the field below the search box.
-            </div>
-            <button onClick={()=>setMode("manual")} style={{width:"100%",padding:"10px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>ADD MANUALLY INSTEAD</button>
-          </div>}
-
-          {status==="preview"&&preview&&<div style={{border:`2px solid ${t.accent}`,boxShadow:`3px 3px 0 ${t.accent}`,marginTop:8}}>
-            <div style={{background:`${t.accent}18`,borderBottom:`2px solid ${t.accent}`,padding:"7px 12px"}}><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.accent,letterSpacing:2}}>✓ FOUND IT</span></div>
-            <div style={{padding:"14px"}}>
-              <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:15,color:t.text,letterSpacing:2}}>{preview.name}</div>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.textSub,letterSpacing:1,marginTop:4,display:"flex",gap:8,flexWrap:"wrap"}}>
-                {preview.category&&<span>{preview.category}</span>}
-                {preview.neighborhood&&<span style={{color:t.accent}}>📍{preview.neighborhood}</span>}
-                {preview.city&&<span>{preview.city}</span>}
-              </div>
-              {preview.description&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.textSub,marginTop:6,lineHeight:1.4}}>{preview.description}</div>}
-            </div>
-            <button onClick={()=>addPlace(preview)} style={{width:"100%",padding:"12px",border:"none",borderTop:`2px solid ${t.accent}`,background:t.accent,color:t.textInv,fontFamily:"'Black Han Sans',sans-serif",fontSize:14,cursor:"pointer",letterSpacing:4}}>+ ADD TO LIST</button>
-          </div>}
-
-          {status==="results"&&results.length>0&&<>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",...lbl,marginTop:8,marginBottom:6}}>
-              <span>PICK ONE:</span>
-              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.accent,letterSpacing:1}}>✓ REAL DATA FROM FOURSQUARE</span>
-            </div>
-            {results.map((p,i)=>(
-              <div key={i} onClick={()=>addPlace(p)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",border:`2px solid ${t.border}`,marginBottom:5,cursor:"pointer",background:t.bg,boxShadow:`2px 2px 0 ${t.border}`,transition:"all 0.12s"}}
-                onMouseEnter={e=>{e.currentTarget.style.borderColor=t.accent;e.currentTarget.style.background=`${t.accent}11`;}}
-                onMouseLeave={e=>{e.currentTarget.style.borderColor=t.border;e.currentTarget.style.background=t.bg;}}>
-                <span style={{fontSize:22,flexShrink:0}}>{p.category?.split(" ")?.[0]||"📍"}</span>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.text,letterSpacing:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
-                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginTop:1,display:"flex",gap:6,flexWrap:"wrap"}}>
-                    {p.neighborhood&&<span style={{color:t.accent}}>📍{p.neighborhood}</span>}
-                    {p.city&&<span>{p.city}</span>}
-                    {p.rating&&<span style={{color:t.accent}}>★{p.rating}</span>}
-                  </div>
-                  {p.address&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,marginTop:1,letterSpacing:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.address}</div>}
-                  {p.description&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,marginTop:2,lineHeight:1.3}}>{p.description.slice(0,80)}{p.description.length>80?"…":""}</div>}
-                </div>
-                <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,color:t.accent,flexShrink:0}}>+</div>
-              </div>
-            ))}
-          </>}
+          </div>
+          <div style={lbl}>TYPE</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
+            {PLACE_CATS.map(c=>{
+              const active=form.category===c;
+              const emoji=c.split(" ")[0];
+              const label=c.split(" ").slice(1).join(" ");
+              return(
+                <button key={c} onClick={()=>fld("category",c)} style={{display:"flex",alignItems:"center",gap:4,padding:"6px 10px",border:`2px solid ${active?t.accent:t.border}`,background:active?t.accent:t.bgCard,color:active?t.textInv:t.text,fontFamily:"'Black Han Sans',sans-serif",fontSize:10,letterSpacing:1,cursor:"pointer",boxShadow:active?`2px 2px 0 ${t.border}`:"none",transform:active?"translateY(-1px)":"none",transition:"all 0.1s"}}>
+                  <span style={{fontSize:14}}>{emoji}</span><span>{label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div style={lbl}>ADDRESS <span style={{opacity:0.5}}>(OPTIONAL)</span></div>
+          <input style={inp} placeholder="123 Main St" value={form.address} onChange={e=>fld("address",e.target.value)}/>
+          <div style={lbl}>NOTES <span style={{opacity:0.5}}>(OPTIONAL)</span></div>
+          <input style={inp} placeholder="get the #3, cash only, go at lunch..." value={form.description} onChange={e=>fld("description",e.target.value)}/>
+          <div style={lbl}>LINK <span style={{opacity:0.5}}>(OPTIONAL)</span></div>
+          <input style={{...inp,marginBottom:0}} placeholder="yelp.com/... maps.google.com/..." value={form.url} onChange={e=>fld("url",e.target.value)}/>
         </div>
-        <div style={{padding:"0 18px 18px",flexShrink:0}}>
-          <button onClick={onClose} style={{width:"100%",padding:"11px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:3}}>CANCEL</button>
+        <div style={{padding:"12px 18px 18px",flexShrink:0,borderTop:`2px solid ${t.border}`}}>
+          {!canAdd&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginBottom:8,textAlign:"center"}}>NAME AND CITY REQUIRED</div>}
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={onClose} style={{flex:1,padding:"12px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:2}}>CANCEL</button>
+            <button onClick={add} disabled={!canAdd} style={{flex:2,padding:"12px",border:`2px solid ${t.border}`,background:canAdd?t.addBtn:"transparent",color:canAdd?t.addBtnText:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,cursor:canAdd?"pointer":"default",letterSpacing:3,boxShadow:canAdd?`3px 3px 0 ${t.border}`:"none",opacity:canAdd?1:0.4}}>ADD PLACE</button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
+
 
 // Suggested starter cities — shown on landing screen
 const STARTER_CITIES = [
