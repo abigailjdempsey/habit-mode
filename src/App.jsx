@@ -880,28 +880,64 @@ function HistoryLog({habits,theme}){
 // ─── TRY TAB ─────────────────────────────────────────────────────────────────
 const PLACE_CATS = ["🍽️ Restaurant","☕ Cafe","🍸 Bar","🛍️ Store","🌿 Park","🎨 Art/Culture","🎵 Music/Venue","💆 Wellness","🎭 Entertainment","📦 Other"];
 
-async function searchPlace(query, claudeJSON) {
-  const res = await claudeJSON(`Find up to 8 real places matching: "${query}"
-These could be restaurants, cafes, bars, stores, parks, or any place to visit.
-Return JSON array: [{"name":string,"category":string,"city":string,"neighborhood":string,"address":string,"description":string}]
-Only real, well-known or highly-rated places. Be specific with neighborhood names.`);
+async function searchPlace(query, locationHint) {
+  const locationCtx = locationHint ? `User is based in / interested in: ${locationHint}.` : "";
+  const res = await claudeJSON(`Find up to 10 real places matching: "${query}"
+${locationCtx}
+Rules:
+- If the query includes a city or neighborhood, prioritize results from THAT location only
+- If no location in query, use the user location hint above to bias results
+- Sort by: exact name match first, then most relevant/well-known
+- Be very specific with neighborhood names (e.g. "Williamsburg" not just "Brooklyn")
+- Include a short 1-sentence description of why it's worth visiting
+- Only include real, verified places you are confident exist
+Return JSON array: [{"name":string,"category":string,"city":string,"neighborhood":string,"address":string,"description":string}]`);
   return Array.isArray(res) ? res : [];
 }
 
-async function fetchPlaceMeta(url, claudeJSON) {
+async function fetchPlaceMeta(url) {
+  const isMaps = url.includes("maps.google") || url.includes("maps.app.goo.gl") || url.includes("goo.gl/maps") || url.includes("g.co/");
+  
+  if (isMaps) {
+    // Google Maps blocks server-side fetching — extract what we can from URL params
+    // then ask Claude to identify the place from any info in the URL
+    let placeHint = "";
+    try {
+      // Extract place name from URLs like /place/Name+of+Place/
+      const placeMatch = url.match(/\/place\/([^/@]+)/);
+      if (placeMatch) placeHint = decodeURIComponent(placeMatch[1].replace(/\+/g," "));
+      // Extract from query param ?q=Name
+      const qMatch = url.match(/[?&]q=([^&]+)/);
+      if (!placeHint && qMatch) placeHint = decodeURIComponent(qMatch[1].replace(/\+/g," "));
+    } catch {}
+    
+    if (placeHint) {
+      // We have a name — look it up properly
+      const res = await claudeJSON(`I have a Google Maps link for a place called: "${placeHint}"
+Return JSON with everything you know about it: {"name":string,"category":string,"city":string,"neighborhood":string,"address":string,"description":string}
+Be as specific as possible with neighborhood. If unsure of exact location details, make your best inference.`);
+      return res;
+    } else {
+      // Short/opaque Maps link — return a signal to show manual fallback
+      return { _mapsShortLink: true };
+    }
+  }
+  
+  // Non-Maps URL — try to fetch the page
   try {
     const r = await fetch("/api/claude", {
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({mode:"fetch-url", url})
     });
     const pageData = await r.json();
-    return claudeJSON(`Extract place info from this page.
-Final URL: ${pageData.finalUrl||url}
-Title: ${pageData.ogTitle||pageData.title||""}
+    if (pageData.error) return null;
+    return claudeJSON(`Extract place info from this webpage.
+Final URL after redirect: ${pageData.finalUrl||url}
+Page title: ${pageData.ogTitle||pageData.title||""}
 Description: ${pageData.ogDesc||""}
-Text: ${pageData.bodySnippet||""}
+Page text: ${pageData.bodySnippet||""}
 Return JSON: {"name":string,"category":string,"city":string,"neighborhood":string,"address":string,"description":string}
-Extract as much as possible from the page content.`);
+Extract as much as possible. Name is required.`);
   } catch { return null; }
 }
 
@@ -932,7 +968,9 @@ function PlaceCard({place, onToggle, onDelete, theme, t}) {
 function AddPlaceModal({onAdd, onClose, theme, t, uid}) {
   const [mode,setMode]=useState("search");
   const [searchVal,setSearchVal]=useState("");
+  const [locationVal,setLocationVal]=useState("");
   const [urlVal,setUrlVal]=useState("");
+  const [mapsNameVal,setMapsNameVal]=useState(""); // fallback for opaque maps links
   const [status,setStatus]=useState("idle");
   const [results,setResults]=useState([]);
   const [preview,setPreview]=useState(null);
@@ -941,10 +979,12 @@ function AddPlaceModal({onAdd, onClose, theme, t, uid}) {
   const inp={width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"10px 12px",color:t.text,fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:8};
   const lbl={fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:4,textTransform:"uppercase"};
 
+  const isMapsShortLink = urlVal.includes("maps.app.goo.gl")||urlVal.includes("goo.gl/maps")||urlVal.includes("g.co/");
+
   const doSearch=async()=>{
     if(!searchVal.trim())return;
     setStatus("loading");
-    const res=await searchPlace(searchVal.trim(), claudeJSON);
+    const res=await searchPlace(searchVal.trim(), locationVal.trim()||null);
     if(res.length){setResults(res);setStatus("results");}
     else setStatus("error");
   };
@@ -952,9 +992,25 @@ function AddPlaceModal({onAdd, onClose, theme, t, uid}) {
   const doImport=async()=>{
     if(!urlVal.trim())return;
     setStatus("loading");
-    const meta=await fetchPlaceMeta(urlVal.trim(), claudeJSON);
-    if(meta?.name){setPreview({...meta,url:urlVal.trim()});setStatus("preview");}
-    else setStatus("error");
+    const meta=await fetchPlaceMeta(urlVal.trim());
+    if(meta?._mapsShortLink){
+      setStatus("mapsshort"); // need place name from user
+    } else if(meta?.name){
+      setPreview({...meta,url:urlVal.trim()});
+      setStatus("preview");
+    } else {
+      setStatus("error");
+    }
+  };
+
+  const doMapsShortLookup=async()=>{
+    if(!mapsNameVal.trim())return;
+    setStatus("loading");
+    const res=await searchPlace(mapsNameVal.trim(), null);
+    if(res.length){
+      setPreview({...res[0],url:urlVal.trim()});
+      setStatus("preview");
+    } else setStatus("error");
   };
 
   const addPlace=(p)=>{
@@ -973,19 +1029,35 @@ function AddPlaceModal({onAdd, onClose, theme, t, uid}) {
         </div>
         <div style={{padding:"0 18px 14px",overflowY:"auto",flex:1}}>
           {mode==="search"&&<>
-            <div style={lbl}>SEARCH FOR A PLACE</div>
-            <div style={{display:"flex",gap:6,marginBottom:10}}>
-              <input style={{...inp,flex:1,marginBottom:0}} placeholder="e.g. ramen in brooklyn, coffee shops NYC..." value={searchVal} onChange={e=>setSearchVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doSearch()} autoFocus/>
+            <div style={lbl}>WHAT ARE YOU LOOKING FOR?</div>
+            <div style={{display:"flex",gap:6,marginBottom:8}}>
+              <input style={{...inp,flex:1,marginBottom:0}} placeholder="bagels, ramen, vintage stores..." value={searchVal} onChange={e=>setSearchVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doSearch()} autoFocus/>
               <button onClick={doSearch} disabled={!searchVal.trim()||status==="loading"} style={{padding:"10px 14px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:1,opacity:!searchVal.trim()?0.4:1,boxShadow:`2px 2px 0 ${t.border}`,flexShrink:0}}>{status==="loading"?"...":"GO"}</button>
+            </div>
+            <div style={lbl}>LOCATION (CITY OR NEIGHBORHOOD)</div>
+            <input style={{...inp,marginBottom:10}} placeholder="e.g. Brooklyn, Lower East Side, Tokyo..." value={locationVal} onChange={e=>setLocationVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doSearch()}/>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginBottom:8}}>
+              TIP: Include location in your search too for best results — e.g. "bagels Lower East Side"
             </div>
           </>}
           {mode==="url"&&<>
-            <div style={lbl}>PASTE GOOGLE MAPS OR ANY URL</div>
-            <div style={{display:"flex",gap:6,marginBottom:10}}>
-              <input style={{...inp,flex:1,marginBottom:0}} placeholder="maps.google.com/... or yelp.com/..." value={urlVal} onChange={e=>setUrlVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doImport()} autoFocus/>
+            <div style={lbl}>PASTE GOOGLE MAPS, YELP, OR ANY URL</div>
+            <div style={{display:"flex",gap:6,marginBottom:isMapsShortLink?4:10}}>
+              <input style={{...inp,flex:1,marginBottom:0}} placeholder="maps.app.goo.gl/... or yelp.com/..." value={urlVal} onChange={e=>{setUrlVal(e.target.value);setStatus("idle");setPreview(null);}} onKeyDown={e=>e.key==="Enter"&&doImport()} autoFocus/>
               <button onClick={doImport} disabled={!urlVal.trim()||status==="loading"} style={{padding:"10px 14px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:1,opacity:!urlVal.trim()?0.4:1,boxShadow:`2px 2px 0 ${t.border}`,flexShrink:0}}>{status==="loading"?"...":"IMPORT"}</button>
             </div>
+            {isMapsShortLink&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.accent,letterSpacing:1,marginBottom:8}}>🗺️ Short Maps link detected — type place name below if import fails</div>}
           </>}
+          {status==="mapsshort"&&<div style={{border:`2px solid ${t.accent}`,marginBottom:10}}>
+            <div style={{background:`${t.accent}18`,borderBottom:`2px solid ${t.accent}`,padding:"7px 12px"}}>
+              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.accent,letterSpacing:2}}>🗺️ SHORT MAPS LINK — WHAT'S THE PLACE CALLED?</span>
+            </div>
+            <div style={{padding:"12px",display:"flex",gap:6}}>
+              <input style={{...inp,flex:1,marginBottom:0}} placeholder="Type the place name..." value={mapsNameVal} onChange={e=>setMapsNameVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doMapsShortLookup()} autoFocus/>
+              <button onClick={doMapsShortLookup} disabled={!mapsNameVal.trim()||status==="loading"} style={{padding:"10px 14px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:1,flexShrink:0}}>FIND</button>
+            </div>
+            <div style={{padding:"0 12px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1}}>The Maps link will be saved with the place.</div>
+          </div>}
           {mode==="manual"&&<>
             <input style={inp} placeholder="PLACE NAME" value={manualForm.name} onChange={e=>setManualForm(f=>({...f,name:e.target.value}))} autoFocus/>
             <div style={lbl}>CATEGORY</div>
