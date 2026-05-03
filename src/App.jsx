@@ -1487,7 +1487,7 @@ function CityView({city, places, setPlaces, theme, t, uid, onBack}) {
           <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:18,color:t.text,letterSpacing:4,lineHeight:1}}>{city}</div>
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginTop:2}}>{cityPlaces.length} PLACES · {doneCount} VISITED</div>
         </div>
-        <button onClick={()=>setShowShare(true)} style={{background:"transparent",border:`2px solid ${t.border}`,borderRight:"none",padding:"8px 12px",fontFamily:"'Black Han Sans',sans-serif",fontSize:11,color:t.textSub,cursor:"pointer",letterSpacing:1,alignSelf:"stretch",display:"flex",alignItems:"center"}}>📸</button>
+        <button onClick={()=>setShowShare(true)} style={{background:"transparent",border:`2px solid ${t.border}`,borderRight:"none",padding:"8px 12px",fontFamily:"'Black Han Sans',sans-serif",fontSize:11,color:t.textSub,cursor:"pointer",letterSpacing:1,alignSelf:"stretch",display:"flex",alignItems:"center"}}>👥</button>
         <button onClick={()=>setShowAdd(true)} style={{background:t.addBtn,border:`2px solid ${t.border}`,padding:"8px 14px",fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.addBtnText,cursor:"pointer",letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`,whiteSpace:"nowrap",alignSelf:"stretch",display:"flex",alignItems:"center"}}>+ ADD</button>
       </div>
 
@@ -1691,15 +1691,8 @@ function FriendsModeView({places, city, cityEmoji, onClose, theme, t}) {
 
   const selectedList = places.filter(p => selectedPlaces.includes(p.id));
 
-  // Group selected places by city
-  const byCityEntries = Object.entries(
-    selectedList.reduce((acc, p) => {
-      const c = p.city || "Other";
-      if (!acc[c]) acc[c] = [];
-      acc[c].push(p);
-      return acc;
-    }, {})
-  );
+  // Places are already filtered to one city — just use them directly
+  const byCityEntries = [[city, selectedList]].filter(([,ps]) => ps.length > 0);
 
   const generateImage = async () => {
     setGenerating(true);
