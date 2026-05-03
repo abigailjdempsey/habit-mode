@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 
 // ─── THEMES ───────────────────────────────────────────────────────────────────
 const THEMES = {
@@ -1479,7 +1479,7 @@ function CityView({city, places, setPlaces, theme, t, uid, onBack}) {
         existingNeighborhoods={places.reduce((acc,p)=>{if(p.city&&p.neighborhood){if(!acc[p.city])acc[p.city]=[];if(!acc[p.city].includes(p.neighborhood))acc[p.city].push(p.neighborhood);}return acc;},{})}
       />}
 
-      {showShare&&<FriendsModeView places={cityPlaces} city={city} cityEmoji={cityEmoji||"📍"} onClose={()=>setShowShare(false)} theme={theme} t={t}/>}
+      {showShare&&<FriendsErrorBoundary onClose={()=>setShowShare(false)} t={t}><FriendsModeView places={cityPlaces} city={city} cityEmoji={cityEmoji||"📍"} onClose={()=>setShowShare(false)} theme={theme} t={t}/></FriendsErrorBoundary>}
       {/* Header */}
       <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:14,borderBottom:`2px solid ${t.border}`,paddingBottom:10}}>
         <button onClick={onBack} style={{background:"transparent",border:`2px solid ${t.border}`,borderRight:"none",padding:"8px 12px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.textSub,boxShadow:`2px 2px 0 ${t.border}`}}>◀</button>
@@ -1676,6 +1676,26 @@ function ManageCitiesView({cityList, setCityList, cityEmojis, setCityEmojis, pla
 }
 
 // ─── FRIENDS MODE ─────────────────────────────────────────────────────────────
+class FriendsErrorBoundary extends React.Component {
+  constructor(props){super(props);this.state={error:null};}
+  static getDerivedStateFromError(e){return{error:e.message};}
+  render(){
+    if(this.state.error){
+      const t=this.props.t||{};
+      return(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={this.props.onClose}>
+          <div style={{background:t.bg||"#f0ede8",width:"100%",maxWidth:500,border:"3px solid #1a1a1a",borderBottom:"none",padding:24,boxShadow:"-6px -6px 0 #1a1a1a"}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,marginBottom:8}}>OOPS — SOMETHING WENT WRONG</div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:"#666",marginBottom:16}}>{this.state.error}</div>
+            <button onClick={this.props.onClose} style={{width:"100%",padding:"12px",border:"2px solid #1a1a1a",background:"transparent",fontFamily:"'Black Han Sans',sans-serif",fontSize:13,cursor:"pointer",letterSpacing:3}}>CLOSE</button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function FriendsModeView({places, city, cityEmoji, onClose, theme, t}) {
   // places is already filtered to this city
   const [listName, setListName] = useState(city ? city + " PICKS" : "MY PICKS");
@@ -1710,7 +1730,7 @@ function FriendsModeView({places, city, cityEmoji, onClose, theme, t}) {
       const ctx0 = document.createElement("canvas").getContext("2d");
       ctx0.font = FONT_TITLE;
       let H = PADDING + 42 + 16; // title row
-      byCityEntries.forEach(([city, ps]) => {
+      byCityEntries.forEach(([cityName, ps]) => {
         H += 34 + ps.length * 52 + 8;
       });
       H += PADDING + 24; // footer
@@ -1748,11 +1768,11 @@ function FriendsModeView({places, city, cityEmoji, onClose, theme, t}) {
       y += 14;
 
       // Cities + places
-      byCityEntries.forEach(([city, ps]) => {
+      byCityEntries.forEach(([cityName, ps]) => {
         // City header
         ctx.fillStyle = BORDER;
         ctx.font = FONT_CITY;
-        ctx.fillText(`${getCityEmoji(city)} ${city}`, PADDING, y + 16);
+        ctx.fillText(`${cityEmoji} ${cityName}`, PADDING, y + 16);
         y += 30;
 
         ps.forEach(p => {
