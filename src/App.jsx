@@ -882,7 +882,6 @@ const PLACE_CATS = ["🍽️ Restaurant","☕ Cafe","🍸 Bar","🛍️ Store","
 
 async function searchPlace(query, locationHint) {
   try {
-    // Use Foursquare for real verified results
     const body = { query };
     if (locationHint) body.near = locationHint;
     const r = await fetch("/api/places", {
@@ -891,10 +890,14 @@ async function searchPlace(query, locationHint) {
       body: JSON.stringify(body),
     });
     const data = await r.json();
+    if (data.error) {
+      console.warn("Foursquare error:", data.error, data.detail || "");
+      return { error: data.error };
+    }
     if (data.places?.length) return data.places;
-    // Foursquare returned nothing — fall back to Claude with a warning
     return [];
-  } catch {
+  } catch (e) {
+    console.warn("searchPlace failed:", e);
     return [];
   }
 }
@@ -989,11 +992,9 @@ function AddPlaceModal({onAdd, onClose, theme, t, uid}) {
     if(!searchVal.trim())return;
     setStatus("loading");
     const res=await searchPlace(searchVal.trim(), locationVal.trim()||null);
-    if(res.length){setResults(res);setStatus("results");}
-    else {
-      // No Foursquare results — tell user
-      setStatus("noresults");
-    }
+    if(res?.error){setResults([{_error:res.error}]);setStatus("apierror");return;}
+    if(Array.isArray(res)&&res.length){setResults(res);setStatus("results");}
+    else setStatus("noresults");
   };
 
   const doImport=async()=>{
@@ -1082,6 +1083,11 @@ function AddPlaceModal({onAdd, onClose, theme, t, uid}) {
 
           {status==="loading"&&<div style={{textAlign:"center",padding:"22px",border:`2px dashed ${t.border}`}}><div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.accent,letterSpacing:3}}>LOOKING IT UP...</div></div>}
           {status==="error"&&<div style={{padding:"12px",border:`2px solid ${t.accent2}`,background:`${t.accent2}11`,marginTop:8}}><div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.accent2,letterSpacing:2}}>COULDN'T FIND IT. TRY MANUAL.</div></div>}
+          {status==="apierror"&&results[0]?._error&&<div style={{padding:"14px",border:`2px solid ${t.accent2}`,background:`${t.accent2}11`,marginTop:8}}>
+            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.accent2,letterSpacing:2,marginBottom:4}}>API ERROR</div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginBottom:8}}>{results[0]._error}</div>
+            <button onClick={()=>setMode("manual")} style={{width:"100%",padding:"9px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>ADD MANUALLY</button>
+          </div>}
           {status==="noresults"&&<div style={{padding:"14px",border:`2px solid ${t.border}`,background:t.bgCard,marginTop:8}}>
             <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:2,marginBottom:6}}>NO RESULTS FOUND</div>
             <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,lineHeight:1.6,marginBottom:10}}>
