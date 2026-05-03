@@ -1,4 +1,4 @@
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -6,8 +6,8 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const fsKey = process.env.FOURSQUARE_KEY || process.env.foursquare_key;
-  if (!fsKey) return res.status(500).json({ error: "Foursquare key not configured" });
+  const fsKey = process.env.FOURSQUARE_KEY;
+  if (!fsKey) return res.status(500).json({ error: "Foursquare key not configured", env_keys: Object.keys(process.env).filter(k => k.toLowerCase().includes("four")) });
 
   const { query, near } = req.body;
   if (!query) return res.status(400).json({ error: "query required" });
@@ -31,45 +31,43 @@ export default async function handler(req, res) {
     const text = await response.text();
     let data;
     try { data = JSON.parse(text); }
-    catch { return res.status(500).json({ error: "Bad JSON from Foursquare", raw: text.slice(0, 300) }); }
+    catch { return res.status(500).json({ error: "Bad JSON", raw: text.slice(0, 300) }); }
 
     if (!response.ok) {
-      return res.status(response.status).json({
-        error: data.message || data.detail || `Foursquare error ${response.status}`,
-        detail: data
-      });
+      return res.status(response.status).json({ error: data.message || data.detail || `Error ${response.status}`, detail: data });
     }
 
     const places = (data.results || []).map(p => {
       const loc = p.location || {};
       const cat = p.categories?.[0];
-      const catName = cat?.name || "Place";
+      const catName = cat ? cat.name : "Place";
+      const cn = catName.toLowerCase();
       const emoji =
-        catName.toLowerCase().includes("restaurant") || catName.toLowerCase().includes("food") ? "🍽️"
-        : catName.toLowerCase().includes("cafe") || catName.toLowerCase().includes("coffee") ? "☕"
-        : catName.toLowerCase().includes("bar") || catName.toLowerCase().includes("cocktail") || catName.toLowerCase().includes("nightlife") ? "🍸"
-        : catName.toLowerCase().includes("shop") || catName.toLowerCase().includes("store") || catName.toLowerCase().includes("market") ? "🛍️"
-        : catName.toLowerCase().includes("park") || catName.toLowerCase().includes("garden") || catName.toLowerCase().includes("outdoor") ? "🌿"
-        : catName.toLowerCase().includes("museum") || catName.toLowerCase().includes("gallery") || catName.toLowerCase().includes("art") ? "🎨"
-        : catName.toLowerCase().includes("hotel") ? "🏨"
-        : catName.toLowerCase().includes("gym") || catName.toLowerCase().includes("spa") || catName.toLowerCase().includes("yoga") ? "💆"
-        : catName.toLowerCase().includes("music") || catName.toLowerCase().includes("club") || catName.toLowerCase().includes("venue") ? "🎵"
-        : catName.toLowerCase().includes("taco") || catName.toLowerCase().includes("mexican") ? "🌮"
-        : catName.toLowerCase().includes("pizza") ? "🍕"
-        : catName.toLowerCase().includes("burger") ? "🍔"
-        : catName.toLowerCase().includes("ramen") || catName.toLowerCase().includes("japanese") || catName.toLowerCase().includes("sushi") ? "🍜"
+        cn.includes("restaurant") || cn.includes("food") ? "🍽️"
+        : cn.includes("cafe") || cn.includes("coffee") ? "☕"
+        : cn.includes("bar") || cn.includes("cocktail") || cn.includes("nightlife") ? "🍸"
+        : cn.includes("shop") || cn.includes("store") || cn.includes("market") ? "🛍️"
+        : cn.includes("park") || cn.includes("garden") || cn.includes("outdoor") ? "🌿"
+        : cn.includes("museum") || cn.includes("gallery") || cn.includes("art") ? "🎨"
+        : cn.includes("hotel") ? "🏨"
+        : cn.includes("gym") || cn.includes("spa") || cn.includes("yoga") ? "💆"
+        : cn.includes("music") || cn.includes("club") || cn.includes("venue") ? "🎵"
+        : cn.includes("taco") || cn.includes("mexican") ? "🌮"
+        : cn.includes("pizza") ? "🍕"
+        : cn.includes("burger") ? "🍔"
+        : cn.includes("ramen") || cn.includes("japanese") || cn.includes("sushi") ? "🍜"
         : "📍";
 
       return {
         name: p.name,
-        category: `${emoji} ${catName}`,
+        category: emoji + " " + catName,
         city: loc.locality || loc.city || "",
         neighborhood: loc.neighborhood || loc.cross_street || "",
         address: loc.formatted_address || [loc.address, loc.locality, loc.region].filter(Boolean).join(", "),
         description: p.description || "",
         website: p.website || "",
         url: p.website || "",
-        rating: p.rating ? `${(p.rating / 2).toFixed(1)}/5` : null,
+        rating: p.rating ? (p.rating / 2).toFixed(1) + "/5" : null,
         fsqId: p.fsq_place_id,
       };
     });
@@ -78,4 +76,4 @@ export default async function handler(req, res) {
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
-}
+};
