@@ -1419,7 +1419,7 @@ const STARTER_CITIES = [
 ];
 
 // City view — places for one city with filters
-function CityView({city, places, setPlaces, theme, t, uid, onBack}) {
+function CityView({city, places, setPlaces, theme, t, uid, onBack, cityEmoji}) {
   const [showAdd,setShowAdd]=useState(false);
   const [showShare,setShowShare]=useState(false);
   const [filterNeighborhood,setFilterNeighborhood]=useState("ALL");
