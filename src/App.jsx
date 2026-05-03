@@ -56,6 +56,20 @@ const addCount=(arr,d,rep)=>{ if(rep<=1)return[...arr,d]; const e=arr.find(x=>ty
 const subCount=(arr,d,rep)=>{ if(rep<=1)return arr.filter(x=>x!==d); return arr.map(x=>(typeof x==="object"&&x.date===d)?{...x,count:Math.max(0,x.count-1)}:x).filter(x=>typeof x!=="object"||x.count>0); };
 const totalCompletions=(h)=>{ if(h.repeat<=1)return h.completedDates.length; return h.completedDates.reduce((s,e)=>s+(typeof e==="object"?e.count:1),0); };
 const MILESTONES=[3,7,14,21,30,60,100];
+// Schedule: null=every day, [0,1,2,3,4,5,6] where 0=Sun,1=Mon...6=Sat
+const SCHEDULE_PRESETS = {
+  daily:    {label:"EVERY DAY", days:null},
+  weekdays: {label:"MON–FRI",   days:[1,2,3,4,5]},
+  weekends: {label:"SAT–SUN",   days:[0,6]},
+  custom:   {label:"CUSTOM",    days:[]},
+};
+const DAY_NAMES=["SUN","MON","TUE","WED","THU","FRI","SAT"];
+// Is this habit scheduled for a given date string?
+function isScheduledFor(habit, dateStr) {
+  if(!habit.schedule||habit.schedule.length===0) return true; // daily
+  const dow = new Date(dateStr+"T12:00:00").getDay();
+  return habit.schedule.includes(dow);
+}
 const TODAY=()=>{
   const d=new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
@@ -75,10 +89,10 @@ const DEFAULT_DATA = {
     { id:"sub_fiber", catId:"cat_health", label:"FIBER", collapsed:false },
   ],
   habits: [
-    { id:"poop",     emoji:"💩",label:"DID YOU POOP?",      catId:"cat_body",   subId:null,       color:"#8B4513",special:"poop",xp:20,streak:0,repeat:1,completedDates:[],isDefault:true },
-    { id:"vitamins", emoji:"💊",label:"MORNING VITAMINS",   catId:"cat_health", subId:"sub_meds", color:"#cc0044",special:null, xp:15,streak:0,repeat:1,completedDates:[],isDefault:true },
-    { id:"nightmeds",emoji:"🌙",label:"NIGHTTIME MEDS",     catId:"cat_health", subId:"sub_meds", color:"#4400cc",special:null, xp:15,streak:0,repeat:1,completedDates:[],isDefault:true },
-    { id:"fiber",    emoji:"🌾",label:"FIBER DOSE",         catId:"cat_health", subId:"sub_fiber",color:"#2a6600",special:null, xp:10,streak:0,repeat:3,completedDates:[],isDefault:true },
+    { id:"poop",     emoji:"💩",label:"DID YOU POOP?",      catId:"cat_body",   subId:null,       color:"#8B4513",special:"poop",xp:20,streak:0,repeat:1,schedule:null,completedDates:[],isDefault:true },
+    { id:"vitamins", emoji:"💊",label:"MORNING VITAMINS",   catId:"cat_health", subId:"sub_meds", color:"#cc0044",special:null, xp:15,streak:0,repeat:1,schedule:null,completedDates:[],isDefault:true },
+    { id:"nightmeds",emoji:"🌙",label:"NIGHTTIME MEDS",     catId:"cat_health", subId:"sub_meds", color:"#4400cc",special:null, xp:15,streak:0,repeat:1,schedule:null,completedDates:[],isDefault:true },
+    { id:"fiber",    emoji:"🌾",label:"FIBER DOSE",         catId:"cat_health", subId:"sub_fiber",color:"#2a6600",special:null, xp:10,streak:0,repeat:3,schedule:null,completedDates:[],isDefault:true },
   ],
 };
 
@@ -185,6 +199,7 @@ function HabitRow({habit,onComplete,onUndoOne,onDelete,onRename,todayStr,theme,o
             :<div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:done?"#fff":t.text,letterSpacing:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{habit.label}</div>}
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:done?"rgba(255,255,255,0.65)":t.textSub,letterSpacing:1,display:"flex",gap:6,alignItems:"center",marginTop:2}}>
             <span>🔥{habit.streak}</span>
+            {habit.schedule&&habit.schedule.length>0&&<span style={{fontSize:9,background:done?"rgba(255,255,255,0.2)":`${t.accent}22`,color:done?"rgba(255,255,255,0.8)":t.accent,padding:"1px 5px",border:`1px solid ${done?"rgba(255,255,255,0.3)":t.accent}`,letterSpacing:1}}>{habit.schedule.map(d=>DAY_NAMES[d]).join(" ")}</span>}
             {isRep&&<span style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:done?"rgba(255,255,255,0.9)":count>0?habit.color:t.textSub,background:done?"rgba(255,255,255,0.2)":count>0?`${habit.color}22`:"transparent",padding:"0 6px",border:`1px solid ${done?"rgba(255,255,255,0.3)":count>0?habit.color:t.border}`}}>{count}/{habit.repeat}</span>}
             {!isRep&&<span>+{habit.xp}XP</span>}
           </div>
@@ -323,27 +338,42 @@ function AddHabitModal({catId,subId,cats,subcats,onAdd,onClose,theme}){
   const [emoji,setEmoji]=useState("💪");
   const [xp,setXp]=useState(10);
   const [repeat,setRepeat]=useState(1);
+  const [schedulePreset,setSchedulePreset]=useState("daily");
+  const [customDays,setCustomDays]=useState([]);
   const [selectedCat,setSelectedCat]=useState(catId||cats[0]?.id||"");
   const [selectedSub,setSelectedSub]=useState(subId||"none");
   const availSubs=subcats.filter(s=>s.catId===selectedCat);
   const inp={width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"11px 13px",color:t.text,fontSize:14,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:10};
   const sel={...inp,appearance:"none",cursor:"pointer"};
+
+  const getSchedule=()=>{
+    if(schedulePreset==="daily") return null;
+    if(schedulePreset==="weekdays") return [1,2,3,4,5];
+    if(schedulePreset==="weekends") return [0,6];
+    return customDays.length>0?customDays:null;
+  };
+
   const submit=()=>{
     if(!label.trim()||!selectedCat)return;
-    onAdd({id:uid(),emoji,label:label.trim().toUpperCase(),catId:selectedCat,subId:selectedSub==="none"?null:selectedSub,color:"#6c5ce7",special:null,xp,streak:0,repeat,completedDates:[],isDefault:false});
+    onAdd({id:uid(),emoji,label:label.trim().toUpperCase(),catId:selectedCat,subId:selectedSub==="none"?null:selectedSub,color:"#6c5ce7",special:null,xp,streak:0,repeat,schedule:getSchedule(),completedDates:[],isDefault:false});
     onClose();
   };
+
+  const scheduleLabel = schedulePreset==="daily"?"EVERY DAY"
+    :schedulePreset==="weekdays"?"MON–FRI"
+    :schedulePreset==="weekends"?"SAT & SUN"
+    :customDays.length>0?customDays.map(d=>DAY_NAMES[d]).join(", "):"PICK DAYS";
+
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
       <div style={{background:t.bg,padding:24,width:"100%",maxWidth:480,border:`3px solid ${t.border}`,borderBottom:"none",boxShadow:`-6px -6px 0 ${t.border}`,maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
         <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,marginBottom:16,letterSpacing:4}}>NEW HABIT</div>
         <input style={inp} placeholder="HABIT NAME" value={label} onChange={e=>setLabel(e.target.value)} autoFocus/>
-        {/* Category select */}
+        {/* Category */}
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:4}}>CATEGORY:</div>
         <select style={sel} value={selectedCat} onChange={e=>{setSelectedCat(e.target.value);setSelectedSub("none");}}>
           {cats.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
         </select>
-        {/* Subcategory select */}
         {availSubs.length>0&&<>
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:4}}>SUBCATEGORY (OPTIONAL):</div>
           <select style={sel} value={selectedSub} onChange={e=>setSelectedSub(e.target.value)}>
@@ -356,6 +386,19 @@ function AddHabitModal({catId,subId,cats,subcats,onAdd,onClose,theme}){
         <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:12}}>
           {EMOJIS.map(e=><button key={e} onClick={()=>setEmoji(e)} style={{fontSize:17,background:emoji===e?t.accent:t.bgCard,border:`2px solid ${t.border}`,width:36,height:36,cursor:"pointer",boxShadow:emoji===e?`2px 2px 0 ${t.border}`:"none",color:emoji===e?t.textInv:"inherit"}}>{e}</button>)}
         </div>
+        {/* Schedule */}
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:6}}>SCHEDULE: <strong style={{color:t.accent}}>{scheduleLabel}</strong></div>
+        <div style={{display:"flex",gap:5,marginBottom:schedulePreset==="custom"?8:12}}>
+          {Object.entries(SCHEDULE_PRESETS).map(([key,p])=>(
+            <button key={key} onClick={()=>setSchedulePreset(key)} style={{flex:1,padding:"9px 0",border:`2px solid ${t.border}`,background:schedulePreset===key?t.accent:t.bgCard,color:schedulePreset===key?t.textInv:t.text,fontFamily:"'Black Han Sans',sans-serif",fontSize:10,cursor:"pointer",letterSpacing:1,boxShadow:schedulePreset===key?`2px 2px 0 ${t.border}`:"none"}}>{p.label}</button>
+          ))}
+        </div>
+        {schedulePreset==="custom"&&<div style={{display:"flex",gap:4,marginBottom:12}}>
+          {DAY_NAMES.map((day,i)=>{
+            const on=customDays.includes(i);
+            return <button key={i} onClick={()=>setCustomDays(prev=>on?prev.filter(d=>d!==i):[...prev,i].sort())} style={{flex:1,padding:"8px 0",border:`2px solid ${on?t.accent:t.border}`,background:on?t.accent:t.bgCard,color:on?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:9,cursor:"pointer",letterSpacing:1,boxShadow:on?`2px 2px 0 ${t.border}`:"none"}}>{day}</button>;
+          })}
+        </div>}
         {/* Repeat */}
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:6}}>TIMES PER DAY: <strong style={{color:t.accent,fontSize:15}}>{repeat}×</strong></div>
         <div style={{display:"flex",gap:5,marginBottom:12}}>
@@ -1318,77 +1361,96 @@ function CityView({city, places, setPlaces, theme, t, uid, onBack}) {
   );
 }
 
+// City emojis stored separately so user can customize without needing places
+const CITY_EMOJI_OPTIONS = ["🗽","🌴","🗼","💂","🥐","🌮","🌊","🍕","🍺","🎨","🌸","🦘","🌃","🏙️","🌉","🗺️","✈️","🏖️","🏔️","🌏","🇯🇵","🇺🇸","🇬🇧","🇫🇷","🇮🇹","🇲🇽","🇰🇷","🇦🇺","🇩🇪","🇧🇷"];
+
 function TryTab({places, setPlaces, theme, t, uid}) {
-  const [selectedCity,setSelectedCity]=useState(null); // null = landing
+  const [selectedCity,setSelectedCity]=useState(null);
   const [addingCity,setAddingCity]=useState(false);
   const [newCityVal,setNewCityVal]=useState("");
+  const [cityEmojis,setCityEmojis]=useState({}); // {cityName: emoji}
+  const [editingEmoji,setEditingEmoji]=useState(null); // city name being edited
   const newCityInputRef=useRef(null);
 
-  // All cities the user has places in
   const usedCities=[...new Set(places.map(p=>p.city).filter(Boolean))].sort();
-  // Starter cities not yet used
   const starterCities=STARTER_CITIES.filter(c=>!usedCities.includes(c.name));
 
-  // If selected city was deleted, go back
+  const getCityEmoji=(city)=>cityEmojis[city]||(STARTER_CITIES.find(s=>s.name===city)?.emoji)||"📍";
+  const setCityEmoji=(city,emoji)=>setCityEmojis(prev=>({...prev,[city]:emoji}));
+  const removeCity=(city)=>{
+    if(!window.confirm(`Remove ${city} and all its places? This can't be undone.`))return;
+    setPlaces(prev=>prev.filter(p=>p.city!==city));
+    if(selectedCity===city)setSelectedCity(null);
+  };
+
   useEffect(()=>{
-    if(selectedCity&&!usedCities.includes(selectedCity)&&places.filter(p=>p.city===selectedCity).length===0){
+    if(selectedCity&&places.filter(p=>p.city===selectedCity).length===0&&!usedCities.includes(selectedCity)){
       setSelectedCity(null);
     }
   },[places]);
 
   if(selectedCity){
-    return <CityView city={selectedCity} places={places} setPlaces={setPlaces} theme={theme} t={t} uid={uid} onBack={()=>setSelectedCity(null)}/>;
+    return <CityView city={selectedCity} places={places} setPlaces={setPlaces} theme={theme} t={t} uid={uid} onBack={()=>setSelectedCity(null)} cityEmoji={getCityEmoji(selectedCity)}/>;
   }
 
-  // Landing — city grid
   return(
     <div>
+      {/* Emoji picker overlay */}
+      {editingEmoji&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setEditingEmoji(null)}>
+          <div style={{background:t.bg,width:"100%",maxWidth:480,border:`3px solid ${t.border}`,borderBottom:"none",padding:20,boxShadow:`-6px -6px 0 ${t.border}`}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,color:t.text,letterSpacing:3,marginBottom:14}}>PICK EMOJI FOR {editingEmoji}</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
+              {CITY_EMOJI_OPTIONS.map(e=>(
+                <button key={e} onClick={()=>{setCityEmoji(editingEmoji,e);setEditingEmoji(null);}} style={{fontSize:24,width:44,height:44,border:`2px solid ${getCityEmoji(editingEmoji)===e?t.accent:t.border}`,background:getCityEmoji(editingEmoji)===e?t.accent:t.bgCard,cursor:"pointer",boxShadow:getCityEmoji(editingEmoji)===e?`2px 2px 0 ${t.border}`:"none"}}>{e}</button>
+              ))}
+            </div>
+            <button onClick={()=>setEditingEmoji(null)} style={{width:"100%",padding:"11px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:3}}>CANCEL</button>
+          </div>
+        </div>
+      )}
+
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,borderBottom:`2px solid ${t.border}`,paddingBottom:10}}>
         <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4}}>📍 TRY</div>
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>{places.length} TOTAL PLACES</div>
       </div>
 
-      {/* Cities with places */}
       {usedCities.length>0&&<>
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:3,marginBottom:8}}>YOUR CITIES</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:18}}>
           {usedCities.map(city=>{
             const cityPlaces=places.filter(p=>p.city===city);
             const visited=cityPlaces.filter(p=>p.visited).length;
-            const starter=STARTER_CITIES.find(s=>s.name===city);
             return(
-              <button key={city} onClick={()=>setSelectedCity(city)} style={{
-                background:t.bgCard,border:`2px solid ${t.border}`,
-                padding:"16px 14px",cursor:"pointer",textAlign:"left",
-                boxShadow:`3px 3px 0 ${t.border}`,transition:"all 0.12s",
-              }}
-              onMouseEnter={e=>{e.currentTarget.style.borderColor=t.accent;e.currentTarget.style.boxShadow=`3px 3px 0 ${t.accent}`;}}
-              onMouseLeave={e=>{e.currentTarget.style.borderColor=t.border;e.currentTarget.style.boxShadow=`3px 3px 0 ${t.border}`;}}>
-                <div style={{fontSize:26,marginBottom:4}}>{starter?.emoji||"📍"}</div>
-                <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:t.text,letterSpacing:2,lineHeight:1.2}}>{city}</div>
-                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginTop:4}}>{cityPlaces.length} places · {visited} visited</div>
-                {/* Mini category pills */}
-                <div style={{display:"flex",gap:3,flexWrap:"wrap",marginTop:6}}>
-                  {[...new Set(cityPlaces.map(p=>p.category?.split(" ")[0]).filter(Boolean))].slice(0,4).map((e,i)=>(
-                    <span key={i} style={{fontSize:14}}>{e}</span>
-                  ))}
+              <div key={city} style={{background:t.bgCard,border:`2px solid ${t.border}`,boxShadow:`3px 3px 0 ${t.border}`,position:"relative",overflow:"hidden"}}>
+                <button onClick={()=>setSelectedCity(city)} style={{width:"100%",background:"transparent",border:"none",padding:"16px 14px",cursor:"pointer",textAlign:"left",display:"block"}}
+                  onMouseEnter={e=>{e.currentTarget.parentElement.style.borderColor=t.accent;e.currentTarget.parentElement.style.boxShadow=`3px 3px 0 ${t.accent}`;}}
+                  onMouseLeave={e=>{e.currentTarget.parentElement.style.borderColor=t.border;e.currentTarget.parentElement.style.boxShadow=`3px 3px 0 ${t.border}`;}}>
+                  <div style={{fontSize:26,marginBottom:4}}>{getCityEmoji(city)}</div>
+                  <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:t.text,letterSpacing:2,lineHeight:1.2}}>{city}</div>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginTop:4}}>{cityPlaces.length} places · {visited} visited</div>
+                  <div style={{display:"flex",gap:3,flexWrap:"wrap",marginTop:6}}>
+                    {[...new Set(cityPlaces.map(p=>p.category?.split(" ")[0]).filter(Boolean))].slice(0,4).map((e,i)=>(
+                      <span key={i} style={{fontSize:14}}>{e}</span>
+                    ))}
+                  </div>
+                </button>
+                {/* Action buttons */}
+                <div style={{position:"absolute",top:6,right:6,display:"flex",gap:3}}>
+                  <button onClick={e=>{e.stopPropagation();setEditingEmoji(city);}} style={{background:t.bg,border:`1px solid ${t.border}`,width:24,height:24,cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center"}} title="Change emoji">✏️</button>
+                  <button onClick={e=>{e.stopPropagation();removeCity(city);}} style={{background:t.bg,border:`1px solid ${t.border}`,width:24,height:24,cursor:"pointer",fontSize:12,color:t.textSub,display:"flex",alignItems:"center",justifyContent:"center"}} title="Remove city">×</button>
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
       </>}
 
-      {/* Starter cities to explore */}
       {starterCities.length>0&&<>
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:3,marginBottom:8}}>EXPLORE A CITY</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:14}}>
           {starterCities.map(c=>(
-            <button key={c.name} onClick={()=>setSelectedCity(c.name)} style={{
-              background:"transparent",border:`2px dashed ${t.border}`,
-              padding:"14px 8px",cursor:"pointer",textAlign:"center",
-              transition:"all 0.12s",
-            }}
+            <button key={c.name} onClick={()=>setSelectedCity(c.name)} style={{background:"transparent",border:`2px dashed ${t.border}`,padding:"14px 8px",cursor:"pointer",textAlign:"center",transition:"all 0.12s"}}
             onMouseEnter={e=>{e.currentTarget.style.borderColor=t.accent;e.currentTarget.style.borderStyle="solid";}}
             onMouseLeave={e=>{e.currentTarget.style.borderColor=t.border;e.currentTarget.style.borderStyle="dashed";}}>
               <div style={{fontSize:22}}>{c.emoji}</div>
@@ -1398,7 +1460,6 @@ function TryTab({places, setPlaces, theme, t, uid}) {
         </div>
       </>}
 
-      {/* Add custom city */}
       {addingCity
         ?<div style={{display:"flex",gap:6}}>
           <input ref={newCityInputRef} value={newCityVal} onChange={e=>setNewCityVal(e.target.value.toUpperCase())}
@@ -1536,6 +1597,8 @@ export default function App(){
   const renameList=(type,id,title)=>{if(type==="movie")setMovies(p=>p.map(m=>m.id===id?{...m,title}:m));else setBooks(p=>p.map(b=>b.id===id?{...b,title}:b));};
 
   const doneCount=habits.filter(h=>isDone(h,viewDate)).length;
+  // Habits scheduled for the viewed date
+  const scheduledHabits=habits.filter(h=>isScheduledFor(h,viewDate));
   const drawerHabit=habits.find(h=>h.id===openDrawer);
 
   const navItems=[{id:"today",emoji:"☀️",label:"TODAY"},{id:"watchread",emoji:"🎬",label:"WATCH"},{id:"try",emoji:"📍",label:"TRY"},{id:"log",emoji:"📊",label:"LOG"},{id:"settings",emoji:"⚙️",label:"SETTINGS"}];
@@ -1600,10 +1663,10 @@ export default function App(){
               <div style={{background:t.bgCard,border:`2px solid ${t.border}`,padding:"12px 16px",marginBottom:14,boxShadow:`3px 3px 0 ${t.border}`,display:"flex",alignItems:"center",gap:12}}>
                 <div style={{flex:1}}>
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
-                    <span style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:3}}>{doneCount===habits.length&&habits.length>0?"ALL DONE 🏆":doneCount===0?"LET'S GO":`${habits.length-doneCount} REMAINING`}</span>
-                    <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.textSub,letterSpacing:2}}>{doneCount}/{habits.length}</span>
+                    <span style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:3}}>{doneCount===scheduledHabits.length&&scheduledHabits.length>0?"ALL DONE 🏆":doneCount===0?"LET'S GO":`${scheduledHabits.length-doneCount} REMAINING`}</span>
+                    <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.textSub,letterSpacing:2}}>{doneCount}/{scheduledHabits.length}</span>
                   </div>
-                  <div style={{background:t.bg,height:7,border:`1.5px solid ${t.border}`}}><div style={{width:`${Math.round((doneCount/Math.max(habits.length,1))*100)}%`,height:"100%",background:t.accent,transition:"width 0.6s ease"}}/></div>
+                  <div style={{background:t.bg,height:7,border:`1.5px solid ${t.border}`}}><div style={{width:`${Math.round((doneCount/Math.max(scheduledHabits.length,1))*100)}%`,height:"100%",background:t.accent,transition:"width 0.6s ease"}}/></div>
                 </div>
               </div>
 
@@ -1629,7 +1692,7 @@ export default function App(){
               </div>}
               {/* Categories */}
               {cats.map(cat=>(
-                <CategoryBlock key={cat.id} cat={cat} subcats={subcats} habits={habits} todayStr={viewDate} theme={theme}
+                <CategoryBlock key={cat.id} cat={cat} subcats={subcats} habits={scheduledHabits} todayStr={viewDate} theme={theme}
                   onComplete={isToday?completeHabit:()=>{}} onUndoOne={isToday?undoOne:()=>{}}
                   onDeleteHabit={isToday?deleteHabit:()=>{}} onRenameHabit={isToday?renameHabit:()=>{}}
                   onOpenDrawer={isToday?setOpenDrawer:()=>{}}
