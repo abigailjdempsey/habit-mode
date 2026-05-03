@@ -972,12 +972,73 @@ function PlaceCard({place, onToggle, onDelete, theme, t}) {
   );
 }
 
-function AddPlaceModal({onAdd, onClose, theme, t, uid}) {
+// ─── AUTOCOMPLETE INPUT ───────────────────────────────────────────────────────
+function AutocompleteInput({value, onChange, options, placeholder, style, theme, t}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState(value||"");
+  const ref = useRef(null);
+
+  // Sync if parent value changes
+  useEffect(()=>{ setQuery(value||""); },[value]);
+
+  // Close on outside click
+  useEffect(()=>{
+    const handler = e => { if(ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return ()=>document.removeEventListener("mousedown", handler);
+  },[]);
+
+  const filtered = query.trim()
+    ? options.filter(o=>o.toLowerCase().includes(query.toLowerCase())).slice(0,8)
+    : options.slice(0,8);
+
+  const select = (val) => {
+    setQuery(val);
+    onChange(val);
+    setOpen(false);
+  };
+
+  return(
+    <div ref={ref} style={{position:"relative"}}>
+      <input
+        style={style}
+        placeholder={placeholder}
+        value={query}
+        autoComplete="off"
+        onChange={e=>{ setQuery(e.target.value); onChange(e.target.value); setOpen(true); }}
+        onFocus={()=>setOpen(true)}
+        onKeyDown={e=>{
+          if(e.key==="Escape") setOpen(false);
+          if(e.key==="Enter"&&filtered.length>0){ select(filtered[0]); e.preventDefault(); }
+        }}
+      />
+      {open&&filtered.length>0&&(
+        <div style={{position:"absolute",top:"100%",left:0,right:0,background:t.bg,border:`2px solid ${t.accent}`,borderTop:"none",zIndex:100,maxHeight:200,overflowY:"auto",boxShadow:`3px 3px 0 ${t.border}`}}>
+          {filtered.map((o,i)=>(
+            <div key={i} onMouseDown={()=>select(o)} style={{padding:"9px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,color:t.text,letterSpacing:2,cursor:"pointer",borderBottom:`1px solid ${t.border}`,background:"transparent",transition:"background 0.1s"}}
+              onMouseEnter={e=>e.currentTarget.style.background=`${t.accent}22`}
+              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              {o}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AddPlaceModal({onAdd, onClose, theme, t, uid, existingCities, existingNeighborhoods}) {
   const [form,setForm]=useState({name:"",category:PLACE_CATS[0],city:"",neighborhood:"",address:"",description:"",url:""});
   const fld=(k,v)=>setForm(p=>({...p,[k]:v}));
   const inp={width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"11px 13px",color:t.text,fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:8};
   const lbl={fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:4};
   const canAdd=form.name.trim()&&form.city.trim();
+
+  // Neighborhoods filtered to selected city
+  const cityNeighborhoods = form.city.trim()
+    ? (existingNeighborhoods[form.city.trim()] || [])
+    : Object.values(existingNeighborhoods).flat();
+
   const add=()=>{
     if(!canAdd)return;
     onAdd({id:uid(),name:form.name.trim(),category:form.category,city:form.city.trim(),neighborhood:form.neighborhood.trim(),address:form.address.trim(),description:form.description.trim(),url:form.url.trim(),visited:false,addedDate:new Date().toISOString().split("T")[0]});
@@ -994,11 +1055,25 @@ function AddPlaceModal({onAdd, onClose, theme, t, uid}) {
           <div style={{display:"flex",gap:8}}>
             <div style={{flex:1}}>
               <div style={lbl}>CITY *</div>
-              <input style={inp} placeholder="e.g. Los Angeles" value={form.city} onChange={e=>fld("city",e.target.value)}/>
+              <AutocompleteInput
+                value={form.city}
+                onChange={v=>{fld("city",v);fld("neighborhood","");}}
+                options={existingCities}
+                placeholder="e.g. Los Angeles"
+                style={inp}
+                theme={theme} t={t}
+              />
             </div>
             <div style={{flex:1}}>
               <div style={lbl}>NEIGHBORHOOD</div>
-              <input style={inp} placeholder="e.g. Silver Lake" value={form.neighborhood} onChange={e=>fld("neighborhood",e.target.value)}/>
+              <AutocompleteInput
+                value={form.neighborhood}
+                onChange={v=>fld("neighborhood",v)}
+                options={cityNeighborhoods}
+                placeholder="e.g. Silver Lake"
+                style={inp}
+                theme={theme} t={t}
+              />
             </div>
           </div>
           <div style={lbl}>TYPE</div>
@@ -1098,10 +1173,13 @@ function CityView({city, places, setPlaces, theme, t, uid, onBack}) {
 
   return(
     <div>
-      {showAdd&&<AddPlaceModal onAdd={p=>{
-        // Force city to match current city view
-        setPlaces(prev=>[...prev,{...p,city:p.city||city}]);
-      }} onClose={()=>setShowAdd(false)} theme={theme} t={t} uid={uid}/>}
+      {showAdd&&<AddPlaceModal
+        onAdd={p=>setPlaces(prev=>[...prev,{...p,city:p.city||city}])}
+        onClose={()=>setShowAdd(false)}
+        theme={theme} t={t} uid={uid}
+        existingCities={[...new Set(places.map(p=>p.city).filter(Boolean))].sort()}
+        existingNeighborhoods={places.reduce((acc,p)=>{if(p.city&&p.neighborhood){if(!acc[p.city])acc[p.city]=[];if(!acc[p.city].includes(p.neighborhood))acc[p.city].push(p.neighborhood);}return acc;},{})}
+      />}
 
       {/* Header */}
       <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:14,borderBottom:`2px solid ${t.border}`,paddingBottom:10}}>
