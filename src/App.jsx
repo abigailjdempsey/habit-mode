@@ -1415,47 +1415,41 @@ function TryTab({places, setPlaces, theme, t, uid}) {
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>{places.length} TOTAL PLACES</div>
       </div>
 
-      {/* Unified city grid — cities with places first (2-col), then empty starters (3-col) */}
-      {usedCities.length>0&&(
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:usedCities.length>0&&starterCities.length>0?10:14}}>
-          {usedCities.map(city=>{
-            const cityPlaces=places.filter(p=>p.city===city);
-            const visited=cityPlaces.filter(p=>p.visited).length;
-            return(
-              <div key={city} style={{background:t.bgCard,border:`2px solid ${t.border}`,boxShadow:`3px 3px 0 ${t.border}`,position:"relative",overflow:"hidden"}}>
-                <button onClick={()=>setSelectedCity(city)} style={{width:"100%",background:"transparent",border:"none",padding:"16px 14px 12px",cursor:"pointer",textAlign:"left",display:"block"}}
-                  onMouseEnter={e=>{e.currentTarget.parentElement.style.borderColor=t.accent;e.currentTarget.parentElement.style.boxShadow=`3px 3px 0 ${t.accent}`;}}
-                  onMouseLeave={e=>{e.currentTarget.parentElement.style.borderColor=t.border;e.currentTarget.parentElement.style.boxShadow=`3px 3px 0 ${t.border}`;}}>
-                  <div style={{fontSize:26,marginBottom:4}}>{getCityEmoji(city)}</div>
-                  <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:t.text,letterSpacing:2,lineHeight:1.2}}>{city}</div>
-                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginTop:4}}>{cityPlaces.length} places · {visited} visited</div>
-                  <div style={{display:"flex",gap:3,flexWrap:"wrap",marginTop:6}}>
-                    {[...new Set(cityPlaces.map(p=>p.category?.split(" ")[0]).filter(Boolean))].slice(0,4).map((e,i)=>(<span key={i} style={{fontSize:14}}>{e}</span>))}
-                  </div>
-                </button>
-                <div style={{position:"absolute",top:6,right:6,display:"flex",gap:3}}>
-                  <button onClick={e=>{e.stopPropagation();setEditingEmoji(city);}} style={{background:t.bg,border:`1px solid ${t.border}`,width:24,height:24,cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center"}}>✏️</button>
-                  <button onClick={e=>{e.stopPropagation();removeCity(city);}} style={{background:t.bg,border:`1px solid ${t.border}`,width:24,height:24,cursor:"pointer",fontSize:12,color:t.textSub,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+      {/* One unified 3-col grid — all cities, used ones sorted first and pop out */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:14}}>
+        {/* Cities with places — sorted first, solid style */}
+        {usedCities.map(city=>{
+          const cityPlaces=places.filter(p=>p.city===city);
+          const visited=cityPlaces.filter(p=>p.visited).length;
+          return(
+            <div key={city} style={{background:t.bgCard,border:`2px solid ${t.accent}`,boxShadow:`3px 3px 0 ${t.accent}`,position:"relative",overflow:"hidden",transition:"all 0.12s"}}>
+              <button onClick={()=>setSelectedCity(city)} style={{width:"100%",background:"transparent",border:"none",padding:"14px 8px",cursor:"pointer",textAlign:"center",display:"block"}}
+                onMouseEnter={e=>{e.currentTarget.parentElement.style.transform="translateY(-2px)";}}
+                onMouseLeave={e=>{e.currentTarget.parentElement.style.transform="none";}}>
+                <div style={{fontSize:22}}>{getCityEmoji(city)}</div>
+                <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:10,color:t.text,letterSpacing:1,marginTop:4,lineHeight:1.2}}>{city}</div>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.accent,letterSpacing:1,marginTop:3}}>{cityPlaces.length} · {visited} ✓</div>
+                <div style={{display:"flex",gap:2,justifyContent:"center",flexWrap:"wrap",marginTop:4}}>
+                  {[...new Set(cityPlaces.map(p=>p.category?.split(" ")[0]).filter(Boolean))].slice(0,3).map((e,i)=>(<span key={i} style={{fontSize:11}}>{e}</span>))}
                 </div>
+              </button>
+              <div style={{position:"absolute",top:4,right:4,display:"flex",gap:2}}>
+                <button onClick={e=>{e.stopPropagation();setEditingEmoji(city);}} style={{background:t.bg,border:`1px solid ${t.border}`,width:20,height:20,cursor:"pointer",fontSize:9,display:"flex",alignItems:"center",justifyContent:"center"}}>✏️</button>
+                <button onClick={e=>{e.stopPropagation();removeCity(city);}} style={{background:t.bg,border:`1px solid ${t.border}`,width:20,height:20,cursor:"pointer",fontSize:11,color:t.textSub,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
               </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Remaining starter cities without places */}
-      {starterCities.length>0&&(
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:14}}>
-          {starterCities.map(c=>(
-            <button key={c.name} onClick={()=>setSelectedCity(c.name)} style={{background:"transparent",border:`2px dashed ${t.border}`,padding:"14px 8px",cursor:"pointer",textAlign:"center",transition:"all 0.12s"}}
-            onMouseEnter={e=>{e.currentTarget.style.borderColor=t.accent;e.currentTarget.style.borderStyle="solid";}}
-            onMouseLeave={e=>{e.currentTarget.style.borderColor=t.border;e.currentTarget.style.borderStyle="dashed";}}>
-              <div style={{fontSize:22}}>{c.emoji}</div>
-              <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:4,lineHeight:1.2}}>{c.name}</div>
-            </button>
-          ))}
-        </div>
-      )}
+            </div>
+          );
+        })}
+        {/* Starter cities without places — dashed, subtle */}
+        {starterCities.map(c=>(
+          <button key={c.name} onClick={()=>setSelectedCity(c.name)} style={{background:"transparent",border:`2px dashed ${t.border}`,padding:"14px 8px",cursor:"pointer",textAlign:"center",transition:"all 0.12s"}}
+          onMouseEnter={e=>{e.currentTarget.style.borderColor=t.accent;e.currentTarget.style.borderStyle="solid";e.currentTarget.style.transform="translateY(-2px)";}}
+          onMouseLeave={e=>{e.currentTarget.style.borderColor=t.border;e.currentTarget.style.borderStyle="dashed";e.currentTarget.style.transform="none";}}>
+            <div style={{fontSize:22}}>{c.emoji}</div>
+            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:4,lineHeight:1.2}}>{c.name}</div>
+          </button>
+        ))}
+      </div>
 
       {addingCity
         ?<div style={{display:"flex",gap:6}}>
@@ -1524,7 +1518,7 @@ export default function App(){
       clearTimeout(window._gdriveBackupTimer);
       window._gdriveBackupTimer=setTimeout(()=>pushGdriveBackup(state,setGdriveStatus),3000);
     }
-  },[cats,subcats,habits,movies,books,totalXP,theme,loaded]);
+  },[cats,subcats,habits,movies,books,places,totalXP,theme,loaded]);
 
   const showToast=(msg,emoji)=>{setToast({show:true,msg,emoji});setTimeout(()=>setToast(s=>({...s,show:false})),2200);};
 
