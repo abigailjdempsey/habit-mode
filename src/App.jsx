@@ -1677,89 +1677,154 @@ function ManageCitiesView({cityList, setCityList, cityEmojis, setCityEmojis, pla
 
 // ─── FRIENDS MODE ─────────────────────────────────────────────────────────────
 function FriendsModeView({places, city, cityEmoji, onClose, theme, t}) {
-  const [selected, setSelected] = useState(() => places.map(p => p.id));
-  const [listName, setListName] = useState((city||"") + " PICKS");
-  const allOn = selected.length === places.length;
+  const [mode, setMode] = useState(null); // null | "city" | "neighborhood" | "type"
+  const [selected, setSelected] = useState([]);
 
-  const toggle = (id) => setSelected(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev,id]);
-  const toggleAll = () => setSelected(allOn ? [] : places.map(p=>p.id));
+  // Derived options
+  const neighborhoods = [...new Set(places.map(p=>p.neighborhood).filter(Boolean))].sort();
+  const types = [...new Set(places.map(p=>p.category).filter(Boolean))].sort();
 
-  const selectedList = places.filter(p => selected.includes(p.id));
+  const toggle = (val) => setSelected(prev =>
+    prev.includes(val) ? prev.filter(x=>x!==val) : [...prev, val]
+  );
 
-  const shareAsText = () => {
-    const lines = [`${cityEmoji} ${city} — MY PICKS`, ""];
-    selectedList.forEach(p => {
-      lines.push(`${p.category?.split(" ")[0]||"📍"} ${p.name}${p.neighborhood ? " · " + p.neighborhood : ""}${p.listType==="favorite" ? " ❤️" : ""}${p.rating ? " " + "★".repeat(p.rating) : ""}`);
+  // Compute the places to share based on mode + selection
+  const sharePlaces = (() => {
+    if (!mode) return [];
+    if (mode === "city") return places;
+    if (mode === "neighborhood") return selected.length ? places.filter(p => selected.includes(p.neighborhood)) : [];
+    if (mode === "type") return selected.length ? places.filter(p => selected.includes(p.category)) : [];
+    return [];
+  })();
+
+  // Build share title
+  const shareTitle = (() => {
+    if (mode === "city") return `${cityEmoji} ${city}`;
+    if (mode === "neighborhood") return selected.length === 1 ? `${cityEmoji} ${selected[0]}` : `${cityEmoji} ${city} — ${selected.join(", ")}`;
+    if (mode === "type") return `${cityEmoji} ${city} — ${selected.map(c=>c.split(" ").slice(1).join(" ")||c).join(" + ")}`;
+    return `${cityEmoji} ${city}`;
+  })();
+
+  const doShare = () => {
+    if (!sharePlaces.length) return;
+    const lines = [shareTitle, ""];
+    sharePlaces.forEach(p => {
+      let line = `${p.category?.split(" ")[0]||"📍"} ${p.name}`;
+      if (p.neighborhood) line += ` · ${p.neighborhood}`;
+      if (p.listType === "favorite") line += " ❤️";
+      if (p.rating > 0) line += " " + "★".repeat(p.rating);
+      lines.push(line);
     });
     lines.push("", "made with habit mode ✨");
     const text = lines.join("\n");
     if (navigator.share) {
-      navigator.share({ title: city + " picks", text }).catch(()=>{});
+      navigator.share({ title: shareTitle, text }).catch(()=>{});
     } else {
-      navigator.clipboard.writeText(text).then(()=>alert("Copied to clipboard!")).catch(()=>alert(text));
+      navigator.clipboard.writeText(text)
+        .then(()=>alert("Copied to clipboard!"))
+        .catch(()=>prompt("Copy this:", text));
     }
   };
 
-  const inp = {
-    width:"100%",
-    background:t.bgCard,
-    border:`2px solid ${t.border}`,
-    padding:"11px 13px",
-    color:t.text,
-    fontSize:15,
-    fontFamily:"'Black Han Sans',sans-serif",
-    letterSpacing:3,
-    outline:"none",
-    boxSizing:"border-box",
-    marginBottom:14,
-    textTransform:"uppercase"
+  const modeBtn = (id, label, emoji) => (
+    <button onClick={()=>{ setMode(id); setSelected(id==="city"?["all"]:[]);}} style={{
+      flex:1, padding:"14px 8px",
+      border:`2px solid ${mode===id?t.accent:t.border}`,
+      background:mode===id?t.accent:"transparent",
+      color:mode===id?t.textInv:t.textSub,
+      fontFamily:"'Black Han Sans',sans-serif", fontSize:11,
+      cursor:"pointer", letterSpacing:2, textAlign:"center",
+      boxShadow:mode===id?`2px 2px 0 ${t.border}`:"none",
+      transition:"all 0.12s"
+    }}>
+      <div style={{fontSize:20,marginBottom:4}}>{emoji}</div>
+      <div>{label}</div>
+    </button>
+  );
+
+  const optionRow = (val, label, sub) => {
+    const on = selected.includes(val);
+    return (
+      <div key={val} onClick={()=>toggle(val)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",border:`2px solid ${on?t.accent:t.border}`,marginBottom:5,cursor:"pointer",background:on?`${t.accent}11`:t.bg,transition:"all 0.1s"}}>
+        <div style={{width:20,height:20,border:`2px solid ${on?t.accent:t.border}`,background:on?t.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:t.textInv,flexShrink:0}}>{on?"✓":""}</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:2}}>{label}</div>
+          {sub&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:1}}>{sub}</div>}
+        </div>
+      </div>
+    );
   };
+
+  const canShare = mode === "city" || (mode && selected.length > 0);
 
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
       <div style={{background:t.bg,width:"100%",maxWidth:500,border:`3px solid ${t.border}`,borderBottom:"none",boxShadow:`-6px -6px 0 ${t.border}`,maxHeight:"90vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
 
-        <div style={{padding:"18px 18px 14px",borderBottom:`2px solid ${t.border}`,flexShrink:0}}>
-          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:20,color:t.text,letterSpacing:4,marginBottom:2}}>{cityEmoji} {city} — SHARE</div>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>PICK PLACES TO SHARE</div>
+        <div style={{padding:"18px 18px 14px",borderBottom:`2px solid ${t.border}`,flexShrink:0,display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+          <div>
+            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:20,color:t.text,letterSpacing:4,marginBottom:2}}>{cityEmoji} {city}</div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>SHARE YOUR PICKS</div>
+          </div>
+          {mode&&<button onClick={()=>{setMode(null);setSelected([]);}} style={{background:"transparent",border:`1.5px solid ${t.border}`,padding:"4px 10px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1}}>← BACK</button>}
         </div>
 
         <div style={{padding:"14px 18px",overflowY:"auto",flex:1}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:5}}>LIST NAME</div>
-          <input style={inp} placeholder="MY PICKS" value={listName} onChange={e=>setListName(e.target.value.toUpperCase())} maxLength={30}/>
 
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2}}>{selected.length}/{places.length} SELECTED</div>
-            <button onClick={toggleAll} style={{padding:"4px 10px",border:`1.5px solid ${t.border}`,background:allOn?t.accent:"transparent",color:allOn?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:9,cursor:"pointer",letterSpacing:2}}>
-              {allOn?"DESELECT ALL":"SELECT ALL"}
-            </button>
-          </div>
+          {/* Mode picker */}
+          {!mode&&<>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:10}}>SHARE BY...</div>
+            <div style={{display:"flex",gap:8,marginBottom:16}}>
+              {modeBtn("city","WHOLE CITY","🗺️")}
+              {neighborhoods.length>0&&modeBtn("neighborhood","NEIGHBORHOOD","📍")}
+              {types.length>0&&modeBtn("type","TYPE","🍽️")}
+            </div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,lineHeight:1.6,padding:"10px 12px",border:`1.5px solid ${t.border}`,background:t.bgCard}}>
+              WHOLE CITY shares everything · NEIGHBORHOOD shares one or more areas · TYPE shares by category (restaurants, cafes, etc.)
+            </div>
+          </>}
 
-          {places.length===0
-            ? <div style={{textAlign:"center",padding:"24px",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:2,border:`2px dashed ${t.border}`}}>NO PLACES IN THIS CITY YET</div>
-            : places.map(p=>{
-                const on=selected.includes(p.id);
-                return(
-                  <div key={p.id} onClick={()=>toggle(p.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",border:`2px solid ${on?t.accent:t.border}`,marginBottom:5,cursor:"pointer",background:on?`${t.accent}11`:t.bg,transition:"all 0.1s"}}>
-                    <div style={{width:20,height:20,border:`2px solid ${on?t.accent:t.border}`,background:on?t.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:t.textInv,flexShrink:0}}>{on?"✓":""}</div>
-                    <span style={{fontSize:16,flexShrink:0}}>{p.category?.split(" ")[0]||"📍"}</span>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
-                      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:1,display:"flex",gap:6}}>
-                        {p.neighborhood&&<span>📍{p.neighborhood}</span>}
-                        {p.listType==="favorite"&&<span>❤️</span>}
-                        {p.rating>0&&<span>{"★".repeat(p.rating)}</span>}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-          }
+          {/* City mode — just confirm */}
+          {mode==="city"&&<>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:10}}>SHARING ALL {places.length} PLACES IN {city}</div>
+            {places.map(p=>(
+              <div key={p.id} style={{display:"flex",gap:8,padding:"8px 10px",border:`1.5px solid ${t.border}`,marginBottom:4,background:t.bgCard}}>
+                <span style={{fontSize:14}}>{p.category?.split(" ")[0]||"📍"}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:11,color:t.text,letterSpacing:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
+                  {p.neighborhood&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:t.textSub,letterSpacing:1}}>📍{p.neighborhood}</div>}
+                </div>
+                {p.listType==="favorite"&&<span style={{fontSize:11}}>❤️</span>}
+              </div>
+            ))}
+          </>}
+
+          {/* Neighborhood mode */}
+          {mode==="neighborhood"&&<>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:8}}>PICK NEIGHBORHOODS (can select multiple)</div>
+            {neighborhoods.map(n=>{
+              const cnt = places.filter(p=>p.neighborhood===n).length;
+              return optionRow(n, n, `${cnt} place${cnt!==1?"s":""}`);
+            })}
+          </>}
+
+          {/* Type mode */}
+          {mode==="type"&&<>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:8}}>PICK TYPES (can select multiple)</div>
+            {types.map(c=>{
+              const cnt = places.filter(p=>p.category===c).length;
+              const emoji = c.split(" ")[0];
+              const label = c.split(" ").slice(1).join(" ")||c;
+              return optionRow(c, `${emoji} ${label}`, `${cnt} place${cnt!==1?"s":""}`);
+            })}
+          </>}
+
         </div>
 
         <div style={{padding:"12px 18px 18px",borderTop:`2px solid ${t.border}`,flexShrink:0}}>
-          <button onClick={shareAsText} disabled={selected.length===0} style={{width:"100%",padding:"14px",border:`2px solid ${t.border}`,background:selected.length>0?t.addBtn:"transparent",color:selected.length>0?t.addBtnText:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:14,cursor:selected.length>0?"pointer":"default",letterSpacing:3,boxShadow:selected.length>0?`3px 3px 0 ${t.border}`:"none",opacity:selected.length>0?1:0.4,marginBottom:8}}>
-            👥 SHARE LIST
+          {canShare&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginBottom:8,textAlign:"center"}}>{sharePlaces.length} PLACES · "{shareTitle}"</div>}
+          <button onClick={doShare} disabled={!canShare} style={{width:"100%",padding:"14px",border:`2px solid ${t.border}`,background:canShare?t.addBtn:"transparent",color:canShare?t.addBtnText:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:14,cursor:canShare?"pointer":"default",letterSpacing:3,boxShadow:canShare?`3px 3px 0 ${t.border}`:"none",opacity:canShare?1:0.4,marginBottom:8}}>
+            👥 SHARE
           </button>
           <button onClick={onClose} style={{width:"100%",padding:"11px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:3}}>CANCEL</button>
         </div>
