@@ -2015,7 +2015,6 @@ export default function App(){
   return(
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Barlow+Condensed:wght@400;600;700&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
         body{background:${t.bg};}
         @keyframes flashPulse{0%{opacity:1}100%{opacity:0}}
