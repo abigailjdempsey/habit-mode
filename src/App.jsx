@@ -57,6 +57,7 @@ const subCount=(arr,d,rep)=>{ if(rep<=1)return arr.filter(x=>x!==d); return arr.
 const totalCompletions=(h)=>{ if(h.repeat<=1)return h.completedDates.length; return h.completedDates.reduce((s,e)=>s+(typeof e==="object"?e.count:1),0); };
 const MILESTONES=[3,7,14,21,30,60,100];
 // Schedule: null=every day, [0,1,2,3,4,5,6] where 0=Sun,1=Mon...6=Sat
+const HABIT_COLORS=["#e74c3c","#e67e22","#f1c40f","#2ecc71","#1abc9c","#3498db","#9b59b6","#e91e63","#ff5722","#607d8b","#8B4513","#2a6600","#cc0044","#4400cc","#6c5ce7","#00b894","#fd79a8","#fdcb6e","#e17055","#74b9ff"];
 const SCHEDULE_PRESETS = {
   daily:    {label:"EVERY DAY", days:null},
   weekdays: {label:"MON–FRI",   days:[1,2,3,4,5]},
@@ -336,6 +337,7 @@ function AddHabitModal({catId,subId,cats,subcats,onAdd,onClose,theme}){
   const t=THEMES[theme]||THEMES.ravewhite;
   const [label,setLabel]=useState("");
   const [emoji,setEmoji]=useState("💪");
+  const [color,setColor]=useState(HABIT_COLORS[0]);
   const [xp,setXp]=useState(10);
   const [repeat,setRepeat]=useState(1);
   const [schedulePreset,setSchedulePreset]=useState("daily");
@@ -355,7 +357,7 @@ function AddHabitModal({catId,subId,cats,subcats,onAdd,onClose,theme}){
 
   const submit=()=>{
     if(!label.trim()||!selectedCat)return;
-    onAdd({id:uid(),emoji,label:label.trim().toUpperCase(),catId:selectedCat,subId:selectedSub==="none"?null:selectedSub,color:"#6c5ce7",special:null,xp,streak:0,repeat,schedule:getSchedule(),completedDates:[],isDefault:false});
+    onAdd({id:uid(),emoji,label:label.trim().toUpperCase(),catId:selectedCat,subId:selectedSub==="none"?null:selectedSub,color,special:null,xp,streak:0,repeat,schedule:getSchedule(),completedDates:[],isDefault:false});
     onClose();
   };
 
@@ -399,6 +401,13 @@ function AddHabitModal({catId,subId,cats,subcats,onAdd,onClose,theme}){
             return <button key={i} onClick={()=>setCustomDays(prev=>on?prev.filter(d=>d!==i):[...prev,i].sort())} style={{flex:1,padding:"8px 0",border:`2px solid ${on?t.accent:t.border}`,background:on?t.accent:t.bgCard,color:on?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:9,cursor:"pointer",letterSpacing:1,boxShadow:on?`2px 2px 0 ${t.border}`:"none"}}>{day}</button>;
           })}
         </div>}
+        {/* Color */}
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:6}}>CARD COLOR:</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
+          {HABIT_COLORS.map(c=>(
+            <button key={c} onClick={()=>setColor(c)} style={{width:30,height:30,background:c,border:`3px solid ${color===c?t.text:"transparent"}`,cursor:"pointer",boxShadow:color===c?`0 0 0 1px ${t.border}`:"none",borderRadius:2,transition:"all 0.1s"}}/>
+          ))}
+        </div>
         {/* Repeat */}
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:6}}>TIMES PER DAY: <strong style={{color:t.accent,fontSize:15}}>{repeat}×</strong></div>
         <div style={{display:"flex",gap:5,marginBottom:12}}>
@@ -787,6 +796,94 @@ async function pullGdriveBackup(token) {
   return await fileRes.json();
 }
 
+
+// ─── WEEKLY SUMMARY ───────────────────────────────────────────────────────────
+function WeeklySummary({habits, totalXP, onClose, theme, t}) {
+  // Get Mon-Sun of current week
+  const today = new Date();
+  const dow = today.getDay(); // 0=Sun
+  const monday = new Date(today); monday.setDate(today.getDate() - (dow===0?6:dow-1));
+  const days = Array.from({length:7},(_,i)=>{ const d=new Date(monday); d.setDate(monday.getDate()+i); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; });
+  const dayNames=["MON","TUE","WED","THU","FRI","SAT","SUN"];
+
+  const weekXP = habits.reduce((sum,h)=>sum+days.reduce((s,d)=>s+(isDone(h,d)?h.xp:h.repeat>1?Math.floor(h.xp/h.repeat)*getCount(h,d):0),0),0);
+  const perfectDays = days.filter(d=>habits.filter(h=>isScheduledFor(h,d)).every(h=>isDone(h,d))).length;
+  const totalScheduled = days.reduce((s,d)=>s+habits.filter(h=>isScheduledFor(h,d)).length,0);
+  const totalDone = days.reduce((s,d)=>s+habits.filter(h=>isDone(h,d)).length,0);
+  const pct = totalScheduled>0?Math.round(totalDone/totalScheduled*100):0;
+
+  const topStreaks = [...habits].filter(h=>h.streak>0).sort((a,b)=>b.streak-a.streak).slice(0,3);
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
+      <div style={{background:t.bg,width:"100%",maxWidth:500,border:`3px solid ${t.border}`,borderBottom:"none",boxShadow:`-6px -6px 0 ${t.border}`,maxHeight:"88vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+        <div style={{padding:"20px 20px 16px",borderBottom:`2px solid ${t.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4}}>WEEKLY RECAP</div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginTop:2}}>{monday.toLocaleDateString("en-US",{month:"short",day:"numeric"})} — {new Date(days[6]+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"})}</div>
+          </div>
+          <button onClick={onClose} style={{background:"transparent",border:`2px solid ${t.border}`,padding:"6px 12px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.textSub,letterSpacing:1}}>✕</button>
+        </div>
+        <div style={{padding:"16px 20px"}}>
+          {/* Big stats */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
+            {[
+              {label:"COMPLETION",value:`${pct}%`,sub:`${totalDone}/${totalScheduled}`},
+              {label:"XP EARNED",value:weekXP,sub:"this week"},
+              {label:"PERFECT DAYS",value:perfectDays,sub:"out of 7"},
+            ].map(s=>(
+              <div key={s.label} style={{background:t.bgCard,border:`2px solid ${t.border}`,padding:"12px 10px",boxShadow:`2px 2px 0 ${t.border}`,textAlign:"center"}}>
+                <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.accent,letterSpacing:1}}>{s.value}</div>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:t.textSub,letterSpacing:2,marginTop:2}}>{s.label}</div>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:t.textSub,letterSpacing:1}}>{s.sub}</div>
+              </div>
+            ))}
+          </div>
+          {/* Day grid */}
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:6}}>DAILY BREAKDOWN</div>
+          <div style={{display:"flex",gap:4,marginBottom:16}}>
+            {days.map((d,i)=>{
+              const scheduled=habits.filter(h=>isScheduledFor(h,d));
+              const done=scheduled.filter(h=>isDone(h,d)).length;
+              const pct2=scheduled.length>0?done/scheduled.length:0;
+              const isToday=d===TODAY();
+              return(
+                <div key={d} style={{flex:1,textAlign:"center"}}>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:isToday?t.accent:t.textSub,letterSpacing:1,marginBottom:4}}>{dayNames[i]}</div>
+                  <div style={{height:48,background:t.bgCard,border:`1.5px solid ${isToday?t.accent:t.border}`,display:"flex",alignItems:"flex-end",overflow:"hidden",boxShadow:isToday?`1px 1px 0 ${t.accent}`:`1px 1px 0 ${t.border}`}}>
+                    <div style={{width:"100%",background:pct2===1?t.accent:pct2>0?t.accent+"88":t.border,height:`${Math.max(pct2*100,pct2>0?8:0)}%`,transition:"height 0.4s ease"}}/>
+                  </div>
+                  <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:9,color:pct2===1?t.accent:t.textSub,marginTop:3,letterSpacing:1}}>{done}/{scheduled.length}</div>
+                </div>
+              );
+            })}
+          </div>
+          {/* Top streaks */}
+          {topStreaks.length>0&&<>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:6}}>TOP STREAKS</div>
+            {topStreaks.map(h=>(
+              <div key={h.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,background:t.bgCard,border:`2px solid ${t.border}`,padding:"10px 12px",boxShadow:`2px 2px 0 ${t.border}`}}>
+                <span style={{fontSize:18}}>{h.emoji}</span>
+                <div style={{flex:1,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:2}}>{h.label}</div>
+                <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:18,color:t.accent2}}>🔥{h.streak}</div>
+              </div>
+            ))}
+          </>}
+          {/* Motivational line */}
+          <div style={{marginTop:16,padding:"12px 14px",border:`2px solid ${t.accent}`,background:`${t.accent}11`,textAlign:"center"}}>
+            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.accent,letterSpacing:3}}>
+              {pct===100?"PERFECT WEEK. ACTUAL LEGEND. 🏆":pct>=80?"GREAT WEEK. ALMOST THERE. 💪":pct>=50?"SOLID EFFORT. KEEP GOING. 🔥":"EVERY DAY IS A NEW SHOT. LET'S GO. ✨"}
+            </div>
+          </div>
+        </div>
+        <div style={{padding:"0 20px 20px"}}>
+          <button onClick={onClose} style={{width:"100%",padding:"11px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:3}}>CLOSE</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── BACKUP PANEL ─────────────────────────────────────────────────────────────
 function BackupPanel({theme, state, gdriveStatus, setGdriveStatus, onRestoreGdrive, onExport, onImport, importRef}) {
   const t = THEMES[theme]||THEMES.ravewhite;
@@ -1051,9 +1148,54 @@ function EditPlaceModal({place, onSave, onClose, theme, t, uid, existingCities, 
   );
 }
 
-function PlaceCard({place, onToggle, onDelete, onEdit, theme, t, existingCities, existingNeighborhoods}) {
+// Rating modal shown after marking visited
+function RatingModal({place, onRate, onSkip, theme, t}) {
+  const [rating,setRating]=useState(0);
+  const [note,setNote]=useState("");
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1001,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 16px"}} onClick={onSkip}>
+      <div style={{background:t.bg,width:"100%",maxWidth:400,border:`3px solid ${t.border}`,boxShadow:`6px 6px 0 ${t.border}`,padding:24}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:18,color:t.text,letterSpacing:3,marginBottom:4}}>HOW WAS IT?</div>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,color:t.textSub,letterSpacing:2,marginBottom:16}}>{place.name}</div>
+        {/* Stars */}
+        <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:16}}>
+          {[1,2,3,4,5].map(s=>(
+            <button key={s} onClick={()=>setRating(s)} style={{fontSize:32,background:"none",border:"none",cursor:"pointer",opacity:s<=rating?1:0.25,transform:s<=rating?"scale(1.1)":"scale(1)",transition:"all 0.1s"}}>★</button>
+          ))}
+        </div>
+        <input style={{width:"100%",background:t.bgCard,border:`2px solid ${t.border}`,padding:"10px 12px",color:t.text,fontSize:12,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:14}} placeholder="LEAVE A NOTE (OPTIONAL)" value={note} onChange={e=>setNote(e.target.value)}/>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={onSkip} style={{flex:1,padding:"11px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:2}}>SKIP</button>
+          <button onClick={()=>onRate(rating,note)} disabled={rating===0} style={{flex:2,padding:"11px",border:`2px solid ${t.border}`,background:rating>0?t.addBtn:"transparent",color:rating>0?t.addBtnText:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:rating>0?"pointer":"default",letterSpacing:2,boxShadow:rating>0?`2px 2px 0 ${t.border}`:"none",opacity:rating>0?1:0.4}}>SAVE RATING</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PlaceCard({place, onToggle, onDelete, onEdit, onUpdate, theme, t, existingCities, existingNeighborhoods}) {
   const [editing,setEditing]=useState(false);
+  const [showRating,setShowRating]=useState(false);
   const catEmoji = place.category?.split(" ")?.[0] || "📍";
+
+  const handleToggle=()=>{
+    if(!place.visited){
+      // Mark visited — show rating prompt
+      onToggle(place.id);
+      setShowRating(true);
+    } else {
+      onToggle(place.id);
+    }
+  };
+
+  const handleRate=(rating,note)=>{
+    onUpdate({...place,visited:true,rating:rating||null,visitNote:note||null,visitedDate:TODAY()});
+    setShowRating(false);
+  };
+
+  const isFav=place.listType==="favorite";
+  const isWish=!place.listType||place.listType==="wishlist";
+
   return (
     <>
     {editing&&<EditPlaceModal
@@ -1064,23 +1206,31 @@ function PlaceCard({place, onToggle, onDelete, onEdit, theme, t, existingCities,
       existingCities={existingCities||[]}
       existingNeighborhoods={existingNeighborhoods||{}}
     />}
-    <div style={{background:place.visited?t.bgCard:t.bg,border:`2px solid ${t.border}`,marginBottom:8,display:"flex",alignItems:"stretch",boxShadow:`2px 2px 0 ${t.border}`,overflow:"hidden",opacity:place.visited?0.7:1}}>
-      <div style={{width:44,flexShrink:0,background:place.visited?t.border:`${t.accent}18`,borderRight:`2px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{catEmoji}</div>
+    {showRating&&<RatingModal place={place} onRate={handleRate} onSkip={()=>setShowRating(false)} theme={theme} t={t}/>}
+    <div style={{background:place.visited?t.bgCard:t.bg,border:`2px solid ${place.listType==="favorite"?t.accent2:t.border}`,marginBottom:8,display:"flex",alignItems:"stretch",boxShadow:`2px 2px 0 ${place.listType==="favorite"?t.accent2:t.border}`,overflow:"hidden",opacity:place.visited?0.75:1}}>
+      {/* List type indicator */}
+      <div style={{width:6,background:place.listType==="favorite"?t.accent2:`${t.accent}44`,flexShrink:0}}/>
+      <div style={{width:40,flexShrink:0,background:place.visited?t.border:`${t.accent}18`,borderRight:`2px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{catEmoji}</div>
       <div style={{flex:1,padding:"10px 12px",minWidth:0}}>
-        <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:place.visited?t.textSub:t.text,letterSpacing:2,textDecoration:place.visited?"line-through":"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{place.name}</div>
-        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginTop:2,display:"flex",gap:6,flexWrap:"wrap"}}>
-          {place.neighborhood&&<span style={{color:t.accent}}>📍{place.neighborhood}</span>}
-          {place.city&&<span>{place.city}</span>}
-          {place.category&&<span style={{background:`${t.accent}18`,padding:"0 5px",border:`1px solid ${t.border}`}}>{place.category}</span>}
+        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:1}}>
+          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:place.visited?t.textSub:t.text,letterSpacing:2,textDecoration:place.visited?"line-through":"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",flex:1}}>{place.name}</div>
+          {place.listType==="favorite"&&<span style={{fontSize:12,flexShrink:0}}>❤️</span>}
         </div>
-        {place.description&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,marginTop:3,letterSpacing:1,lineHeight:1.4}}>{place.description}</div>}
-        {place.address&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,marginTop:2,letterSpacing:1}}>{place.address}</div>}
-        {place.url&&<a href={place.url} target="_blank" rel="noopener noreferrer" style={{fontSize:10,color:t.accent2,fontFamily:"'Barlow Condensed',sans-serif",textDecoration:"none",display:"block",marginTop:2,letterSpacing:1}}>↗ {place.url.replace(/^https?:\/\//,"").slice(0,40)}</a>}
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginTop:1,display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+          {place.neighborhood&&<span style={{color:t.accent}}>📍{place.neighborhood}</span>}
+          {place.category&&<span style={{background:`${t.accent}18`,padding:"0 4px",border:`1px solid ${t.border}`}}>{place.category}</span>}
+          {place.rating&&<span style={{color:"#f1c40f"}}>{"★".repeat(place.rating)}{"☆".repeat(5-place.rating)}</span>}
+        </div>
+        {place.visitNote&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,marginTop:2,letterSpacing:1,fontStyle:"italic"}}>"{place.visitNote}"</div>}
+        {place.description&&!place.visitNote&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,marginTop:2,letterSpacing:1,lineHeight:1.4}}>{place.description}</div>}
+        {place.address&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:t.textSub,marginTop:2,letterSpacing:1}}>{place.address}</div>}
+        {place.url&&<a href={place.url} target="_blank" rel="noopener noreferrer" style={{fontSize:9,color:t.accent2,fontFamily:"'Barlow Condensed',sans-serif",textDecoration:"none",display:"block",marginTop:2,letterSpacing:1}}>↗ {place.url.replace(/^https?:\/\//,"").slice(0,36)}</a>}
       </div>
       <div style={{display:"flex",flexDirection:"column",borderLeft:`2px solid ${t.border}`,flexShrink:0}}>
-        <button onClick={()=>onToggle(place.id)} style={{flex:1,width:40,background:place.visited?t.accent:"transparent",border:"none",borderBottom:`1px solid ${t.border}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:place.visited?t.textInv:t.textSub}}>✓</button>
-        <button onClick={()=>setEditing(true)} style={{flex:1,width:40,background:"none",border:"none",borderBottom:`1px solid ${t.border}`,color:t.textSub,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>✏️</button>
-        <button onClick={()=>onDelete(place.id)} style={{flex:1,width:40,background:"none",border:"none",color:t.textSub,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+        <button onClick={handleToggle} style={{flex:1,width:38,background:place.visited?t.accent:"transparent",border:"none",borderBottom:`1px solid ${t.border}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:place.visited?t.textInv:t.textSub}}>✓</button>
+        <button onClick={()=>onUpdate({...place,listType:place.listType==="favorite"?"wishlist":"favorite"})} style={{flex:1,width:38,background:"none",border:"none",borderBottom:`1px solid ${t.border}`,color:place.listType==="favorite"?t.accent2:t.textSub,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>❤</button>
+        <button onClick={()=>setEditing(true)} style={{flex:1,width:38,background:"none",border:"none",borderBottom:`1px solid ${t.border}`,color:t.textSub,cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center"}}>✏️</button>
+        <button onClick={()=>onDelete(place.id)} style={{flex:1,width:38,background:"none",border:"none",color:t.textSub,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
       </div>
     </div>
     </>
@@ -1265,10 +1415,13 @@ function CityView({city, places, setPlaces, theme, t, uid, onBack}) {
   const neighborhoods=["ALL",...[...new Set(cityPlaces.map(p=>p.neighborhood).filter(Boolean))].sort()];
   const cats=[...new Set(cityPlaces.map(p=>p.category).filter(Boolean))].sort();
 
+  const [filterList,setFilterList]=useState("ALL"); // ALL | wishlist | favorite
   const filtered=cityPlaces.filter(p=>{
     if(!showVisited&&p.visited) return false;
     if(filterNeighborhood!=="ALL"&&p.neighborhood!==filterNeighborhood) return false;
     if(filterCat!=="ALL"&&p.category!==filterCat) return false;
+    if(filterList==="favorite"&&p.listType!=="favorite") return false;
+    if(filterList==="wishlist"&&p.listType==="favorite") return false;
     if(search.trim()&&!`${p.name} ${p.neighborhood} ${p.category} ${p.description}`.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -1350,10 +1503,17 @@ function CityView({city, places, setPlaces, theme, t, uid, onBack}) {
       </div>}
 
       {/* Count + visited toggle */}
-      {cityPlaces.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-        <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>{filtered.length} SHOWING</span>
-        <button onClick={()=>setShowVisited(v=>!v)} style={{padding:"5px 10px",border:`1.5px solid ${t.border}`,background:showVisited?t.bgCard:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,cursor:"pointer",letterSpacing:1}}>{showVisited?"HIDE VISITED ✓":"SHOW VISITED"}</button>
-      </div>}
+      {cityPlaces.length>0&&<>
+        <div style={{display:"flex",gap:5,marginBottom:8}}>
+          {[["ALL","ALL"],["wishlist","🗺 WISHLIST"],["favorite","❤️ FAVORITES"]].map(([val,lbl])=>(
+            <button key={val} onClick={()=>setFilterList(val)} style={{padding:"5px 10px",border:`1.5px solid ${filterList===val?t.accent:t.border}`,background:filterList===val?t.accent:"transparent",color:filterList===val?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:9,cursor:"pointer",letterSpacing:1,boxShadow:filterList===val?`1px 1px 0 ${t.border}`:"none"}}>{lbl}</button>
+          ))}
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>{filtered.length} SHOWING</span>
+          <button onClick={()=>setShowVisited(v=>!v)} style={{padding:"5px 10px",border:`1.5px solid ${t.border}`,background:showVisited?t.bgCard:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,cursor:"pointer",letterSpacing:1}}>{showVisited?"HIDE VISITED ✓":"SHOW VISITED"}</button>
+        </div>
+      </>}
 
       {/* Empty state for this city */}
       {cityPlaces.length===0&&<div style={{textAlign:"center",padding:"40px 20px",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:2,border:`2px dashed ${t.border}`}}>
@@ -1367,6 +1527,7 @@ function CityView({city, places, setPlaces, theme, t, uid, onBack}) {
           onToggle={id=>setPlaces(prev=>prev.map(pl=>pl.id===id?{...pl,visited:!pl.visited}:pl))}
           onDelete={id=>setPlaces(prev=>prev.filter(pl=>pl.id!==id))}
           onEdit={updated=>setPlaces(prev=>prev.map(pl=>pl.id===updated.id?updated:pl))}
+          onUpdate={updated=>setPlaces(prev=>prev.map(pl=>pl.id===updated.id?updated:pl))}
           existingCities={[...new Set(places.map(p=>p.city).filter(Boolean))].sort()}
           existingNeighborhoods={places.reduce((acc,p)=>{if(p.city&&p.neighborhood){if(!acc[p.city])acc[p.city]=[];if(!acc[p.city].includes(p.neighborhood))acc[p.city].push(p.neighborhood);}return acc;},{})}/>
       ))}
@@ -1496,9 +1657,134 @@ function ManageCitiesView({cityList, setCityList, cityEmojis, setCityEmojis, pla
   );
 }
 
+// ─── FRIENDS MODE ─────────────────────────────────────────────────────────────
+function FriendsModeView({places, cityList, cityEmojis, onClose, theme, t}) {
+  const [copied,setCopied]=useState(false);
+  const [activeCity,setActiveCity]=useState(null);
+
+  // Encode places into a shareable URL hash
+  const shareData={places:places.map(p=>({n:p.name,c:p.city,nb:p.neighborhood||"",cat:p.category||"",d:p.description||"",u:p.url||"",v:p.visited?1:0,r:p.rating||0,lt:p.listType||"w"})),cities:cityList,emojis:cityEmojis};
+  const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(shareData)))).slice(0,4000);
+  const shareUrl=`${window.location.origin}${window.location.pathname}?share=${encoded}`;
+
+  const copy=()=>{
+    navigator.clipboard.writeText(shareUrl).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});
+  };
+
+  const displayCities=cityList.filter(c=>places.some(p=>p.city===c));
+  const getCityEmoji=(city)=>cityEmojis[city]||(STARTER_CITIES.find(s=>s.name===city)?.emoji)||"📍";
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
+      <div style={{background:t.bg,width:"100%",maxWidth:500,border:`3px solid ${t.border}`,borderBottom:"none",boxShadow:`-6px -6px 0 ${t.border}`,maxHeight:"90vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
+        <div style={{padding:"20px 20px 16px",borderBottom:`2px solid ${t.border}`,flexShrink:0}}>
+          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:20,color:t.text,letterSpacing:4,marginBottom:2}}>👥 SHARE YOUR TRY LIST</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>FRIENDS GET A READ-ONLY VIEW OF YOUR PLACES</div>
+        </div>
+        <div style={{padding:"16px 20px",overflowY:"auto",flex:1}}>
+          {/* Share link */}
+          <div style={{marginBottom:16}}>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:6}}>YOUR SHARE LINK</div>
+            <div style={{display:"flex",gap:6}}>
+              <div style={{flex:1,background:t.bgCard,border:`2px solid ${t.border}`,padding:"10px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{shareUrl}</div>
+              <button onClick={copy} style={{padding:"10px 16px",border:`2px solid ${t.border}`,background:copied?t.accent:t.addBtn,color:copied?t.textInv:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`,flexShrink:0,transition:"all 0.2s"}}>{copied?"COPIED ✓":"COPY"}</button>
+            </div>
+          </div>
+          {/* Preview */}
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:8}}>WHAT THEY'LL SEE</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:14}}>
+            {displayCities.map(city=>{
+              const cnt=places.filter(p=>p.city===city).length;
+              return(
+                <button key={city} onClick={()=>setActiveCity(activeCity===city?null:city)} style={{background:activeCity===city?t.bgCard:"transparent",border:`2px ${activeCity===city?"solid":"dashed"} ${activeCity===city?t.accent:t.border}`,padding:"12px 6px",cursor:"pointer",textAlign:"center",boxShadow:activeCity===city?`2px 2px 0 ${t.accent}`:"none"}}>
+                  <div style={{fontSize:20}}>{getCityEmoji(city)}</div>
+                  <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:9,color:t.text,letterSpacing:1,marginTop:3}}>{city}</div>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:t.textSub,letterSpacing:1,marginTop:2}}>{cnt} places</div>
+                </button>
+              );
+            })}
+          </div>
+          {activeCity&&<div style={{marginBottom:10}}>
+            {places.filter(p=>p.city===activeCity).map((p,i)=>(
+              <div key={i} style={{display:"flex",gap:8,padding:"8px 10px",border:`1.5px solid ${t.border}`,marginBottom:4,background:t.bgCard}}>
+                <span style={{fontSize:16}}>{p.category?.split(" ")[0]||"📍"}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:1,display:"flex",gap:6}}>
+                    {p.neighborhood&&<span>📍{p.neighborhood}</span>}
+                    {p.listType==="favorite"&&<span style={{color:t.accent2}}>❤️ fav</span>}
+                    {p.rating>0&&<span style={{color:"#f1c40f"}}>{"★".repeat(p.rating)}</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>}
+          <div style={{padding:"12px 14px",border:`1.5px solid ${t.border}`,background:t.bgCard}}>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,lineHeight:1.6}}>
+              ✓ Friends can view all your places<br/>
+              ✓ They can see favorites, ratings, notes<br/>
+              ✗ They cannot edit or add anything<br/>
+              ✗ Habit data is never shared
+            </div>
+          </div>
+        </div>
+        <div style={{padding:"0 20px 20px",flexShrink:0}}>
+          <button onClick={onClose} style={{width:"100%",padding:"11px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:3}}>CLOSE</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Read-only shared view (shown when ?share= param is in URL)
+function SharedView({data, theme, t}) {
+  const [activeCity,setActiveCity]=useState(null);
+  const cities=[...new Set(data.places.map(p=>p.c).filter(Boolean))];
+  const getCityEmoji=(city)=>(data.emojis||{})[city]||(STARTER_CITIES.find(s=>s.name===city)?.emoji)||"📍";
+  const cityPlaces=activeCity?data.places.filter(p=>p.c===activeCity):[];
+  return(
+    <div style={{background:t.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto",padding:"24px 16px"}}>
+      <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:28,color:t.text,letterSpacing:4,marginBottom:4}}>📍 TRY LIST</div>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:20}}>SHARED READ-ONLY VIEW</div>
+      {!activeCity&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:14}}>
+        {cities.map(city=>{
+          const cnt=data.places.filter(p=>p.c===city).length;
+          return(
+            <button key={city} onClick={()=>setActiveCity(city)} style={{background:t.bgCard,border:`2px solid ${t.accent}`,padding:"14px 8px",cursor:"pointer",textAlign:"center",boxShadow:`2px 2px 0 ${t.accent}`}}>
+              <div style={{fontSize:22}}>{getCityEmoji(city)}</div>
+              <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:10,color:t.text,letterSpacing:1,marginTop:4}}>{city}</div>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:t.textSub,marginTop:2}}>{cnt} places</div>
+            </button>
+          );
+        })}
+      </div>}
+      {activeCity&&<>
+        <button onClick={()=>setActiveCity(null)} style={{background:"transparent",border:`2px solid ${t.border}`,padding:"7px 14px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.textSub,letterSpacing:2,marginBottom:14}}>◀ BACK</button>
+        <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:18,color:t.text,letterSpacing:4,marginBottom:12}}>{getCityEmoji(activeCity)} {activeCity}</div>
+        {cityPlaces.map((p,i)=>(
+          <div key={i} style={{background:t.bgCard,border:`2px solid ${p.lt==="f"?t.accent2:t.border}`,marginBottom:6,padding:"10px 12px",boxShadow:`2px 2px 0 ${t.border}`}}>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+              <span style={{fontSize:16}}>{p.cat?.split(" ")[0]||"📍"}</span>
+              <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.text,letterSpacing:2,flex:1}}>{p.n}</div>
+              {p.lt==="f"&&<span>❤️</span>}
+            </div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,display:"flex",gap:6,flexWrap:"wrap"}}>
+              {p.nb&&<span style={{color:t.accent}}>📍{p.nb}</span>}
+              {p.r>0&&<span style={{color:"#f1c40f"}}>{"★".repeat(p.r)}</span>}
+              {p.v===1&&<span style={{color:t.accent}}>✓ BEEN</span>}
+            </div>
+            {p.d&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,marginTop:3,letterSpacing:1}}>{p.d}</div>}
+          </div>
+        ))}
+      </>}
+    </div>
+  );
+}
+
 function TryTab({places, setPlaces, cityList, setCityList, cityEmojis, setCityEmojis, theme, t, uid}) {
   const [selectedCity,setSelectedCity]=useState(null);
   const [managing,setManaging]=useState(false);
+  const [showFriends,setShowFriends]=useState(false);
   const [addingCity,setAddingCity]=useState(false);
   const [newCityVal,setNewCityVal]=useState("");
   const newCityInputRef=useRef(null);
@@ -1536,9 +1822,13 @@ function TryTab({places, setPlaces, cityList, setCityList, cityEmojis, setCityEm
 
   return(
     <div>
+      {showFriends&&<FriendsModeView places={places} cityList={cityList} cityEmojis={cityEmojis} onClose={()=>setShowFriends(false)} theme={theme} t={t}/>}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,borderBottom:`2px solid ${t.border}`,paddingBottom:10}}>
         <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4}}>📍 TRY</div>
-        <button onClick={()=>setManaging(true)} style={{background:"transparent",border:`1.5px solid ${t.border}`,padding:"6px 12px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>MANAGE ⚙</button>
+        <div style={{display:"flex",gap:6}}>
+          <button onClick={()=>setShowFriends(true)} style={{background:"transparent",border:`1.5px solid ${t.border}`,padding:"6px 10px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1}}>👥 SHARE</button>
+          <button onClick={()=>setManaging(true)} style={{background:"transparent",border:`1.5px solid ${t.border}`,padding:"6px 10px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1}}>⚙ MANAGE</button>
+        </div>
       </div>
 
       {/* Single unified grid */}
@@ -1609,6 +1899,7 @@ export default function App(){
   const [loaded,setLoaded]=useState(false);
   const [gdriveStatus,setGdriveStatus]=useState("idle"); // idle|connecting|connected|error
   const [showBackup,setShowBackup]=useState(false);
+  const [showWeekly,setShowWeekly]=useState(false);
   const [viewOffset,setViewOffset]=useState(0); // 0=today, -1=yesterday, etc.
   const sounds=useSounds();
   const todayStr=TODAY();
@@ -1738,9 +2029,11 @@ export default function App(){
       {addModal&&<AddModal type={addModal} onAdd={item=>addList(addModal,item)} onClose={()=>setAddModal(null)} theme={theme}/>}
       {addHabitCtx&&<AddHabitModal catId={addHabitCtx.catId} subId={addHabitCtx.subId} cats={cats} subcats={subcats} onAdd={addHabit} onClose={()=>setAddHabitCtx(null)} theme={theme}/>}
       {showTheme&&<ThemePicker current={theme} onChange={setTheme} onClose={()=>setShowTheme(false)}/>}
+      {showWeekly&&<WeeklySummary habits={habits} totalXP={totalXP} onClose={()=>setShowWeekly(false)} theme={theme} t={t}/>}
       {drawerHabit&&<RepeatDrawer habit={drawerHabit} todayStr={viewDate} count={getCount(drawerHabit,viewDate)} onIncrement={isToday?completeHabit:()=>{}} onDecrement={isToday?undoOne:()=>{}} onRename={isToday?renameHabit:()=>{}} onClose={()=>setOpenDrawer(null)} theme={theme}/>}
 
-      <div style={{background:t.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:90}}>
+      {sharedData&&<SharedView data={sharedData} theme={theme} t={t}/>}
+      {!sharedData&&<div style={{background:t.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:90}}>
         {/* Header */}
         <div style={{padding:"22px 16px 12px",borderBottom:`2px solid ${t.border}`}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:tab==="today"?10:0}}>
@@ -1853,7 +2146,10 @@ export default function App(){
           {tab==="log"&&(
             <>
               {/* Stats grid */}
-              <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4,marginBottom:12}}>📊 STATS</div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4}}>📊 STATS</div>
+                <button onClick={()=>setShowWeekly(true)} style={{background:t.addBtn,border:`2px solid ${t.border}`,padding:"7px 12px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:11,color:t.addBtnText,letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`}}>📅 THIS WEEK</button>
+              </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
                 {[{label:"TOTAL XP",value:totalXP,emoji:"⚡"},{label:"LEVEL",value:Math.floor(totalXP/100)+1,emoji:"🏆"},{label:"FILMS WATCHED",value:movies.filter(m=>m.done).length,emoji:"🎬"},{label:"BOOKS DONE",value:books.filter(b=>b.done).length,emoji:"📖"},{label:"DONE TODAY",value:doneCount,emoji:"☀️"},{label:"TOTAL HABITS",value:habits.length,emoji:"🎯"}].map(s=>(
                   <div key={s.label} style={{background:t.bgCard,border:`2px solid ${t.border}`,padding:"13px 14px",boxShadow:`2px 2px 0 ${t.border}`}}>
@@ -1928,7 +2224,7 @@ export default function App(){
             </button>
           ))}
         </div>
-      </div>
+      </div>}
     </>
   );
 }
