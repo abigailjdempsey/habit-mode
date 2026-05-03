@@ -881,18 +881,22 @@ function HistoryLog({habits,theme}){
 const PLACE_CATS = ["🍽️ Restaurant","☕ Cafe","🍸 Bar","🛍️ Store","🌿 Park","🎨 Art/Culture","🎵 Music/Venue","💆 Wellness","🎭 Entertainment","📦 Other"];
 
 async function searchPlace(query, locationHint) {
-  const locationCtx = locationHint ? `User is based in / interested in: ${locationHint}.` : "";
-  const res = await claudeJSON(`Find up to 10 real places matching: "${query}"
-${locationCtx}
-Rules:
-- If the query includes a city or neighborhood, prioritize results from THAT location only
-- If no location in query, use the user location hint above to bias results
-- Sort by: exact name match first, then most relevant/well-known
-- Be very specific with neighborhood names (e.g. "Williamsburg" not just "Brooklyn")
-- Include a short 1-sentence description of why it's worth visiting
-- Only include real, verified places you are confident exist
-Return JSON array: [{"name":string,"category":string,"city":string,"neighborhood":string,"address":string,"description":string}]`);
-  return Array.isArray(res) ? res : [];
+  try {
+    // Use Foursquare for real verified results
+    const body = { query };
+    if (locationHint) body.near = locationHint;
+    const r = await fetch("/api/places", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json();
+    if (data.places?.length) return data.places;
+    // Foursquare returned nothing — fall back to Claude with a warning
+    return [];
+  } catch {
+    return [];
+  }
 }
 
 async function fetchPlaceMeta(url) {
@@ -986,7 +990,10 @@ function AddPlaceModal({onAdd, onClose, theme, t, uid}) {
     setStatus("loading");
     const res=await searchPlace(searchVal.trim(), locationVal.trim()||null);
     if(res.length){setResults(res);setStatus("results");}
-    else setStatus("error");
+    else {
+      // No Foursquare results — tell user
+      setStatus("noresults");
+    }
   };
 
   const doImport=async()=>{
@@ -1014,7 +1021,7 @@ function AddPlaceModal({onAdd, onClose, theme, t, uid}) {
   };
 
   const addPlace=(p)=>{
-    onAdd({id:uid(),name:p.name||"Unnamed",category:p.category||PLACE_CATS[0],city:p.city||"",neighborhood:p.neighborhood||"",address:p.address||"",description:p.description||"",url:p.url||"",visited:false,addedDate:new Date().toISOString().split("T")[0]});
+    onAdd({id:uid(),name:p.name||"Unnamed",category:p.category||PLACE_CATS[0],city:p.city||"",neighborhood:p.neighborhood||"",address:p.address||"",description:p.description||"",url:p.url||p.website||"",rating:p.rating||null,visited:false,addedDate:new Date().toISOString().split("T")[0]});
     onClose();
   };
 
@@ -1075,6 +1082,13 @@ function AddPlaceModal({onAdd, onClose, theme, t, uid}) {
 
           {status==="loading"&&<div style={{textAlign:"center",padding:"22px",border:`2px dashed ${t.border}`}}><div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.accent,letterSpacing:3}}>LOOKING IT UP...</div></div>}
           {status==="error"&&<div style={{padding:"12px",border:`2px solid ${t.accent2}`,background:`${t.accent2}11`,marginTop:8}}><div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.accent2,letterSpacing:2}}>COULDN'T FIND IT. TRY MANUAL.</div></div>}
+          {status==="noresults"&&<div style={{padding:"14px",border:`2px solid ${t.border}`,background:t.bgCard,marginTop:8}}>
+            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:2,marginBottom:6}}>NO RESULTS FOUND</div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,lineHeight:1.6,marginBottom:10}}>
+              Try being more specific — e.g. "Playita Silver Lake Los Angeles" or add a location in the field below the search box.
+            </div>
+            <button onClick={()=>setMode("manual")} style={{width:"100%",padding:"10px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>ADD MANUALLY INSTEAD</button>
+          </div>}
 
           {status==="preview"&&preview&&<div style={{border:`2px solid ${t.accent}`,boxShadow:`3px 3px 0 ${t.accent}`,marginTop:8}}>
             <div style={{background:`${t.accent}18`,borderBottom:`2px solid ${t.accent}`,padding:"7px 12px"}}><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.accent,letterSpacing:2}}>✓ FOUND IT</span></div>
@@ -1091,7 +1105,10 @@ function AddPlaceModal({onAdd, onClose, theme, t, uid}) {
           </div>}
 
           {status==="results"&&results.length>0&&<>
-            <div style={{...lbl,marginTop:8}}>PICK ONE:</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",...lbl,marginTop:8,marginBottom:6}}>
+              <span>PICK ONE:</span>
+              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.accent,letterSpacing:1}}>✓ REAL DATA FROM FOURSQUARE</span>
+            </div>
             {results.map((p,i)=>(
               <div key={i} onClick={()=>addPlace(p)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",border:`2px solid ${t.border}`,marginBottom:5,cursor:"pointer",background:t.bg,boxShadow:`2px 2px 0 ${t.border}`,transition:"all 0.12s"}}
                 onMouseEnter={e=>{e.currentTarget.style.borderColor=t.accent;e.currentTarget.style.background=`${t.accent}11`;}}
@@ -1099,11 +1116,12 @@ function AddPlaceModal({onAdd, onClose, theme, t, uid}) {
                 <span style={{fontSize:22,flexShrink:0}}>{p.category?.split(" ")?.[0]||"📍"}</span>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.text,letterSpacing:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
-                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginTop:1,display:"flex",gap:6}}>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginTop:1,display:"flex",gap:6,flexWrap:"wrap"}}>
                     {p.neighborhood&&<span style={{color:t.accent}}>📍{p.neighborhood}</span>}
                     {p.city&&<span>{p.city}</span>}
-                    {p.category&&<span>{p.category}</span>}
+                    {p.rating&&<span style={{color:t.accent}}>★{p.rating}</span>}
                   </div>
+                  {p.address&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,marginTop:1,letterSpacing:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.address}</div>}
                   {p.description&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,marginTop:2,lineHeight:1.3}}>{p.description.slice(0,80)}{p.description.length>80?"…":""}</div>}
                 </div>
                 <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,color:t.accent,flexShrink:0}}>+</div>
