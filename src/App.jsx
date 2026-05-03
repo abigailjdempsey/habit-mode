@@ -948,9 +948,79 @@ Extract as much as possible. Name is required.`);
   } catch { return null; }
 }
 
-function PlaceCard({place, onToggle, onDelete, theme, t}) {
+function EditPlaceModal({place, onSave, onClose, theme, t, uid, existingCities, existingNeighborhoods}) {
+  const [form,setForm]=useState({
+    name:place.name||"",category:place.category||PLACE_CATS[0],
+    city:place.city||"",neighborhood:place.neighborhood||"",
+    address:place.address||"",description:place.description||"",url:place.url||""
+  });
+  const fld=(k,v)=>setForm(p=>({...p,[k]:v}));
+  const inp={width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"11px 13px",color:t.text,fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:8};
+  const lbl={fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:4};
+  const cityNeighborhoods=form.city.trim()?(existingNeighborhoods[form.city.trim()]||[]):Object.values(existingNeighborhoods).flat();
+  const canSave=form.name.trim()&&form.city.trim();
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
+      <div style={{background:t.bg,width:"100%",maxWidth:500,border:`3px solid ${t.border}`,borderBottom:"none",boxShadow:`-6px -6px 0 ${t.border}`,maxHeight:"92vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
+        <div style={{padding:"18px 18px 12px",borderBottom:`2px solid ${t.border}`,flexShrink:0}}>
+          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:20,color:t.text,letterSpacing:4}}>✏️ EDIT PLACE</div>
+        </div>
+        <div style={{padding:"14px 18px",overflowY:"auto",flex:1}}>
+          <input style={{...inp,fontSize:15,fontFamily:"'Black Han Sans',sans-serif",letterSpacing:2,marginBottom:10}} placeholder="PLACE NAME *" value={form.name} onChange={e=>fld("name",e.target.value)} autoFocus/>
+          <div style={{display:"flex",gap:8}}>
+            <div style={{flex:1}}>
+              <div style={lbl}>CITY *</div>
+              <AutocompleteInput value={form.city} onChange={v=>{fld("city",v);fld("neighborhood","");}} options={existingCities} placeholder="e.g. Los Angeles" style={inp} theme={theme} t={t}/>
+            </div>
+            <div style={{flex:1}}>
+              <div style={lbl}>NEIGHBORHOOD</div>
+              <AutocompleteInput value={form.neighborhood} onChange={v=>fld("neighborhood",v)} options={cityNeighborhoods} placeholder="e.g. Silver Lake" style={inp} theme={theme} t={t}/>
+            </div>
+          </div>
+          <div style={lbl}>TYPE</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
+            {PLACE_CATS.map(c=>{
+              const active=form.category===c;
+              const emoji=c.split(" ")[0];
+              const label=c.split(" ").slice(1).join(" ");
+              return(
+                <button key={c} onClick={()=>fld("category",c)} style={{display:"flex",alignItems:"center",gap:4,padding:"6px 10px",border:`2px solid ${active?t.accent:t.border}`,background:active?t.accent:t.bgCard,color:active?t.textInv:t.text,fontFamily:"'Black Han Sans',sans-serif",fontSize:10,letterSpacing:1,cursor:"pointer",boxShadow:active?`2px 2px 0 ${t.border}`:"none",transform:active?"translateY(-1px)":"none",transition:"all 0.1s"}}>
+                  <span style={{fontSize:14}}>{emoji}</span><span>{label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div style={lbl}>ADDRESS <span style={{opacity:0.5}}>(OPTIONAL)</span></div>
+          <input style={inp} placeholder="123 Main St" value={form.address} onChange={e=>fld("address",e.target.value)}/>
+          <div style={lbl}>NOTES <span style={{opacity:0.5}}>(OPTIONAL)</span></div>
+          <input style={inp} placeholder="get the #3, cash only, go at lunch..." value={form.description} onChange={e=>fld("description",e.target.value)}/>
+          <div style={lbl}>LINK <span style={{opacity:0.5}}>(OPTIONAL)</span></div>
+          <input style={{...inp,marginBottom:0}} placeholder="yelp.com/... maps.google.com/..." value={form.url} onChange={e=>fld("url",e.target.value)}/>
+        </div>
+        <div style={{padding:"12px 18px 18px",flexShrink:0,borderTop:`2px solid ${t.border}`}}>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={onClose} style={{flex:1,padding:"12px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:2}}>CANCEL</button>
+            <button onClick={()=>canSave&&onSave({...place,...form,name:form.name.trim(),city:form.city.trim(),neighborhood:form.neighborhood.trim()})} disabled={!canSave} style={{flex:2,padding:"12px",border:`2px solid ${t.border}`,background:canSave?t.addBtn:"transparent",color:canSave?t.addBtnText:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,cursor:canSave?"pointer":"default",letterSpacing:3,boxShadow:canSave?`3px 3px 0 ${t.border}`:"none",opacity:canSave?1:0.4}}>SAVE</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PlaceCard({place, onToggle, onDelete, onEdit, theme, t, existingCities, existingNeighborhoods}) {
+  const [editing,setEditing]=useState(false);
   const catEmoji = place.category?.split(" ")?.[0] || "📍";
   return (
+    <>
+    {editing&&<EditPlaceModal
+      place={place}
+      onSave={updated=>{onEdit(updated);setEditing(false);}}
+      onClose={()=>setEditing(false)}
+      theme={theme} t={t} uid={()=>place.id}
+      existingCities={existingCities||[]}
+      existingNeighborhoods={existingNeighborhoods||{}}
+    />}
     <div style={{background:place.visited?t.bgCard:t.bg,border:`2px solid ${t.border}`,marginBottom:8,display:"flex",alignItems:"stretch",boxShadow:`2px 2px 0 ${t.border}`,overflow:"hidden",opacity:place.visited?0.7:1}}>
       <div style={{width:44,flexShrink:0,background:place.visited?t.border:`${t.accent}18`,borderRight:`2px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{catEmoji}</div>
       <div style={{flex:1,padding:"10px 12px",minWidth:0}}>
@@ -966,9 +1036,11 @@ function PlaceCard({place, onToggle, onDelete, theme, t}) {
       </div>
       <div style={{display:"flex",flexDirection:"column",borderLeft:`2px solid ${t.border}`,flexShrink:0}}>
         <button onClick={()=>onToggle(place.id)} style={{flex:1,width:40,background:place.visited?t.accent:"transparent",border:"none",borderBottom:`1px solid ${t.border}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:place.visited?t.textInv:t.textSub}}>✓</button>
+        <button onClick={()=>setEditing(true)} style={{flex:1,width:40,background:"none",border:"none",borderBottom:`1px solid ${t.border}`,color:t.textSub,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>✏️</button>
         <button onClick={()=>onDelete(place.id)} style={{flex:1,width:40,background:"none",border:"none",color:t.textSub,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
       </div>
     </div>
+    </>
   );
 }
 
@@ -1236,7 +1308,10 @@ function CityView({city, places, setPlaces, theme, t, uid, onBack}) {
       {filtered.map(p=>(
         <PlaceCard key={p.id} place={p} theme={theme} t={t}
           onToggle={id=>setPlaces(prev=>prev.map(pl=>pl.id===id?{...pl,visited:!pl.visited}:pl))}
-          onDelete={id=>setPlaces(prev=>prev.filter(pl=>pl.id!==id))}/>
+          onDelete={id=>setPlaces(prev=>prev.filter(pl=>pl.id!==id))}
+          onEdit={updated=>setPlaces(prev=>prev.map(pl=>pl.id===updated.id?updated:pl))}
+          existingCities={[...new Set(places.map(p=>p.city).filter(Boolean))].sort()}
+          existingNeighborhoods={places.reduce((acc,p)=>{if(p.city&&p.neighborhood){if(!acc[p.city])acc[p.city]=[];if(!acc[p.city].includes(p.neighborhood))acc[p.city].push(p.neighborhood);}return acc;},{})}/>
       ))}
       {cityPlaces.length>0&&filtered.length===0&&<div style={{textAlign:"center",padding:"28px",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:2,border:`2px dashed ${t.border}`}}>NO MATCHES — TRY CLEARING FILTERS</div>}
     </div>
