@@ -14,67 +14,68 @@ export default async function handler(req, res) {
 
   try {
     const params = new URLSearchParams({ query, limit: "12" });
-    // Only add fields that the free tier supports
-    params.set("fields", "fsq_id,name,location,categories,rating,description,website");
-    // near must be a string like "Los Angeles, CA"
+    params.set("fields", "fsq_place_id,name,location,categories,rating,description,website");
     if (near) params.set("near", near);
 
-    const url = `https://api.foursquare.com/v3/places/search?${params}`;
-    
+    const url = `https://places-api.foursquare.com/places/search?${params}`;
+
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        "Authorization": fsKey,
+        "Authorization": `Bearer ${fsKey}`,
         "Accept": "application/json",
+        "X-Places-Api-Version": "2025-06-17",
       },
     });
 
     const text = await response.text();
     let data;
-    try { data = JSON.parse(text); } catch { 
-      return res.status(500).json({ error: "Bad JSON from Foursquare", raw: text.slice(0, 200) }); 
-    }
+    try { data = JSON.parse(text); }
+    catch { return res.status(500).json({ error: "Bad JSON from Foursquare", raw: text.slice(0, 300) }); }
 
     if (!response.ok) {
-      return res.status(response.status).json({ 
-        error: data.message || data.detail || "Foursquare error", 
-        status: response.status,
-        detail: data 
+      return res.status(response.status).json({
+        error: data.message || data.detail || `Foursquare error ${response.status}`,
+        detail: data
       });
     }
 
     const places = (data.results || []).map(p => {
       const loc = p.location || {};
       const cat = p.categories?.[0];
-      // Pick a sensible emoji from category name
       const catName = cat?.name || "Place";
-      const emoji = catName.toLowerCase().includes("restaurant") || catName.toLowerCase().includes("food") ? "🍽️"
+      const emoji =
+        catName.toLowerCase().includes("restaurant") || catName.toLowerCase().includes("food") ? "🍽️"
         : catName.toLowerCase().includes("cafe") || catName.toLowerCase().includes("coffee") ? "☕"
-        : catName.toLowerCase().includes("bar") || catName.toLowerCase().includes("cocktail") ? "🍸"
+        : catName.toLowerCase().includes("bar") || catName.toLowerCase().includes("cocktail") || catName.toLowerCase().includes("nightlife") ? "🍸"
         : catName.toLowerCase().includes("shop") || catName.toLowerCase().includes("store") || catName.toLowerCase().includes("market") ? "🛍️"
-        : catName.toLowerCase().includes("park") || catName.toLowerCase().includes("garden") ? "🌿"
+        : catName.toLowerCase().includes("park") || catName.toLowerCase().includes("garden") || catName.toLowerCase().includes("outdoor") ? "🌿"
         : catName.toLowerCase().includes("museum") || catName.toLowerCase().includes("gallery") || catName.toLowerCase().includes("art") ? "🎨"
         : catName.toLowerCase().includes("hotel") ? "🏨"
         : catName.toLowerCase().includes("gym") || catName.toLowerCase().includes("spa") || catName.toLowerCase().includes("yoga") ? "💆"
         : catName.toLowerCase().includes("music") || catName.toLowerCase().includes("club") || catName.toLowerCase().includes("venue") ? "🎵"
+        : catName.toLowerCase().includes("taco") || catName.toLowerCase().includes("mexican") ? "🌮"
+        : catName.toLowerCase().includes("pizza") ? "🍕"
+        : catName.toLowerCase().includes("burger") ? "🍔"
+        : catName.toLowerCase().includes("ramen") || catName.toLowerCase().includes("japanese") || catName.toLowerCase().includes("sushi") ? "🍜"
         : "📍";
 
       return {
         name: p.name,
         category: `${emoji} ${catName}`,
         city: loc.locality || loc.city || "",
-        neighborhood: loc.neighborhood || loc.cross_street || loc.formatted_address?.split(",")[1]?.trim() || "",
+        neighborhood: loc.neighborhood || loc.cross_street || "",
         address: loc.formatted_address || [loc.address, loc.locality, loc.region].filter(Boolean).join(", "),
         description: p.description || "",
         website: p.website || "",
         url: p.website || "",
-        rating: p.rating ? `${(p.rating/2).toFixed(1)}/5` : null,
-        fsqId: p.fsq_id,
+        rating: p.rating ? `${(p.rating / 2).toFixed(1)}/5` : null,
+        fsqId: p.fsq_place_id,
       };
     });
 
     return res.status(200).json({ places });
   } catch (err) {
-    return res.status(500).json({ error: err.message, stack: err.stack?.slice(0, 300) });
+    return res.status(500).json({ error: err.message });
   }
 }
