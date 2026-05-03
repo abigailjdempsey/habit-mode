@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const fsKey = process.env.FOURSQUARE_KEY;
+  const fsKey = process.env.FOURSQUARE_KEY || process.env.foursquare_key;
   if (!fsKey) return res.status(500).json({ error: "Foursquare key not configured" });
 
   const { query, near } = req.body;
