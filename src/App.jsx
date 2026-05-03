@@ -1949,6 +1949,8 @@ export default function App(){
   const [loaded,setLoaded]=useState(false);
   const [gdriveStatus,setGdriveStatus]=useState("idle"); // idle|connecting|connected|error
   const [showBackup,setShowBackup]=useState(false);
+  const [pendingDelete,setPendingDelete]=useState(null);
+  const pendingDeleteTimer=useRef(null);
   const [showWeekly,setShowWeekly]=useState(false);
   const [viewOffset,setViewOffset]=useState(0); // 0=today, -1=yesterday, etc.
   const sounds=useSounds();
@@ -2002,16 +2004,36 @@ export default function App(){
 
   // Category / subcat CRUD
   const addCat=(cat)=>setCats(prev=>[...prev,cat]);
-  const deleteCat=(id)=>{ setCats(p=>p.filter(c=>c.id!==id)); setSubcats(p=>p.filter(s=>s.catId!==id)); setHabits(p=>p.filter(h=>h.catId!==id)); };
+  const scheduleDelete=(label,doDelete)=>{
+    clearTimeout(pendingDeleteTimer.current);
+    const snap={cats:[...cats],subcats:[...subcats],habits:[...habits]};
+    doDelete();
+    setPendingDelete({label,undo:()=>{setCats(snap.cats);setSubcats(snap.subcats);setHabits(snap.habits);setPendingDelete(null);clearTimeout(pendingDeleteTimer.current);}});
+    pendingDeleteTimer.current=setTimeout(()=>setPendingDelete(null),6000);
+  };
+  const deleteCat=(id)=>{
+    const cat=cats.find(c=>c.id===id);
+    const hc=habits.filter(h=>h.catId===id).length;
+    if(!window.confirm(`Delete "${cat?.label}"${hc>0?` and its ${hc} habit${hc!==1?"s":""}`:""}? This can't be undone.`)) return;
+    scheduleDelete(cat?.label||"category",()=>{setCats(p=>p.filter(c=>c.id!==id));setSubcats(p=>p.filter(s=>s.catId!==id));setHabits(p=>p.filter(h=>h.catId!==id));});
+  };
   const renameCat=(id,label)=>setCats(p=>p.map(c=>c.id===id?{...c,label}:c));
   const colorCat=(id,color)=>setCats(p=>p.map(c=>c.id===id?{...c,color}:c));
   const addSubcat=(sub)=>setSubcats(prev=>[...prev,sub]);
-  const deleteSubcat=(id)=>{ setSubcats(p=>p.filter(s=>s.id!==id)); setHabits(p=>p.map(h=>h.subId===id?{...h,subId:null}:h)); };
+  const deleteSubcat=(id)=>{
+    const sub=subcats.find(s=>s.id===id);
+    if(!window.confirm(`Delete subcategory "${sub?.label}"? Habits inside will stay but lose their subcategory.`)) return;
+    scheduleDelete(sub?.label||"subcategory",()=>{setSubcats(p=>p.filter(s=>s.id!==id));setHabits(p=>p.map(h=>h.subId===id?{...h,subId:null}:h));});
+  };
   const renameSubcat=(id,label)=>setSubcats(p=>p.map(s=>s.id===id?{...s,label}:s));
 
   // Habit CRUD
   const addHabit=(h)=>{setHabits(prev=>[...prev,h]);showToast("HABIT ADDED",h.emoji);};
-  const deleteHabit=(id)=>setHabits(p=>p.filter(h=>h.id!==id));
+  const deleteHabit=(id)=>{
+    const h=habits.find(x=>x.id===id);
+    if(!window.confirm(`Delete "${h?.label}"? All streak and completion data will be lost.`)) return;
+    scheduleDelete(h?.label||"habit",()=>setHabits(p=>p.filter(x=>x.id!==id)));
+  };
 
   const handleExport=()=>exportData({cats,subcats,habits,movies,books,places,cityList,cityEmojis,totalXP,theme});
   const handleImport=(file)=>{
@@ -2072,6 +2094,12 @@ export default function App(){
       `}</style>
 
       <div className="grain"/>
+      {pendingDelete&&(
+        <div style={{position:"fixed",bottom:90,left:"50%",transform:"translateX(-50%)",zIndex:10001,display:"flex",alignItems:"center",border:`2px solid ${t.border}`,boxShadow:`3px 3px 0 ${t.border}`,whiteSpace:"nowrap",overflow:"hidden"}}>
+          <div style={{padding:"10px 14px",fontFamily:"'Black Han Sans',sans-serif",fontSize:11,letterSpacing:2,background:t.accent2,color:"#fff"}}>🗑 "{pendingDelete.label}" DELETED</div>
+          <button onClick={pendingDelete.undo} style={{background:t.bg,color:t.text,border:"none",borderLeft:`2px solid ${t.border}`,padding:"10px 14px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:11,letterSpacing:2}}>↩ UNDO</button>
+        </div>
+      )}
       <Confetti active={confetti} onDone={()=>setConfetti(false)} colors={[t.accent,t.accent2,"#fff",t.bgCard]}/>
       <Flash active={flash} color={`${t.accent2}44`}/>
       <Toast msg={toast.msg} emoji={toast.emoji} show={toast.show} theme={theme}/>
