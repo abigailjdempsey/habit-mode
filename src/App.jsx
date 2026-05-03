@@ -56,7 +56,10 @@ const addCount=(arr,d,rep)=>{ if(rep<=1)return[...arr,d]; const e=arr.find(x=>ty
 const subCount=(arr,d,rep)=>{ if(rep<=1)return arr.filter(x=>x!==d); return arr.map(x=>(typeof x==="object"&&x.date===d)?{...x,count:Math.max(0,x.count-1)}:x).filter(x=>typeof x!=="object"||x.count>0); };
 const totalCompletions=(h)=>{ if(h.repeat<=1)return h.completedDates.length; return h.completedDates.reduce((s,e)=>s+(typeof e==="object"?e.count:1),0); };
 const MILESTONES=[3,7,14,21,30,60,100];
-const TODAY=()=>new Date().toISOString().split("T")[0];
+const TODAY=()=>{
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+};
 const uid=()=>`${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
 
 // ─── DEFAULT DATA ─────────────────────────────────────────────────────────────
@@ -839,6 +842,7 @@ function BackupPanel({theme, state, gdriveStatus, setGdriveStatus, onRestoreGdri
 // ─── HISTORY ──────────────────────────────────────────────────────────────────
 function HistoryLog({habits,theme}){
   const t=THEMES[theme]||THEMES.ravewhite;
+  const todayActual=TODAY();
   const days=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(13-i));return d.toISOString().split("T")[0];});
   const totals=days.map(d=>({date:d,done:habits.filter(h=>isDone(h,d)).length,total:habits.length}));
   return(
@@ -846,7 +850,7 @@ function HistoryLog({habits,theme}){
       <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:26,color:t.text,letterSpacing:4,marginBottom:4}}>HISTORY</div>
       <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:14}}>LAST 14 DAYS</div>
       <div style={{display:"flex",gap:3,alignItems:"flex-end",height:72,marginBottom:3,border:`2px solid ${t.border}`,padding:"6px 6px 0",background:t.bgCard,boxShadow:`3px 3px 0 ${t.border}`}}>
-        {totals.map(({date,done,total})=>{const p=total>0?done/total:0,today=date===TODAY();return<div key={date} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center"}}><div style={{width:"100%",background:p===1?t.accent:p>0?t.accent+"88":t.border,height:`${Math.max(p*52+4,4)}px`,border:today?`2px solid ${t.accent2}`:"none",boxSizing:"border-box",transition:"height 0.4s"}}/></div>;})}
+        {totals.map(({date,done,total})=>{const p=total>0?done/total:0,isToday2=date===todayActual;return<div key={date} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center"}}><div style={{width:"100%",background:p===1?t.accent:p>0?t.accent+"88":t.border,height:`${Math.max(p*52+4,4)}px`,border:isToday2?`2px solid ${t.accent2}`:"none",boxSizing:"border-box",transition:"height 0.4s"}}/></div>;})}
       </div>
       <div style={{display:"flex",gap:3,marginBottom:18}}>{totals.map(({date})=><div key={date} style={{flex:1,textAlign:"center",fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:t.textSub}}>{new Date(date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short"}).slice(0,1)}</div>)}</div>
       <div style={{overflowX:"auto"}}>
@@ -859,7 +863,7 @@ function HistoryLog({habits,theme}){
                 {h.repeat>1&&<span style={{fontSize:8,color:t.accent}}>×{h.repeat}</span>}
               </div>
               {days.map(d=>{
-                const cnt=getCount(h,d),full=isDone(h,d),today=d===TODAY(),pp=h.repeat>1&&!full&&cnt>0?cnt/h.repeat:0;
+                const cnt=getCount(h,d),full=isDone(h,d),today=d===todayActual,pp=h.repeat>1&&!full&&cnt>0?cnt/h.repeat:0;
                 return<div key={d} style={{width:26,height:18,background:full?h.color:t.bgCard,border:`${today?"2px":"1px"} solid ${today?t.accent:full?h.color:t.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,position:"relative",overflow:"hidden"}}>
                   {!full&&pp>0&&<div style={{position:"absolute",left:0,top:0,bottom:0,width:`${pp*100}%`,background:`${h.color}55`}}/>}
                   <span style={{position:"relative"}}>{full?h.emoji:cnt>0?cnt:""}</span>
@@ -896,8 +900,17 @@ export default function App(){
   const [loaded,setLoaded]=useState(false);
   const [gdriveStatus,setGdriveStatus]=useState("idle"); // idle|connecting|connected|error
   const [showBackup,setShowBackup]=useState(false);
+  const [viewOffset,setViewOffset]=useState(0); // 0=today, -1=yesterday, etc.
   const sounds=useSounds();
   const todayStr=TODAY();
+  // viewDate: the date currently being viewed
+  const viewDate=(() => {
+    const d=new Date();
+    d.setDate(d.getDate()+viewOffset);
+    return d.toISOString().split("T")[0];
+  })();
+  const isToday=viewOffset===0;
+  const viewDateLabel=isToday?"TODAY":viewOffset===-1?"YESTERDAY":new Date(viewDate+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"}).toUpperCase();
   const t=THEMES[theme]||THEMES.ravewhite;
   const newCatRef=useRef(null);
   const importRef=useRef(null);
@@ -980,10 +993,10 @@ export default function App(){
   const addList=(type,item)=>{if(type==="movie")setMovies(p=>[...p,item]);else setBooks(p=>[...p,item]);};
   const renameList=(type,id,title)=>{if(type==="movie")setMovies(p=>p.map(m=>m.id===id?{...m,title}:m));else setBooks(p=>p.map(b=>b.id===id?{...b,title}:b));};
 
-  const doneCount=habits.filter(h=>isDone(h,todayStr)).length;
+  const doneCount=habits.filter(h=>isDone(h,viewDate)).length;
   const drawerHabit=habits.find(h=>h.id===openDrawer);
 
-  const navItems=[{id:"today",emoji:"☀️",label:"TODAY"},{id:"movies",emoji:"🎬",label:"FILMS"},{id:"books",emoji:"📖",label:"BOOKS"},{id:"history",emoji:"📅",label:"LOG"},{id:"stats",emoji:"📊",label:"STATS"}];
+  const navItems=[{id:"today",emoji:"☀️",label:"TODAY"},{id:"movies",emoji:"🎬",label:"FILMS"},{id:"books",emoji:"📖",label:"BOOKS"},{id:"log",emoji:"📊",label:"LOG"},{id:"settings",emoji:"⚙️",label:"SETTINGS"}];
 
   if(!loaded) return <div style={{background:"#0a0a0a",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:28,color:"#e8ff00",letterSpacing:6}}>LOADING...</div></div>;
 
@@ -1011,18 +1024,30 @@ export default function App(){
       {addModal&&<AddModal type={addModal} onAdd={item=>addList(addModal,item)} onClose={()=>setAddModal(null)} theme={theme}/>}
       {addHabitCtx&&<AddHabitModal catId={addHabitCtx.catId} subId={addHabitCtx.subId} cats={cats} subcats={subcats} onAdd={addHabit} onClose={()=>setAddHabitCtx(null)} theme={theme}/>}
       {showTheme&&<ThemePicker current={theme} onChange={setTheme} onClose={()=>setShowTheme(false)}/>}
-      {drawerHabit&&<RepeatDrawer habit={drawerHabit} todayStr={todayStr} count={getCount(drawerHabit,todayStr)} onIncrement={completeHabit} onDecrement={undoOne} onRename={renameHabit} onClose={()=>setOpenDrawer(null)} theme={theme}/>}
+      {drawerHabit&&<RepeatDrawer habit={drawerHabit} todayStr={viewDate} count={getCount(drawerHabit,viewDate)} onIncrement={isToday?completeHabit:()=>{}} onDecrement={isToday?undoOne:()=>{}} onRename={isToday?renameHabit:()=>{}} onClose={()=>setOpenDrawer(null)} theme={theme}/>}
 
       <div style={{background:t.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:90}}>
         {/* Header */}
         <div style={{padding:"22px 16px 12px",borderBottom:`2px solid ${t.border}`}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:tab==="today"?10:0}}>
             <div>
               <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:32,color:t.text,letterSpacing:5,lineHeight:1}}>HABIT MODE</div>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,marginTop:3,letterSpacing:3}}>{new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}).toUpperCase()}</div>
             </div>
-            <button onClick={()=>setShowTheme(true)} style={{background:t.accent,border:`2px solid ${t.border}`,padding:"7px 12px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:11,color:t.textInv,letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`}}>{t.emoji} THEME</button>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,padding:"7px 0"}}>{t.emoji} {t.name}</div>
           </div>
+          {/* Day navigation — only shown on Today tab */}
+          {tab==="today"&&(
+            <div style={{display:"flex",alignItems:"center",gap:0}}>
+              <button onClick={()=>setViewOffset(o=>o-1)} style={{background:"transparent",border:`2px solid ${t.border}`,borderRight:"none",padding:"7px 12px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:t.text,boxShadow:`2px 2px 0 ${t.border}`}}>◀</button>
+              <div style={{flex:1,textAlign:"center",border:`2px solid ${t.border}`,borderRight:"none",padding:"7px 12px",background:isToday?t.accent:t.bgCard,boxShadow:`2px 2px 0 ${t.border}`}}>
+                <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:isToday?t.textInv:t.text,letterSpacing:3}}>{viewDateLabel}</div>
+                {!isToday&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:isToday?t.textInv:t.textSub,letterSpacing:2,marginTop:1}}>{new Date(viewDate+"T12:00:00").toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</div>}
+              </div>
+              <button onClick={()=>setViewOffset(o=>Math.min(0,o+1))} disabled={isToday} style={{background:"transparent",border:`2px solid ${t.border}`,padding:"7px 12px",cursor:isToday?"default":"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:isToday?t.textSub:t.text,opacity:isToday?0.3:1,boxShadow:`2px 2px 0 ${t.border}`}}>▶</button>
+              {!isToday&&<button onClick={()=>setViewOffset(0)} style={{background:t.accent,border:`2px solid ${t.border}`,borderLeft:"none",padding:"7px 10px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:10,color:t.textInv,letterSpacing:1,boxShadow:`2px 2px 0 ${t.border}`,whiteSpace:"nowrap"}}>TODAY</button>}
+            </div>
+          )}
+          {tab!=="today"&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,marginTop:3,letterSpacing:3}}>{new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}).toUpperCase()}</div>}
         </div>
 
         <div style={{padding:"14px 14px 0"}}>
@@ -1040,15 +1065,19 @@ export default function App(){
                 </div>
               </div>
 
+              {/* Past day banner */}
+              {!isToday&&<div style={{background:`${t.accent2}18`,border:`2px solid ${t.accent2}`,padding:"10px 14px",marginBottom:12,boxShadow:`2px 2px 0 ${t.border}`}}>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.accent2,letterSpacing:2}}>VIEWING PAST DAY — READ ONLY</div>
+              </div>}
               {/* Categories */}
               {cats.map(cat=>(
-                <CategoryBlock key={cat.id} cat={cat} subcats={subcats} habits={habits} todayStr={todayStr} theme={theme}
-                  onComplete={completeHabit} onUndoOne={undoOne}
-                  onDeleteHabit={deleteHabit} onRenameHabit={renameHabit}
-                  onOpenDrawer={setOpenDrawer}
-                  onDeleteCat={deleteCat} onRenameCat={renameCat}
-                  onAddSubcat={addSubcat} onDeleteSubcat={deleteSubcat} onRenameSubcat={renameSubcat}
-                  onAddHabit={(catId,subId)=>setAddHabitCtx({catId,subId})}/>
+                <CategoryBlock key={cat.id} cat={cat} subcats={subcats} habits={habits} todayStr={viewDate} theme={theme}
+                  onComplete={isToday?completeHabit:()=>{}} onUndoOne={isToday?undoOne:()=>{}}
+                  onDeleteHabit={isToday?deleteHabit:()=>{}} onRenameHabit={isToday?renameHabit:()=>{}}
+                  onOpenDrawer={isToday?setOpenDrawer:()=>{}}
+                  onDeleteCat={isToday?deleteCat:()=>{}} onRenameCat={isToday?renameCat:()=>{}}
+                  onAddSubcat={isToday?addSubcat:()=>{}} onDeleteSubcat={isToday?deleteSubcat:()=>{}} onRenameSubcat={isToday?renameSubcat:()=>{}}
+                  onAddHabit={isToday?(catId,subId)=>setAddHabitCtx({catId,subId}):()=>{}}/>
               ))}
 
               {/* Add category */}
@@ -1080,10 +1109,60 @@ export default function App(){
             </>
           )}
 
-          {tab==="history"&&<HistoryLog habits={habits} theme={theme}/>}
-
-          {tab==="stats"&&(
+          {tab==="log"&&(
             <>
+              {/* Stats grid */}
+              <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4,marginBottom:12}}>📊 STATS</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
+                {[{label:"TOTAL XP",value:totalXP,emoji:"⚡"},{label:"LEVEL",value:Math.floor(totalXP/100)+1,emoji:"🏆"},{label:"FILMS WATCHED",value:movies.filter(m=>m.done).length,emoji:"🎬"},{label:"BOOKS DONE",value:books.filter(b=>b.done).length,emoji:"📖"},{label:"DONE TODAY",value:doneCount,emoji:"☀️"},{label:"TOTAL HABITS",value:habits.length,emoji:"🎯"}].map(s=>(
+                  <div key={s.label} style={{background:t.bgCard,border:`2px solid ${t.border}`,padding:"13px 14px",boxShadow:`2px 2px 0 ${t.border}`}}>
+                    <div style={{fontSize:18}}>{s.emoji}</div>
+                    <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:28,color:t.accent,marginTop:3,letterSpacing:2}}>{s.value}</div>
+                    <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,marginTop:1,letterSpacing:2}}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+              {/* Streaks */}
+              <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,color:t.text,marginBottom:8,letterSpacing:4}}>🔥 STREAKS</div>
+              <div style={{marginBottom:20}}>
+                {habits.map(h=>(
+                  <div key={h.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:7,background:t.bgCard,border:`2px solid ${t.border}`,padding:"11px 12px",boxShadow:`2px 2px 0 ${t.border}`}}>
+                    <span style={{fontSize:18}}>{h.emoji}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:2}}>{h.label}{h.repeat>1&&<span style={{fontSize:10,color:t.textSub,marginLeft:5}}>×{h.repeat}/day</span>}</div>
+                      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1}}>{totalCompletions(h)} COMPLETIONS</div>
+                      <div style={{display:"flex",gap:3,marginTop:3,flexWrap:"wrap"}}>
+                        {MILESTONES.filter(m=>m<=h.streak).map(m=><span key={m} style={{fontSize:9,background:t.accent,color:t.textInv,padding:"1px 5px",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>🏅{m}D</span>)}
+                      </div>
+                    </div>
+                    <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:20,color:t.accent2,letterSpacing:2}}>🔥{h.streak}</div>
+                  </div>
+                ))}
+              </div>
+              {/* History log */}
+              <HistoryLog habits={habits} theme={theme}/>
+            </>
+          )}
+
+          {tab==="settings"&&(
+            <>
+              <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4,marginBottom:14}}>⚙️ SETTINGS</div>
+
+              {/* Theme picker inline */}
+              <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:t.text,letterSpacing:4,marginBottom:10}}>🎨 THEME</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:20}}>
+                {Object.entries(THEMES).map(([key,th])=>(
+                  <button key={key} onClick={()=>setTheme(key)} style={{background:th.bg,border:`3px solid ${theme===key?th.accent:th.border}`,padding:"14px 8px",cursor:"pointer",textAlign:"center",boxShadow:theme===key?`4px 4px 0 ${th.accent}`:`2px 2px 0 ${th.border}`,transition:"all 0.15s"}}>
+                    <div style={{fontSize:22}}>{th.emoji}</div>
+                    <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:th.text,marginTop:5,letterSpacing:2}}>{th.name}</div>
+                    <div style={{display:"flex",gap:3,justifyContent:"center",marginTop:6}}>
+                      {[th.accent,th.accent2].map((c,i)=><div key={i} style={{width:10,height:10,background:c,border:`1px solid ${th.border}`}}/>)}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Backup */}
               <BackupPanel
                 theme={theme}
                 state={{cats,subcats,habits,movies,books,totalXP,theme}}
@@ -1094,30 +1173,6 @@ export default function App(){
                 onImport={handleImport}
                 importRef={importRef}
               />
-              <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:26,color:t.text,letterSpacing:4,marginBottom:14}}>STATS</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:18}}>
-                {[{label:"TOTAL XP",value:totalXP,emoji:"⚡"},{label:"LEVEL",value:Math.floor(totalXP/100)+1,emoji:"🏆"},{label:"FILMS QUEUED",value:movies.length,emoji:"🎬"},{label:"BOOKS QUEUED",value:books.length,emoji:"📖"},{label:"FILMS WATCHED",value:movies.filter(m=>m.done).length,emoji:"✅"},{label:"BOOKS DONE",value:books.filter(b=>b.done).length,emoji:"✅"},{label:"CATEGORIES",value:cats.length,emoji:"🗂️"},{label:"DONE TODAY",value:doneCount,emoji:"☀️"}].map(s=>(
-                  <div key={s.label} style={{background:t.bgCard,border:`2px solid ${t.border}`,padding:"13px 14px",boxShadow:`2px 2px 0 ${t.border}`}}>
-                    <div style={{fontSize:18}}>{s.emoji}</div>
-                    <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:28,color:t.accent,marginTop:3,letterSpacing:2}}>{s.value}</div>
-                    <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,marginTop:1,letterSpacing:2}}>{s.label}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,color:t.text,marginBottom:8,letterSpacing:4}}>STREAKS</div>
-              {habits.map(h=>(
-                <div key={h.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:7,background:t.bgCard,border:`2px solid ${t.border}`,padding:"11px 12px",boxShadow:`2px 2px 0 ${t.border}`}}>
-                  <span style={{fontSize:18}}>{h.emoji}</span>
-                  <div style={{flex:1}}>
-                    <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:2}}>{h.label}{h.repeat>1&&<span style={{fontSize:10,color:t.textSub,marginLeft:5}}>×{h.repeat}/day</span>}</div>
-                    <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1}}>{totalCompletions(h)} COMPLETIONS</div>
-                    <div style={{display:"flex",gap:3,marginTop:3,flexWrap:"wrap"}}>
-                      {MILESTONES.filter(m=>m<=h.streak).map(m=><span key={m} style={{fontSize:9,background:t.accent,color:t.textInv,padding:"1px 5px",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>🏅{m}D</span>)}
-                    </div>
-                  </div>
-                  <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:20,color:t.accent2,letterSpacing:2}}>🔥{h.streak}</div>
-                </div>
-              ))}
             </>
           )}
         </div>
