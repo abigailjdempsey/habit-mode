@@ -877,6 +877,259 @@ function HistoryLog({habits,theme}){
   );
 }
 
+// ─── TRY TAB ─────────────────────────────────────────────────────────────────
+const PLACE_CATS = ["🍽️ Restaurant","☕ Cafe","🍸 Bar","🛍️ Store","🌿 Park","🎨 Art/Culture","🎵 Music/Venue","💆 Wellness","🎭 Entertainment","📦 Other"];
+
+async function searchPlace(query, claudeJSON) {
+  const res = await claudeJSON(`Find up to 8 real places matching: "${query}"
+These could be restaurants, cafes, bars, stores, parks, or any place to visit.
+Return JSON array: [{"name":string,"category":string,"city":string,"neighborhood":string,"address":string,"description":string}]
+Only real, well-known or highly-rated places. Be specific with neighborhood names.`);
+  return Array.isArray(res) ? res : [];
+}
+
+async function fetchPlaceMeta(url, claudeJSON) {
+  try {
+    const r = await fetch("/api/claude", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({mode:"fetch-url", url})
+    });
+    const pageData = await r.json();
+    return claudeJSON(`Extract place info from this page.
+Final URL: ${pageData.finalUrl||url}
+Title: ${pageData.ogTitle||pageData.title||""}
+Description: ${pageData.ogDesc||""}
+Text: ${pageData.bodySnippet||""}
+Return JSON: {"name":string,"category":string,"city":string,"neighborhood":string,"address":string,"description":string}
+Extract as much as possible from the page content.`);
+  } catch { return null; }
+}
+
+function PlaceCard({place, onToggle, onDelete, theme, t}) {
+  const catEmoji = place.category?.split(" ")?.[0] || "📍";
+  return (
+    <div style={{background:place.visited?t.bgCard:t.bg,border:`2px solid ${t.border}`,marginBottom:8,display:"flex",alignItems:"stretch",boxShadow:`2px 2px 0 ${t.border}`,overflow:"hidden",opacity:place.visited?0.7:1}}>
+      <div style={{width:44,flexShrink:0,background:place.visited?t.border:`${t.accent}18`,borderRight:`2px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{catEmoji}</div>
+      <div style={{flex:1,padding:"10px 12px",minWidth:0}}>
+        <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:place.visited?t.textSub:t.text,letterSpacing:2,textDecoration:place.visited?"line-through":"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{place.name}</div>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginTop:2,display:"flex",gap:6,flexWrap:"wrap"}}>
+          {place.neighborhood&&<span style={{color:t.accent}}>📍{place.neighborhood}</span>}
+          {place.city&&<span>{place.city}</span>}
+          {place.category&&<span style={{background:`${t.accent}18`,padding:"0 5px",border:`1px solid ${t.border}`}}>{place.category}</span>}
+        </div>
+        {place.description&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,marginTop:3,letterSpacing:1,lineHeight:1.4}}>{place.description}</div>}
+        {place.address&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,marginTop:2,letterSpacing:1}}>{place.address}</div>}
+        {place.url&&<a href={place.url} target="_blank" rel="noopener noreferrer" style={{fontSize:10,color:t.accent2,fontFamily:"'Barlow Condensed',sans-serif",textDecoration:"none",display:"block",marginTop:2,letterSpacing:1}}>↗ {place.url.replace(/^https?:\/\//,"").slice(0,40)}</a>}
+      </div>
+      <div style={{display:"flex",flexDirection:"column",borderLeft:`2px solid ${t.border}`,flexShrink:0}}>
+        <button onClick={()=>onToggle(place.id)} style={{flex:1,width:40,background:place.visited?t.accent:"transparent",border:"none",borderBottom:`1px solid ${t.border}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:place.visited?t.textInv:t.textSub}}>✓</button>
+        <button onClick={()=>onDelete(place.id)} style={{flex:1,width:40,background:"none",border:"none",color:t.textSub,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+      </div>
+    </div>
+  );
+}
+
+function AddPlaceModal({onAdd, onClose, theme, t, uid}) {
+  const [mode,setMode]=useState("search");
+  const [searchVal,setSearchVal]=useState("");
+  const [urlVal,setUrlVal]=useState("");
+  const [status,setStatus]=useState("idle");
+  const [results,setResults]=useState([]);
+  const [preview,setPreview]=useState(null);
+  const [manualForm,setManualForm]=useState({name:"",category:PLACE_CATS[0],city:"",neighborhood:"",address:"",description:""});
+
+  const inp={width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"10px 12px",color:t.text,fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:8};
+  const lbl={fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:4,textTransform:"uppercase"};
+
+  const doSearch=async()=>{
+    if(!searchVal.trim())return;
+    setStatus("loading");
+    const res=await searchPlace(searchVal.trim(), claudeJSON);
+    if(res.length){setResults(res);setStatus("results");}
+    else setStatus("error");
+  };
+
+  const doImport=async()=>{
+    if(!urlVal.trim())return;
+    setStatus("loading");
+    const meta=await fetchPlaceMeta(urlVal.trim(), claudeJSON);
+    if(meta?.name){setPreview({...meta,url:urlVal.trim()});setStatus("preview");}
+    else setStatus("error");
+  };
+
+  const addPlace=(p)=>{
+    onAdd({id:uid(),name:p.name||"Unnamed",category:p.category||PLACE_CATS[0],city:p.city||"",neighborhood:p.neighborhood||"",address:p.address||"",description:p.description||"",url:p.url||"",visited:false,addedDate:new Date().toISOString().split("T")[0]});
+    onClose();
+  };
+
+  const tabBtn=(id,lbl2)=><button onClick={()=>{setMode(id);setStatus("idle");setResults([]);setPreview(null);}} style={{flex:1,padding:"9px",border:`2px solid ${mode===id?t.accent:t.border}`,background:mode===id?t.accent:"transparent",color:mode===id?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,boxShadow:mode===id?`2px 2px 0 ${t.border}`:"none"}}>{lbl2}</button>;
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
+      <div style={{background:t.bg,width:"100%",maxWidth:500,border:`3px solid ${t.border}`,borderBottom:"none",boxShadow:`-6px -6px 0 ${t.border}`,maxHeight:"90vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
+        <div style={{padding:"18px 18px 0",flexShrink:0}}>
+          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:20,color:t.text,letterSpacing:4,marginBottom:12}}>📍 ADD A PLACE</div>
+          <div style={{display:"flex",gap:6,marginBottom:14}}>{tabBtn("search","SEARCH")}{tabBtn("url","PASTE URL")}{tabBtn("manual","MANUAL")}</div>
+        </div>
+        <div style={{padding:"0 18px 14px",overflowY:"auto",flex:1}}>
+          {mode==="search"&&<>
+            <div style={lbl}>SEARCH FOR A PLACE</div>
+            <div style={{display:"flex",gap:6,marginBottom:10}}>
+              <input style={{...inp,flex:1,marginBottom:0}} placeholder="e.g. ramen in brooklyn, coffee shops NYC..." value={searchVal} onChange={e=>setSearchVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doSearch()} autoFocus/>
+              <button onClick={doSearch} disabled={!searchVal.trim()||status==="loading"} style={{padding:"10px 14px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:1,opacity:!searchVal.trim()?0.4:1,boxShadow:`2px 2px 0 ${t.border}`,flexShrink:0}}>{status==="loading"?"...":"GO"}</button>
+            </div>
+          </>}
+          {mode==="url"&&<>
+            <div style={lbl}>PASTE GOOGLE MAPS OR ANY URL</div>
+            <div style={{display:"flex",gap:6,marginBottom:10}}>
+              <input style={{...inp,flex:1,marginBottom:0}} placeholder="maps.google.com/... or yelp.com/..." value={urlVal} onChange={e=>setUrlVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doImport()} autoFocus/>
+              <button onClick={doImport} disabled={!urlVal.trim()||status==="loading"} style={{padding:"10px 14px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:1,opacity:!urlVal.trim()?0.4:1,boxShadow:`2px 2px 0 ${t.border}`,flexShrink:0}}>{status==="loading"?"...":"IMPORT"}</button>
+            </div>
+          </>}
+          {mode==="manual"&&<>
+            <input style={inp} placeholder="PLACE NAME" value={manualForm.name} onChange={e=>setManualForm(f=>({...f,name:e.target.value}))} autoFocus/>
+            <div style={lbl}>CATEGORY</div>
+            <select style={{...inp,marginBottom:8,cursor:"pointer"}} value={manualForm.category} onChange={e=>setManualForm(f=>({...f,category:e.target.value}))}>
+              {PLACE_CATS.map(c=><option key={c} value={c}>{c}</option>)}
+            </select>
+            <div style={{display:"flex",gap:6}}>
+              <input style={{...inp,flex:1}} placeholder="CITY" value={manualForm.city} onChange={e=>setManualForm(f=>({...f,city:e.target.value}))}/>
+              <input style={{...inp,flex:1}} placeholder="NEIGHBORHOOD" value={manualForm.neighborhood} onChange={e=>setManualForm(f=>({...f,neighborhood:e.target.value}))}/>
+            </div>
+            <input style={inp} placeholder="ADDRESS (OPTIONAL)" value={manualForm.address} onChange={e=>setManualForm(f=>({...f,address:e.target.value}))}/>
+            <input style={inp} placeholder="NOTES (OPTIONAL)" value={manualForm.description} onChange={e=>setManualForm(f=>({...f,description:e.target.value}))}/>
+            <button onClick={()=>manualForm.name.trim()&&addPlace(manualForm)} disabled={!manualForm.name.trim()} style={{width:"100%",padding:"12px",border:`2px solid ${t.border}`,background:manualForm.name.trim()?t.addBtn:"transparent",color:manualForm.name.trim()?t.addBtnText:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,cursor:manualForm.name.trim()?"pointer":"default",letterSpacing:3,boxShadow:manualForm.name.trim()?`2px 2px 0 ${t.border}`:"none",opacity:manualForm.name.trim()?1:0.4}}>ADD PLACE</button>
+          </>}
+
+          {status==="loading"&&<div style={{textAlign:"center",padding:"22px",border:`2px dashed ${t.border}`}}><div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.accent,letterSpacing:3}}>LOOKING IT UP...</div></div>}
+          {status==="error"&&<div style={{padding:"12px",border:`2px solid ${t.accent2}`,background:`${t.accent2}11`,marginTop:8}}><div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.accent2,letterSpacing:2}}>COULDN'T FIND IT. TRY MANUAL.</div></div>}
+
+          {status==="preview"&&preview&&<div style={{border:`2px solid ${t.accent}`,boxShadow:`3px 3px 0 ${t.accent}`,marginTop:8}}>
+            <div style={{background:`${t.accent}18`,borderBottom:`2px solid ${t.accent}`,padding:"7px 12px"}}><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.accent,letterSpacing:2}}>✓ FOUND IT</span></div>
+            <div style={{padding:"14px"}}>
+              <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:15,color:t.text,letterSpacing:2}}>{preview.name}</div>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.textSub,letterSpacing:1,marginTop:4,display:"flex",gap:8,flexWrap:"wrap"}}>
+                {preview.category&&<span>{preview.category}</span>}
+                {preview.neighborhood&&<span style={{color:t.accent}}>📍{preview.neighborhood}</span>}
+                {preview.city&&<span>{preview.city}</span>}
+              </div>
+              {preview.description&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.textSub,marginTop:6,lineHeight:1.4}}>{preview.description}</div>}
+            </div>
+            <button onClick={()=>addPlace(preview)} style={{width:"100%",padding:"12px",border:"none",borderTop:`2px solid ${t.accent}`,background:t.accent,color:t.textInv,fontFamily:"'Black Han Sans',sans-serif",fontSize:14,cursor:"pointer",letterSpacing:4}}>+ ADD TO LIST</button>
+          </div>}
+
+          {status==="results"&&results.length>0&&<>
+            <div style={{...lbl,marginTop:8}}>PICK ONE:</div>
+            {results.map((p,i)=>(
+              <div key={i} onClick={()=>addPlace(p)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",border:`2px solid ${t.border}`,marginBottom:5,cursor:"pointer",background:t.bg,boxShadow:`2px 2px 0 ${t.border}`,transition:"all 0.12s"}}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor=t.accent;e.currentTarget.style.background=`${t.accent}11`;}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor=t.border;e.currentTarget.style.background=t.bg;}}>
+                <span style={{fontSize:22,flexShrink:0}}>{p.category?.split(" ")?.[0]||"📍"}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.text,letterSpacing:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginTop:1,display:"flex",gap:6}}>
+                    {p.neighborhood&&<span style={{color:t.accent}}>📍{p.neighborhood}</span>}
+                    {p.city&&<span>{p.city}</span>}
+                    {p.category&&<span>{p.category}</span>}
+                  </div>
+                  {p.description&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,marginTop:2,lineHeight:1.3}}>{p.description.slice(0,80)}{p.description.length>80?"…":""}</div>}
+                </div>
+                <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,color:t.accent,flexShrink:0}}>+</div>
+              </div>
+            ))}
+          </>}
+        </div>
+        <div style={{padding:"0 18px 18px",flexShrink:0}}>
+          <button onClick={onClose} style={{width:"100%",padding:"11px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:3}}>CANCEL</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TryTab({places, setPlaces, theme, t, uid}) {
+  const [showAdd,setShowAdd]=useState(false);
+  const [filterCity,setFilterCity]=useState("ALL");
+  const [filterNeighborhood,setFilterNeighborhood]=useState("ALL");
+  const [filterCat,setFilterCat]=useState("ALL");
+  const [search,setSearch]=useState("");
+  const [showVisited,setShowVisited]=useState(false);
+
+  const cities=["ALL",...[...new Set(places.map(p=>p.city).filter(Boolean))].sort()];
+  const neighborhoods=["ALL",...[...new Set(places.filter(p=>filterCity==="ALL"||p.city===filterCity).map(p=>p.neighborhood).filter(Boolean))].sort()];
+  const cats=["ALL",...[...new Set(places.map(p=>p.category).filter(Boolean))].sort()];
+
+  const filtered=places.filter(p=>{
+    if(!showVisited&&p.visited) return false;
+    if(filterCity!=="ALL"&&p.city!==filterCity) return false;
+    if(filterNeighborhood!=="ALL"&&p.neighborhood!==filterNeighborhood) return false;
+    if(filterCat!=="ALL"&&p.category!==filterCat) return false;
+    if(search.trim()&&!`${p.name} ${p.city} ${p.neighborhood} ${p.category} ${p.description}`.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  const selStyle=(active)=>({background:active?t.accent:"transparent",border:`1.5px solid ${active?t.accent:t.border}`,color:active?t.textInv:t.textSub,padding:"5px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:1,whiteSpace:"nowrap"});
+
+  return(
+    <div>
+      {showAdd&&<AddPlaceModal onAdd={p=>{setPlaces(prev=>[...prev,p]);}} onClose={()=>setShowAdd(false)} theme={theme} t={t} uid={uid}/>}
+
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,borderBottom:`2px solid ${t.border}`,paddingBottom:10}}>
+        <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4}}>📍 TRY LIST</div>
+        <button onClick={()=>setShowAdd(true)} style={{background:t.addBtn,border:`2px solid ${t.border}`,padding:"8px 16px",fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.addBtnText,cursor:"pointer",letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`}}>+ ADD</button>
+      </div>
+
+      {/* Search */}
+      <input style={{width:"100%",background:t.bgCard,border:`2px solid ${t.border}`,padding:"10px 12px",color:t.text,fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:10}} placeholder="SEARCH PLACES..." value={search} onChange={e=>setSearch(e.target.value)}/>
+
+      {/* Filters */}
+      {places.length>0&&<>
+        {/* City filter */}
+        {cities.length>2&&<div style={{marginBottom:6}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:4}}>CITY</div>
+          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+            {cities.map(c=><button key={c} onClick={()=>{setFilterCity(c);setFilterNeighborhood("ALL");}} style={selStyle(filterCity===c)}>{c}</button>)}
+          </div>
+        </div>}
+        {/* Neighborhood filter */}
+        {neighborhoods.length>2&&<div style={{marginBottom:6}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:4}}>NEIGHBORHOOD</div>
+          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+            {neighborhoods.map(n=><button key={n} onClick={()=>setFilterNeighborhood(n)} style={selStyle(filterNeighborhood===n)}>{n}</button>)}
+          </div>
+        </div>}
+        {/* Category filter */}
+        <div style={{marginBottom:10}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:4}}>CATEGORY</div>
+          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+            {cats.map(c=><button key={c} onClick={()=>setFilterCat(filterCat===c?"ALL":c)} style={selStyle(filterCat===c)}>{c}</button>)}
+          </div>
+        </div>
+        {/* Show visited toggle */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>{filtered.length} PLACE{filtered.length!==1?"S":""}</span>
+          <button onClick={()=>setShowVisited(v=>!v)} style={selStyle(showVisited)}>{showVisited?"HIDE VISITED":"SHOW VISITED"}</button>
+        </div>
+      </>}
+
+      {/* Empty state */}
+      {places.length===0&&<div style={{textAlign:"center",padding:"44px 20px",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,letterSpacing:2,border:`2px dashed ${t.border}`}}>
+        <div style={{fontSize:34,marginBottom:10}}>📍</div>
+        YOUR CITY GUIDE STARTS HERE.<br/>SEARCH, PASTE A MAPS LINK, OR ADD MANUALLY.
+      </div>}
+
+      {/* Place list */}
+      {filtered.map(p=>(
+        <PlaceCard key={p.id} place={p} theme={theme} t={t}
+          onToggle={id=>setPlaces(prev=>prev.map(pl=>pl.id===id?{...pl,visited:!pl.visited}:pl))}
+          onDelete={id=>setPlaces(prev=>prev.filter(pl=>pl.id!==id))}/>
+      ))}
+      {places.length>0&&filtered.length===0&&<div style={{textAlign:"center",padding:"32px 20px",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:2,border:`2px dashed ${t.border}`}}>NO PLACES MATCH YOUR FILTERS</div>}
+    </div>
+  );
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App(){
   const [cats,setCats]=useState(DEFAULT_DATA.categories);
@@ -885,6 +1138,8 @@ export default function App(){
   const [movies,setMovies]=useState([]);
   const [books,setBooks]=useState([]);
   const [totalXP,setTotalXP]=useState(0);
+  const [places,setPlaces]=useState([]);
+  const [watchSubtab,setWatchSubtab]=useState("movies"); // movies|books
   const [theme,setTheme]=useState("ravewhite");
   const [tab,setTab]=useState("today");
   const [confetti,setConfetti]=useState(false);
@@ -915,10 +1170,10 @@ export default function App(){
   const newCatRef=useRef(null);
   const importRef=useRef(null);
 
-  useEffect(()=>{load().then(saved=>{if(saved){setCats(saved.cats||DEFAULT_DATA.categories);setSubcats(saved.subcats||DEFAULT_DATA.subcategories);setHabits(saved.habits||DEFAULT_DATA.habits);setMovies(saved.movies||[]);setBooks(saved.books||[]);setTotalXP(saved.totalXP||0);setTheme(saved.theme||"ravewhite");}setLoaded(true);});},[]);
+  useEffect(()=>{load().then(saved=>{if(saved){setCats(saved.cats||DEFAULT_DATA.categories);setSubcats(saved.subcats||DEFAULT_DATA.subcategories);setHabits(saved.habits||DEFAULT_DATA.habits);setMovies(saved.movies||[]);setBooks(saved.books||[]);setPlaces(saved.places||[]);setTotalXP(saved.totalXP||0);setTheme(saved.theme||"ravewhite");}setLoaded(true);});},[]);
   useEffect(()=>{
     if(!loaded)return;
-    const state={cats,subcats,habits,movies,books,totalXP,theme};
+    const state={cats,subcats,habits,movies,books,places,totalXP,theme};
     save(state);
     // Auto-backup to Google Drive (debounced — only after 3s of no changes)
     if(gdriveStatus==="connected"){
@@ -962,7 +1217,7 @@ export default function App(){
   const addHabit=(h)=>{setHabits(prev=>[...prev,h]);showToast("HABIT ADDED",h.emoji);};
   const deleteHabit=(id)=>setHabits(p=>p.filter(h=>h.id!==id));
 
-  const handleExport=()=>exportData({cats,subcats,habits,movies,books,totalXP,theme});
+  const handleExport=()=>exportData({cats,subcats,habits,movies,books,places,totalXP,theme});
   const handleImport=(file)=>{
     importData(file, (data)=>{
       if(data.cats) setCats(data.cats);
@@ -981,6 +1236,7 @@ export default function App(){
     if(data.habits) setHabits(data.habits);
     if(data.movies) setMovies(data.movies);
     if(data.books) setBooks(data.books);
+    if(data.places) setPlaces(data.places);
     if(data.totalXP!=null) setTotalXP(data.totalXP);
     if(data.theme) setTheme(data.theme);
     showToast("RESTORED FROM DRIVE","☁️");
@@ -996,7 +1252,7 @@ export default function App(){
   const doneCount=habits.filter(h=>isDone(h,viewDate)).length;
   const drawerHabit=habits.find(h=>h.id===openDrawer);
 
-  const navItems=[{id:"today",emoji:"☀️",label:"TODAY"},{id:"movies",emoji:"🎬",label:"FILMS"},{id:"books",emoji:"📖",label:"BOOKS"},{id:"log",emoji:"📊",label:"LOG"},{id:"settings",emoji:"⚙️",label:"SETTINGS"}];
+  const navItems=[{id:"today",emoji:"☀️",label:"TODAY"},{id:"watchread",emoji:"🎬",label:"WATCH"},{id:"try",emoji:"📍",label:"TRY"},{id:"log",emoji:"📊",label:"LOG"},{id:"settings",emoji:"⚙️",label:"SETTINGS"}];
 
   if(!loaded) return <div style={{background:"#0a0a0a",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:28,color:"#e8ff00",letterSpacing:6}}>LOADING...</div></div>;
 
@@ -1065,6 +1321,22 @@ export default function App(){
                 </div>
               </div>
 
+              {/* Reset day button — only shown on today */}
+              {isToday&&doneCount>0&&<div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}>
+                <button onClick={()=>{
+                  if(!window.confirm("Reset all habits for today? This can't be undone.")) return;
+                  setHabits(prev=>prev.map(h=>{
+                    const wasFullyDone=isDone(h,todayStr);
+                    const xpLost=wasFullyDone?h.xp:h.repeat>1?Math.floor(h.xp/h.repeat)*getCount(h,todayStr):0;
+                    setTotalXP(xp=>Math.max(0,xp-xpLost));
+                    return {...h,
+                      completedDates:h.repeat<=1?h.completedDates.filter(d=>d!==todayStr):h.completedDates.filter(e=>typeof e!=="object"||e.date!==todayStr),
+                      streak:wasFullyDone?Math.max(0,h.streak-1):h.streak
+                    };
+                  }));
+                  showToast("DAY RESET","🔄");
+                }} style={{background:"transparent",border:`1.5px solid ${t.accent2}`,padding:"5px 12px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.accent2,letterSpacing:2}}>↺ RESET DAY</button>
+              </div>}
               {/* Past day banner */}
               {!isToday&&<div style={{background:`${t.accent2}18`,border:`2px solid ${t.accent2}`,padding:"10px 14px",marginBottom:12,boxShadow:`2px 2px 0 ${t.border}`}}>
                 <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.accent2,letterSpacing:2}}>VIEWING PAST DAY — READ ONLY</div>
@@ -1097,16 +1369,27 @@ export default function App(){
             </>
           )}
 
-          {(tab==="movies"||tab==="books")&&(
+          {tab==="watchread"&&(
             <>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,borderBottom:`2px solid ${t.border}`,paddingBottom:12}}>
-                <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:24,color:t.text,letterSpacing:4}}>{tab==="movies"?"FILMS":"BOOKS"}</div>
-                <button onClick={()=>setAddModal(tab==="movies"?"movie":"book")} style={{background:t.addBtn,border:`2px solid ${t.border}`,padding:"8px 16px",fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.addBtnText,cursor:"pointer",letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`}}>+ ADD</button>
+              {/* Sub-tabs */}
+              <div style={{display:"flex",gap:0,marginBottom:14,border:`2px solid ${t.border}`,boxShadow:`2px 2px 0 ${t.border}`}}>
+                {["movies","books"].map(st=>(
+                  <button key={st} onClick={()=>setWatchSubtab(st)} style={{flex:1,padding:"10px",border:"none",borderRight:st==="movies"?`2px solid ${t.border}`:"none",background:watchSubtab===st?t.accent:"transparent",color:watchSubtab===st?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,cursor:"pointer",letterSpacing:3}}>
+                    {st==="movies"?"🎬 FILMS":"📖 BOOKS"}
+                  </button>
+                ))}
               </div>
-              {(tab==="movies"?movies:books).length===0
-                ?<div style={{textAlign:"center",padding:"44px 20px",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,letterSpacing:2,border:`2px dashed ${t.border}`}}><div style={{fontSize:34,marginBottom:10}}>{tab==="movies"?"🎬":"📖"}</div>NOTHING YET.<br/>PASTE A LINK — TITLE AUTO-FILLS.</div>
-                :(tab==="movies"?movies:books).map(item=><ListItem key={item.id} item={item} type={tab==="movies"?"movie":"book"} onToggle={id=>toggleList(tab==="movies"?"movie":"book",id)} onDelete={id=>deleteList(tab==="movies"?"movie":"book",id)} onRename={(id,title)=>renameList(tab==="movies"?"movie":"book",id,title)} theme={theme}/>)}
+              <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+                <button onClick={()=>setAddModal(watchSubtab==="movies"?"movie":"book")} style={{background:t.addBtn,border:`2px solid ${t.border}`,padding:"8px 16px",fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.addBtnText,cursor:"pointer",letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`}}>+ ADD</button>
+              </div>
+              {(watchSubtab==="movies"?movies:books).length===0
+                ?<div style={{textAlign:"center",padding:"44px 20px",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,letterSpacing:2,border:`2px dashed ${t.border}`}}><div style={{fontSize:34,marginBottom:10}}>{watchSubtab==="movies"?"🎬":"📖"}</div>NOTHING YET.<br/>PASTE A LINK — TITLE AUTO-FILLS.</div>
+                :(watchSubtab==="movies"?movies:books).map(item=><ListItem key={item.id} item={item} type={watchSubtab==="movies"?"movie":"book"} onToggle={id=>toggleList(watchSubtab==="movies"?"movie":"book",id)} onDelete={id=>deleteList(watchSubtab==="movies"?"movie":"book",id)} onRename={(id,title)=>renameList(watchSubtab==="movies"?"movie":"book",id,title)} theme={theme}/>)}
             </>
+          )}
+
+          {tab==="try"&&(
+            <TryTab places={places} setPlaces={setPlaces} theme={theme} t={t} uid={uid}/>
           )}
 
           {tab==="log"&&(
