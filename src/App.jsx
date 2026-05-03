@@ -1142,12 +1142,12 @@ function AutocompleteInput({value, onChange, options, placeholder, style, theme,
   );
 }
 
-function AddPlaceModal({onAdd, onClose, theme, t, uid, existingCities, existingNeighborhoods}) {
-  const [form,setForm]=useState({name:"",category:PLACE_CATS[0],city:"",neighborhood:"",address:"",description:"",url:""});
+function AddPlaceModal({onAdd, onClose, theme, t, uid, existingCities, existingNeighborhoods, lockedCity}) {
+  const [form,setForm]=useState({name:"",category:PLACE_CATS[0],city:lockedCity||"",neighborhood:"",address:"",description:"",url:""});
   const fld=(k,v)=>setForm(p=>({...p,[k]:v}));
   const inp={width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"11px 13px",color:t.text,fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:8};
   const lbl={fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:4};
-  const canAdd=form.name.trim()&&form.city.trim();
+  const canAdd=form.name.trim()&&(lockedCity||form.city.trim());
 
   // Neighborhoods filtered to selected city
   const cityNeighborhoods = form.city.trim()
@@ -1167,30 +1167,43 @@ function AddPlaceModal({onAdd, onClose, theme, t, uid, existingCities, existingN
         </div>
         <div style={{padding:"14px 18px",overflowY:"auto",flex:1}}>
           <input style={{...inp,fontSize:15,fontFamily:"'Black Han Sans',sans-serif",letterSpacing:2,marginBottom:10}} placeholder="PLACE NAME *" value={form.name} onChange={e=>fld("name",e.target.value)} onKeyDown={e=>e.key==="Enter"&&add()} autoFocus/>
-          <div style={{display:"flex",gap:8}}>
-            <div style={{flex:1}}>
-              <div style={lbl}>CITY *</div>
-              <AutocompleteInput
-                value={form.city}
-                onChange={v=>{fld("city",v);fld("neighborhood","");}}
-                options={existingCities}
-                placeholder="e.g. Los Angeles"
-                style={inp}
-                theme={theme} t={t}
-              />
-            </div>
-            <div style={{flex:1}}>
-              <div style={lbl}>NEIGHBORHOOD</div>
-              <AutocompleteInput
-                value={form.neighborhood}
-                onChange={v=>fld("neighborhood",v)}
-                options={cityNeighborhoods}
-                placeholder="e.g. Silver Lake"
-                style={inp}
-                theme={theme} t={t}
-              />
-            </div>
-          </div>
+          {lockedCity
+            ? <div style={{marginBottom:8}}>
+                <div style={lbl}>NEIGHBORHOOD</div>
+                <AutocompleteInput
+                  value={form.neighborhood}
+                  onChange={v=>fld("neighborhood",v)}
+                  options={cityNeighborhoods}
+                  placeholder="e.g. Silver Lake"
+                  style={inp}
+                  theme={theme} t={t}
+                />
+              </div>
+            : <div style={{display:"flex",gap:8}}>
+                <div style={{flex:1}}>
+                  <div style={lbl}>CITY *</div>
+                  <AutocompleteInput
+                    value={form.city}
+                    onChange={v=>{fld("city",v);fld("neighborhood","");}}
+                    options={existingCities}
+                    placeholder="e.g. Los Angeles"
+                    style={inp}
+                    theme={theme} t={t}
+                  />
+                </div>
+                <div style={{flex:1}}>
+                  <div style={lbl}>NEIGHBORHOOD</div>
+                  <AutocompleteInput
+                    value={form.neighborhood}
+                    onChange={v=>fld("neighborhood",v)}
+                    options={cityNeighborhoods}
+                    placeholder="e.g. Silver Lake"
+                    style={inp}
+                    theme={theme} t={t}
+                  />
+                </div>
+              </div>
+          }
           <div style={lbl}>TYPE</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
             {PLACE_CATS.map(c=>{
@@ -1289,9 +1302,10 @@ function CityView({city, places, setPlaces, theme, t, uid, onBack}) {
   return(
     <div>
       {showAdd&&<AddPlaceModal
-        onAdd={p=>setPlaces(prev=>[...prev,{...p,city:p.city||city}])}
+        onAdd={p=>setPlaces(prev=>[...prev,{...p,city:city}])}
         onClose={()=>setShowAdd(false)}
         theme={theme} t={t} uid={uid}
+        lockedCity={city}
         existingCities={[...new Set(places.map(p=>p.city).filter(Boolean))].sort()}
         existingNeighborhoods={places.reduce((acc,p)=>{if(p.city&&p.neighborhood){if(!acc[p.city])acc[p.city]=[];if(!acc[p.city].includes(p.neighborhood))acc[p.city].push(p.neighborhood);}return acc;},{})}
       />}
@@ -1364,30 +1378,101 @@ function CityView({city, places, setPlaces, theme, t, uid, onBack}) {
 // City emojis stored separately so user can customize without needing places
 const CITY_EMOJI_OPTIONS = ["🗽","🌴","🗼","💂","🥐","🌮","🌊","🍕","🍺","🎨","🌸","🦘","🌃","🏙️","🌉","🗺️","✈️","🏖️","🏔️","🌏","🇯🇵","🇺🇸","🇬🇧","🇫🇷","🇮🇹","🇲🇽","🇰🇷","🇦🇺","🇩🇪","🇧🇷"];
 
-function TryTab({places, setPlaces, theme, t, uid}) {
-  const [selectedCity,setSelectedCity]=useState(null);
-  const [addingCity,setAddingCity]=useState(false);
-  const [newCityVal,setNewCityVal]=useState("");
-  const [cityEmojis,setCityEmojis]=useState({}); // {cityName: emoji}
-  const [editingEmoji,setEditingEmoji]=useState(null); // city name being edited
-  const newCityInputRef=useRef(null);
-
-  const usedCities=[...new Set(places.map(p=>p.city).filter(Boolean))].sort();
-  const starterCities=STARTER_CITIES.filter(c=>!usedCities.includes(c.name));
-
+function ManageCitiesView({cityList, setCityList, cityEmojis, setCityEmojis, places, onBack, theme, t}) {
+  const [editingEmoji,setEditingEmoji]=useState(null);
   const getCityEmoji=(city)=>cityEmojis[city]||(STARTER_CITIES.find(s=>s.name===city)?.emoji)||"📍";
-  const setCityEmoji=(city,emoji)=>setCityEmojis(prev=>({...prev,[city]:emoji}));
+
+  const moveUp=(i)=>{ if(i===0)return; const l=[...cityList];[l[i-1],l[i]]=[l[i],l[i-1]];setCityList(l); };
+  const moveDown=(i)=>{ if(i===cityList.length-1)return; const l=[...cityList];[l[i],l[i+1]]=[l[i+1],l[i]];setCityList(l); };
   const removeCity=(city)=>{
-    if(!window.confirm(`Remove ${city} and all its places? This can't be undone.`))return;
-    setPlaces(prev=>prev.filter(p=>p.city!==city));
-    if(selectedCity===city)setSelectedCity(null);
+    if(!window.confirm(`Remove ${city} from your list?
+
+Places in ${city} will also be deleted.`))return;
+    setCityList(prev=>prev.filter(c=>c!==city));
   };
 
+  return(
+    <div>
+      {editingEmoji&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setEditingEmoji(null)}>
+          <div style={{background:t.bg,width:"100%",maxWidth:480,border:`3px solid ${t.border}`,borderBottom:"none",padding:20,boxShadow:`-6px -6px 0 ${t.border}`}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,color:t.text,letterSpacing:3,marginBottom:14}}>PICK EMOJI FOR {editingEmoji}</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
+              {CITY_EMOJI_OPTIONS.map(e=>(
+                <button key={e} onClick={()=>{setCityEmojis(prev=>({...prev,[editingEmoji]:e}));setEditingEmoji(null);}} style={{fontSize:24,width:44,height:44,border:`2px solid ${getCityEmoji(editingEmoji)===e?t.accent:t.border}`,background:getCityEmoji(editingEmoji)===e?t.accent:t.bgCard,cursor:"pointer"}}>{e}</button>
+              ))}
+            </div>
+            <button onClick={()=>setEditingEmoji(null)} style={{width:"100%",padding:"11px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:3}}>CANCEL</button>
+          </div>
+        </div>
+      )}
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:16,borderBottom:`2px solid ${t.border}`,paddingBottom:10}}>
+        <button onClick={onBack} style={{background:"transparent",border:`2px solid ${t.border}`,borderRight:"none",padding:"8px 12px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.textSub,boxShadow:`2px 2px 0 ${t.border}`}}>◀</button>
+        <div style={{flex:1,padding:"8px 14px",border:`2px solid ${t.border}`,background:t.bgCard,boxShadow:`2px 2px 0 ${t.border}`}}>
+          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,color:t.text,letterSpacing:4}}>MANAGE CITIES</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginTop:1}}>REORDER · CHANGE EMOJI · REMOVE</div>
+        </div>
+      </div>
+      {cityList.map((city,i)=>{
+        const placeCount=places.filter(p=>p.city===city).length;
+        return(
+          <div key={city} style={{display:"flex",alignItems:"center",gap:0,marginBottom:6,border:`2px solid ${t.border}`,background:t.bgCard,boxShadow:`2px 2px 0 ${t.border}`}}>
+            {/* Reorder arrows */}
+            <div style={{display:"flex",flexDirection:"column",borderRight:`2px solid ${t.border}`,flexShrink:0}}>
+              <button onClick={()=>moveUp(i)} disabled={i===0} style={{background:"transparent",border:"none",padding:"6px 10px",cursor:i===0?"default":"pointer",color:i===0?t.border:t.textSub,fontSize:12,lineHeight:1}}>▲</button>
+              <button onClick={()=>moveDown(i)} disabled={i===cityList.length-1} style={{background:"transparent",border:"none",padding:"6px 10px",cursor:i===cityList.length-1?"default":"pointer",color:i===cityList.length-1?t.border:t.textSub,fontSize:12,lineHeight:1}}>▼</button>
+            </div>
+            {/* Emoji */}
+            <button onClick={()=>setEditingEmoji(city)} style={{background:"transparent",border:"none",borderRight:`2px solid ${t.border}`,padding:"12px 14px",cursor:"pointer",fontSize:22,flexShrink:0}} title="Change emoji">{getCityEmoji(city)}</button>
+            {/* Name + count */}
+            <div style={{flex:1,padding:"10px 12px"}}>
+              <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:t.text,letterSpacing:2}}>{city}</div>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginTop:2}}>{placeCount} place{placeCount!==1?"s":""}</div>
+            </div>
+            {/* Remove */}
+            <button onClick={()=>removeCity(city)} style={{background:"transparent",border:"none",borderLeft:`2px solid ${t.border}`,padding:"12px 14px",cursor:"pointer",color:t.textSub,fontSize:16,flexShrink:0}}>×</button>
+          </div>
+        );
+      })}
+      {cityList.length===0&&<div style={{textAlign:"center",padding:"32px",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:2,border:`2px dashed ${t.border}`}}>NO CITIES YET</div>}
+    </div>
+  );
+}
+
+function TryTab({places, setPlaces, cityList, setCityList, cityEmojis, setCityEmojis, theme, t, uid}) {
+  const [selectedCity,setSelectedCity]=useState(null);
+  const [managing,setManaging]=useState(false);
+  const [addingCity,setAddingCity]=useState(false);
+  const [newCityVal,setNewCityVal]=useState("");
+  const newCityInputRef=useRef(null);
+
+  const getCityEmoji=(city)=>cityEmojis[city]||(STARTER_CITIES.find(s=>s.name===city)?.emoji)||"📍";
+
+  // Add city to list if not already there
+  const addCity=(name)=>{
+    const n=name.trim().toUpperCase();
+    if(!n)return;
+    if(!cityList.includes(n)) setCityList(prev=>[...prev,n]);
+    setSelectedCity(n);
+  };
+
+  // Cities with places sorted first, then rest in list order
+  const citiesWithPlaces=new Set(places.map(p=>p.city).filter(Boolean));
+  const sortedCities=[
+    ...cityList.filter(c=>citiesWithPlaces.has(c)),
+    ...cityList.filter(c=>!citiesWithPlaces.has(c)),
+  ];
+
   useEffect(()=>{
-    if(selectedCity&&places.filter(p=>p.city===selectedCity).length===0&&!usedCities.includes(selectedCity)){
+    if(selectedCity&&!cityList.includes(selectedCity)&&!citiesWithPlaces.has(selectedCity)){
       setSelectedCity(null);
     }
-  },[places]);
+  },[cityList,places]);
+
+  if(managing){
+    return <ManageCitiesView cityList={cityList} setCityList={setCityList} cityEmojis={cityEmojis} setCityEmojis={setCityEmojis} places={places} onBack={()=>setManaging(false)} theme={theme} t={t}/>;
+  }
 
   if(selectedCity){
     return <CityView city={selectedCity} places={places} setPlaces={setPlaces} theme={theme} t={t} uid={uid} onBack={()=>setSelectedCity(null)} cityEmoji={getCityEmoji(selectedCity)}/>;
@@ -1395,79 +1480,52 @@ function TryTab({places, setPlaces, theme, t, uid}) {
 
   return(
     <div>
-      {/* Emoji picker overlay */}
-      {editingEmoji&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setEditingEmoji(null)}>
-          <div style={{background:t.bg,width:"100%",maxWidth:480,border:`3px solid ${t.border}`,borderBottom:"none",padding:20,boxShadow:`-6px -6px 0 ${t.border}`}} onClick={e=>e.stopPropagation()}>
-            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,color:t.text,letterSpacing:3,marginBottom:14}}>PICK EMOJI FOR {editingEmoji}</div>
-            <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
-              {CITY_EMOJI_OPTIONS.map(e=>(
-                <button key={e} onClick={()=>{setCityEmoji(editingEmoji,e);setEditingEmoji(null);}} style={{fontSize:24,width:44,height:44,border:`2px solid ${getCityEmoji(editingEmoji)===e?t.accent:t.border}`,background:getCityEmoji(editingEmoji)===e?t.accent:t.bgCard,cursor:"pointer",boxShadow:getCityEmoji(editingEmoji)===e?`2px 2px 0 ${t.border}`:"none"}}>{e}</button>
-              ))}
-            </div>
-            <button onClick={()=>setEditingEmoji(null)} style={{width:"100%",padding:"11px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:3}}>CANCEL</button>
-          </div>
-        </div>
-      )}
-
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,borderBottom:`2px solid ${t.border}`,paddingBottom:10}}>
         <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4}}>📍 TRY</div>
-        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>{places.length} TOTAL PLACES</div>
+        <button onClick={()=>setManaging(true)} style={{background:"transparent",border:`1.5px solid ${t.border}`,padding:"6px 12px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>MANAGE ⚙</button>
       </div>
 
-      {/* One unified 3-col grid — all cities, used ones sorted first and pop out */}
+      {/* Single unified grid */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:14}}>
-        {/* Cities with places — sorted first, solid style */}
-        {usedCities.map(city=>{
+        {sortedCities.map(city=>{
+          const hasPlaces=citiesWithPlaces.has(city);
           const cityPlaces=places.filter(p=>p.city===city);
           const visited=cityPlaces.filter(p=>p.visited).length;
           return(
-            <div key={city} style={{background:t.bgCard,border:`2px solid ${t.accent}`,boxShadow:`3px 3px 0 ${t.accent}`,position:"relative",overflow:"hidden",transition:"all 0.12s"}}>
-              <button onClick={()=>setSelectedCity(city)} style={{width:"100%",background:"transparent",border:"none",padding:"14px 8px",cursor:"pointer",textAlign:"center",display:"block"}}
-                onMouseEnter={e=>{e.currentTarget.parentElement.style.transform="translateY(-2px)";}}
-                onMouseLeave={e=>{e.currentTarget.parentElement.style.transform="none";}}>
-                <div style={{fontSize:22}}>{getCityEmoji(city)}</div>
-                <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:10,color:t.text,letterSpacing:1,marginTop:4,lineHeight:1.2}}>{city}</div>
-                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.accent,letterSpacing:1,marginTop:3}}>{cityPlaces.length} · {visited} ✓</div>
-                <div style={{display:"flex",gap:2,justifyContent:"center",flexWrap:"wrap",marginTop:4}}>
-                  {[...new Set(cityPlaces.map(p=>p.category?.split(" ")[0]).filter(Boolean))].slice(0,3).map((e,i)=>(<span key={i} style={{fontSize:11}}>{e}</span>))}
-                </div>
-              </button>
-              <div style={{position:"absolute",top:4,right:4,display:"flex",gap:2}}>
-                <button onClick={e=>{e.stopPropagation();setEditingEmoji(city);}} style={{background:t.bg,border:`1px solid ${t.border}`,width:20,height:20,cursor:"pointer",fontSize:9,display:"flex",alignItems:"center",justifyContent:"center"}}>✏️</button>
-                <button onClick={e=>{e.stopPropagation();removeCity(city);}} style={{background:t.bg,border:`1px solid ${t.border}`,width:20,height:20,cursor:"pointer",fontSize:11,color:t.textSub,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
-              </div>
-            </div>
+            <button key={city} onClick={()=>setSelectedCity(city)} style={{
+              background:hasPlaces?t.bgCard:"transparent",
+              border:`2px ${hasPlaces?"solid":"dashed"} ${hasPlaces?t.accent:t.border}`,
+              boxShadow:hasPlaces?`3px 3px 0 ${t.accent}`:"none",
+              padding:"14px 8px",cursor:"pointer",textAlign:"center",
+              transition:"all 0.12s",position:"relative",
+            }}
+            onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";if(!hasPlaces){e.currentTarget.style.borderColor=t.accent;e.currentTarget.style.borderStyle="solid";}}}
+            onMouseLeave={e=>{e.currentTarget.style.transform="none";if(!hasPlaces){e.currentTarget.style.borderColor=t.border;e.currentTarget.style.borderStyle="dashed";}}}>
+              <div style={{fontSize:22}}>{getCityEmoji(city)}</div>
+              <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:10,color:hasPlaces?t.text:t.textSub,letterSpacing:1,marginTop:4,lineHeight:1.2}}>{city}</div>
+              {hasPlaces&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:t.accent,letterSpacing:1,marginTop:3}}>{cityPlaces.length} · {visited}✓</div>}
+              {hasPlaces&&<div style={{display:"flex",gap:2,justifyContent:"center",marginTop:3}}>
+                {[...new Set(cityPlaces.map(p=>p.category?.split(" ")[0]).filter(Boolean))].slice(0,3).map((e,i)=>(<span key={i} style={{fontSize:10}}>{e}</span>))}
+              </div>}
+            </button>
           );
         })}
-        {/* Starter cities without places — dashed, subtle */}
-        {starterCities.map(c=>(
-          <button key={c.name} onClick={()=>setSelectedCity(c.name)} style={{background:"transparent",border:`2px dashed ${t.border}`,padding:"14px 8px",cursor:"pointer",textAlign:"center",transition:"all 0.12s"}}
-          onMouseEnter={e=>{e.currentTarget.style.borderColor=t.accent;e.currentTarget.style.borderStyle="solid";e.currentTarget.style.transform="translateY(-2px)";}}
-          onMouseLeave={e=>{e.currentTarget.style.borderColor=t.border;e.currentTarget.style.borderStyle="dashed";e.currentTarget.style.transform="none";}}>
-            <div style={{fontSize:22}}>{c.emoji}</div>
-            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:4,lineHeight:1.2}}>{c.name}</div>
-          </button>
-        ))}
       </div>
 
+      {/* Add city */}
       {addingCity
         ?<div style={{display:"flex",gap:6}}>
           <input ref={newCityInputRef} value={newCityVal} onChange={e=>setNewCityVal(e.target.value.toUpperCase())}
-            onKeyDown={e=>{
-              if(e.key==="Enter"){const v=newCityVal.trim();if(v){setSelectedCity(v);}setAddingCity(false);setNewCityVal("");}
-              if(e.key==="Escape"){setAddingCity(false);setNewCityVal("");}
-            }}
+            onKeyDown={e=>{if(e.key==="Enter"){addCity(newCityVal);setAddingCity(false);setNewCityVal("");}if(e.key==="Escape"){setAddingCity(false);setNewCityVal("");}}}
             placeholder="CITY NAME" autoFocus
             style={{flex:1,background:t.bg,border:`2px solid ${t.accent}`,padding:"10px 12px",color:t.text,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,letterSpacing:3,outline:"none"}}/>
-          <button onClick={()=>{const v=newCityVal.trim();if(v){setSelectedCity(v);}setAddingCity(false);setNewCityVal("");}} style={{padding:"10px 16px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`}}>GO</button>
+          <button onClick={()=>{addCity(newCityVal);setAddingCity(false);setNewCityVal("");}} style={{padding:"10px 16px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`}}>ADD</button>
           <button onClick={()=>{setAddingCity(false);setNewCityVal("");}} style={{padding:"10px 12px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>✕</button>
         </div>
-        :<button onClick={()=>{setAddingCity(true);setTimeout(()=>newCityInputRef.current?.focus(),50);}} style={{width:"100%",padding:"12px",border:`2px dashed ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:3}}>+ ADD A DIFFERENT CITY</button>}
+        :<button onClick={()=>{setAddingCity(true);setTimeout(()=>newCityInputRef.current?.focus(),50);}} style={{width:"100%",padding:"12px",border:`2px dashed ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:3}}>+ ADD A CITY</button>}
     </div>
   );
 }
-
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App(){
   const [cats,setCats]=useState(DEFAULT_DATA.categories);
@@ -1477,6 +1535,8 @@ export default function App(){
   const [books,setBooks]=useState([]);
   const [totalXP,setTotalXP]=useState(0);
   const [places,setPlaces]=useState([]);
+  const [cityList,setCityList]=useState(STARTER_CITIES.map(c=>c.name)); // ordered list of all cities
+  const [cityEmojis,setCityEmojis]=useState({}); // {cityName: customEmoji}
   const [watchSubtab,setWatchSubtab]=useState("movies"); // movies|books
   const [theme,setTheme]=useState("ravewhite");
   const [tab,setTab]=useState("today");
@@ -1508,17 +1568,17 @@ export default function App(){
   const newCatRef=useRef(null);
   const importRef=useRef(null);
 
-  useEffect(()=>{load().then(saved=>{if(saved){setCats(saved.cats||DEFAULT_DATA.categories);setSubcats(saved.subcats||DEFAULT_DATA.subcategories);setHabits(saved.habits||DEFAULT_DATA.habits);setMovies(saved.movies||[]);setBooks(saved.books||[]);setPlaces(saved.places||[]);setTotalXP(saved.totalXP||0);setTheme(saved.theme||"ravewhite");}setLoaded(true);});},[]);
+  useEffect(()=>{load().then(saved=>{if(saved){setCats(saved.cats||DEFAULT_DATA.categories);setSubcats(saved.subcats||DEFAULT_DATA.subcategories);setHabits(saved.habits||DEFAULT_DATA.habits);setMovies(saved.movies||[]);setBooks(saved.books||[]);setPlaces(saved.places||[]);setCityList(saved.cityList||STARTER_CITIES.map(c=>c.name));setCityEmojis(saved.cityEmojis||{});setTotalXP(saved.totalXP||0);setTheme(saved.theme||"ravewhite");}setLoaded(true);});},[]);
   useEffect(()=>{
     if(!loaded)return;
-    const state={cats,subcats,habits,movies,books,places,totalXP,theme};
+    const state={cats,subcats,habits,movies,books,places,cityList,cityEmojis,totalXP,theme};
     save(state);
     // Auto-backup to Google Drive (debounced — only after 3s of no changes)
     if(gdriveStatus==="connected"){
       clearTimeout(window._gdriveBackupTimer);
       window._gdriveBackupTimer=setTimeout(()=>pushGdriveBackup(state,setGdriveStatus),3000);
     }
-  },[cats,subcats,habits,movies,books,places,totalXP,theme,loaded]);
+  },[cats,subcats,habits,movies,books,places,cityList,cityEmojis,totalXP,theme,loaded]);
 
   const showToast=(msg,emoji)=>{setToast({show:true,msg,emoji});setTimeout(()=>setToast(s=>({...s,show:false})),2200);};
 
@@ -1555,7 +1615,7 @@ export default function App(){
   const addHabit=(h)=>{setHabits(prev=>[...prev,h]);showToast("HABIT ADDED",h.emoji);};
   const deleteHabit=(id)=>setHabits(p=>p.filter(h=>h.id!==id));
 
-  const handleExport=()=>exportData({cats,subcats,habits,movies,books,places,totalXP,theme});
+  const handleExport=()=>exportData({cats,subcats,habits,movies,books,places,cityList,cityEmojis,totalXP,theme});
   const handleImport=(file)=>{
     importData(file, (data)=>{
       if(data.cats) setCats(data.cats);
@@ -1575,6 +1635,8 @@ export default function App(){
     if(data.movies) setMovies(data.movies);
     if(data.books) setBooks(data.books);
     if(data.places) setPlaces(data.places);
+    if(data.cityList) setCityList(data.cityList);
+    if(data.cityEmojis) setCityEmojis(data.cityEmojis);
     if(data.totalXP!=null) setTotalXP(data.totalXP);
     if(data.theme) setTheme(data.theme);
     showToast("RESTORED FROM DRIVE","☁️");
@@ -1729,7 +1791,7 @@ export default function App(){
           )}
 
           {tab==="try"&&(
-            <TryTab places={places} setPlaces={setPlaces} theme={theme} t={t} uid={uid}/>
+            <TryTab places={places} setPlaces={setPlaces} cityList={cityList} setCityList={setCityList} cityEmojis={cityEmojis} setCityEmojis={setCityEmojis} theme={theme} t={t} uid={uid}/>
           )}
 
           {tab==="log"&&(
