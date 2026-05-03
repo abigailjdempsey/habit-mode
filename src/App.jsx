@@ -1376,11 +1376,11 @@ export default function App(){
   const [viewOffset,setViewOffset]=useState(0); // 0=today, -1=yesterday, etc.
   const sounds=useSounds();
   const todayStr=TODAY();
-  // viewDate: the date currently being viewed
-  const viewDate=(() => {
+  // viewDate: the date currently being viewed — uses local time to match todayStr
+  const viewDate=(()=>{
     const d=new Date();
     d.setDate(d.getDate()+viewOffset);
-    return d.toISOString().split("T")[0];
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   })();
   const isToday=viewOffset===0;
   const viewDateLabel=isToday?"TODAY":viewOffset===-1?"YESTERDAY":new Date(viewDate+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"}).toUpperCase();
