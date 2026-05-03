@@ -14,7 +14,8 @@ module.exports = async function handler(req, res) {
 
   try {
     const params = new URLSearchParams({ query, limit: "12" });
-    params.set("fields", "fsq_place_id,name,location,categories,rating,description,website");
+    // Request all useful fields
+    params.set("fields", "fsq_place_id,name,location,categories,rating,description,website,latitude,longitude");
     if (near) params.set("near", near);
 
     const url = `https://places-api.foursquare.com/places/search?${params}`;
@@ -41,6 +42,7 @@ module.exports = async function handler(req, res) {
     }
 
     const places = (data.results || []).map(p => {
+      // New API has location as an object but also top-level lat/lng
       const loc = p.location || {};
       const cat = p.categories && p.categories[0];
       const catName = cat ? cat.name : "Place";
@@ -59,14 +61,31 @@ module.exports = async function handler(req, res) {
         : cn.includes("pizza") ? "🍕"
         : cn.includes("burger") ? "🍔"
         : cn.includes("ramen") || cn.includes("japanese") || cn.includes("sushi") ? "🍜"
+        : cn.includes("bagel") || cn.includes("bakery") || cn.includes("deli") ? "🥯"
+        : cn.includes("ice cream") || cn.includes("dessert") ? "🍦"
+        : cn.includes("thai") ? "🍜"
+        : cn.includes("indian") ? "🍛"
+        : cn.includes("chinese") || cn.includes("dim sum") ? "🥡"
+        : cn.includes("french") || cn.includes("bistro") ? "🥐"
+        : cn.includes("italian") ? "🍝"
+        : cn.includes("korean") ? "🥩"
         : "📍";
+
+      // city/neighborhood — new API may put these differently
+      const city = loc.locality || loc.city || loc.region || "";
+      const neighborhood = loc.neighborhood
+        || (loc.cross_street ? loc.cross_street : "")
+        || "";
+      const address = loc.formatted_address
+        || [loc.address, loc.locality, loc.region].filter(Boolean).join(", ")
+        || "";
 
       return {
         name: p.name,
         category: emoji + " " + catName,
-        city: loc.locality || loc.city || "",
-        neighborhood: loc.neighborhood || loc.cross_street || "",
-        address: loc.formatted_address || [loc.address, loc.locality, loc.region].filter(Boolean).join(", "),
+        city,
+        neighborhood,
+        address,
         description: p.description || "",
         website: p.website || "",
         url: p.website || "",
