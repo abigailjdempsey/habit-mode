@@ -1,4 +1,4 @@
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -9,8 +9,7 @@ export default async function handler(req, res) {
   const apiKey = process.env.VITE_ANTHROPIC_KEY;
   if (!apiKey) return res.status(500).json({ error: "API key not configured" });
 
-  // ── Mode: fetch a URL server-side (follows redirects, reads real page) ──────
-  if (req.body?.mode === "fetch-url") {
+  if (req.body && req.body.mode === "fetch-url") {
     const { url } = req.body;
     try {
       const response = await fetch(url, {
@@ -23,10 +22,9 @@ export default async function handler(req, res) {
       });
       const finalUrl = response.url;
       const html = await response.text();
-      const title = (html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || "").trim();
-      const ogTitle = (html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]+)"/i)?.[1] || "").trim();
-      const ogDesc = (html.match(/<meta[^>]*property="og:description"[^>]*content="([^"]+)"/i)?.[1] || "").trim();
-      const ogImage = (html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/i)?.[1] || "").trim();
+      const title = (html.match(/<title[^>]*>([^<]+)<\/title>/i) || [])[1] || "";
+      const ogTitle = (html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]+)"/i) || [])[1] || "";
+      const ogDesc = (html.match(/<meta[^>]*property="og:description"[^>]*content="([^"]+)"/i) || [])[1] || "";
       const bodySnippet = html
         .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
         .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
@@ -34,13 +32,12 @@ export default async function handler(req, res) {
         .replace(/\s+/g, " ")
         .trim()
         .slice(0, 3000);
-      return res.status(200).json({ finalUrl, title, ogTitle, ogDesc, ogImage, bodySnippet });
+      return res.status(200).json({ finalUrl, title: title.trim(), ogTitle: ogTitle.trim(), ogDesc: ogDesc.trim(), bodySnippet });
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
   }
 
-  // ── Default: forward to Claude API ─────────────────────────────────────────
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -56,4 +53,4 @@ export default async function handler(req, res) {
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
-}
+};
