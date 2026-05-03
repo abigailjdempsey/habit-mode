@@ -13,49 +13,68 @@ export default async function handler(req, res) {
   if (!query) return res.status(400).json({ error: "query required" });
 
   try {
-    // Foursquare Places Search API
-    const params = new URLSearchParams({
-      query,
-      limit: "12",
-      fields: "name,location,categories,rating,description,website,photos",
-    });
+    const params = new URLSearchParams({ query, limit: "12" });
+    // Only add fields that the free tier supports
+    params.set("fields", "fsq_id,name,location,categories,rating,description,website");
+    // near must be a string like "Los Angeles, CA"
     if (near) params.set("near", near);
 
-    const response = await fetch(
-      `https://api.foursquare.com/v3/places/search?${params}`,
-      {
-        headers: {
-          Authorization: fsKey,
-          Accept: "application/json",
-        },
-      }
-    );
+    const url = `https://api.foursquare.com/v3/places/search?${params}`;
+    
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Authorization": fsKey,
+        "Accept": "application/json",
+      },
+    });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      return res.status(response.status).json({ error: data.message || "Foursquare error" });
+    const text = await response.text();
+    let data;
+    try { data = JSON.parse(text); } catch { 
+      return res.status(500).json({ error: "Bad JSON from Foursquare", raw: text.slice(0, 200) }); 
     }
 
-    // Map Foursquare results to our place format
+    if (!response.ok) {
+      return res.status(response.status).json({ 
+        error: data.message || data.detail || "Foursquare error", 
+        status: response.status,
+        detail: data 
+      });
+    }
+
     const places = (data.results || []).map(p => {
       const loc = p.location || {};
       const cat = p.categories?.[0];
+      // Pick a sensible emoji from category name
+      const catName = cat?.name || "Place";
+      const emoji = catName.toLowerCase().includes("restaurant") || catName.toLowerCase().includes("food") ? "🍽️"
+        : catName.toLowerCase().includes("cafe") || catName.toLowerCase().includes("coffee") ? "☕"
+        : catName.toLowerCase().includes("bar") || catName.toLowerCase().includes("cocktail") ? "🍸"
+        : catName.toLowerCase().includes("shop") || catName.toLowerCase().includes("store") || catName.toLowerCase().includes("market") ? "🛍️"
+        : catName.toLowerCase().includes("park") || catName.toLowerCase().includes("garden") ? "🌿"
+        : catName.toLowerCase().includes("museum") || catName.toLowerCase().includes("gallery") || catName.toLowerCase().includes("art") ? "🎨"
+        : catName.toLowerCase().includes("hotel") ? "🏨"
+        : catName.toLowerCase().includes("gym") || catName.toLowerCase().includes("spa") || catName.toLowerCase().includes("yoga") ? "💆"
+        : catName.toLowerCase().includes("music") || catName.toLowerCase().includes("club") || catName.toLowerCase().includes("venue") ? "🎵"
+        : "📍";
+
       return {
         name: p.name,
-        category: cat ? `${cat.icon?.prefix?.split("/icons")[0]?.split("/").pop() || "📍"} ${cat.name}` : "📍 Place",
+        category: `${emoji} ${catName}`,
         city: loc.locality || loc.city || "",
-        neighborhood: loc.neighborhood || loc.cross_street || "",
-        address: [loc.address, loc.locality, loc.region].filter(Boolean).join(", "),
+        neighborhood: loc.neighborhood || loc.cross_street || loc.formatted_address?.split(",")[1]?.trim() || "",
+        address: loc.formatted_address || [loc.address, loc.locality, loc.region].filter(Boolean).join(", "),
         description: p.description || "",
         website: p.website || "",
-        rating: p.rating ? `${p.rating}/10` : null,
+        url: p.website || "",
+        rating: p.rating ? `${(p.rating/2).toFixed(1)}/5` : null,
         fsqId: p.fsq_id,
       };
     });
 
     return res.status(200).json({ places });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message, stack: err.stack?.slice(0, 300) });
   }
 }
