@@ -1421,6 +1421,7 @@ const STARTER_CITIES = [
 // City view — places for one city with filters
 function CityView({city, places, setPlaces, theme, t, uid, onBack}) {
   const [showAdd,setShowAdd]=useState(false);
+  const [showShare,setShowShare]=useState(false);
   const [filterNeighborhood,setFilterNeighborhood]=useState("ALL");
   const [filterCat,setFilterCat]=useState("ALL");
   const [search,setSearch]=useState("");
@@ -1478,6 +1479,7 @@ function CityView({city, places, setPlaces, theme, t, uid, onBack}) {
         existingNeighborhoods={places.reduce((acc,p)=>{if(p.city&&p.neighborhood){if(!acc[p.city])acc[p.city]=[];if(!acc[p.city].includes(p.neighborhood))acc[p.city].push(p.neighborhood);}return acc;},{})}
       />}
 
+      {showShare&&<FriendsModeView places={cityPlaces} city={city} cityEmoji={cityEmoji||"📍"} onClose={()=>setShowShare(false)} theme={theme} t={t}/>}
       {/* Header */}
       <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:14,borderBottom:`2px solid ${t.border}`,paddingBottom:10}}>
         <button onClick={onBack} style={{background:"transparent",border:`2px solid ${t.border}`,borderRight:"none",padding:"8px 12px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.textSub,boxShadow:`2px 2px 0 ${t.border}`}}>◀</button>
@@ -1485,6 +1487,7 @@ function CityView({city, places, setPlaces, theme, t, uid, onBack}) {
           <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:18,color:t.text,letterSpacing:4,lineHeight:1}}>{city}</div>
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginTop:2}}>{cityPlaces.length} PLACES · {doneCount} VISITED</div>
         </div>
+        <button onClick={()=>setShowShare(true)} style={{background:"transparent",border:`2px solid ${t.border}`,borderRight:"none",padding:"8px 12px",fontFamily:"'Black Han Sans',sans-serif",fontSize:11,color:t.textSub,cursor:"pointer",letterSpacing:1,alignSelf:"stretch",display:"flex",alignItems:"center"}}>📸</button>
         <button onClick={()=>setShowAdd(true)} style={{background:t.addBtn,border:`2px solid ${t.border}`,padding:"8px 14px",fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.addBtnText,cursor:"pointer",letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`,whiteSpace:"nowrap",alignSelf:"stretch",display:"flex",alignItems:"center"}}>+ ADD</button>
       </div>
 
@@ -1673,16 +1676,15 @@ function ManageCitiesView({cityList, setCityList, cityEmojis, setCityEmojis, pla
 }
 
 // ─── FRIENDS MODE ─────────────────────────────────────────────────────────────
-function FriendsModeView({places, cityList, cityEmojis, onClose, theme, t}) {
-  const [listName, setListName] = useState("MY PICKS");
-  const [selectedPlaces, setSelectedPlaces] = useState(
-    places.filter(p => p.listType === "favorite").map(p => p.id)
-  );
+function FriendsModeView({places, city, cityEmoji, onClose, theme, t}) {
+  // places is already filtered to this city
+  const [listName, setListName] = useState(city ? city + " PICKS" : "MY PICKS");
+  const [selectedPlaces, setSelectedPlaces] = useState(places.map(p => p.id)); // all selected by default
+  const allSelected = selectedPlaces.length === places.length;
+  const toggleAll = () => setSelectedPlaces(allSelected ? [] : places.map(p => p.id));
   const [generating, setGenerating] = useState(false);
   const [saved, setSaved] = useState(false);
   const canvasRef = useRef(null);
-  const getCityEmoji = (city) => cityEmojis[city] || (STARTER_CITIES.find(s => s.name === city)?.emoji) || "📍";
-
   const togglePlace = (id) => setSelectedPlaces(prev =>
     prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
   );
@@ -1844,8 +1846,8 @@ function FriendsModeView({places, cityList, cityEmojis, onClose, theme, t}) {
 
         {/* Header */}
         <div style={{padding:"18px 18px 14px",borderBottom:`2px solid ${t.border}`,flexShrink:0}}>
-          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:20,color:t.text,letterSpacing:4,marginBottom:2}}>📸 EXPORT AS IMAGE</div>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>SAVES TO YOUR PHONE — SHARE ANYWHERE</div>
+          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:20,color:t.text,letterSpacing:4,marginBottom:2}}>{cityEmoji} {city} — SHARE</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>PICK PLACES · SAVES AS IMAGE</div>
         </div>
 
         <div style={{padding:"14px 18px",overflowY:"auto",flex:1}}>
@@ -1854,8 +1856,13 @@ function FriendsModeView({places, cityList, cityEmojis, onClose, theme, t}) {
           <input style={inp} placeholder="MY PICKS" value={listName} onChange={e=>setListName(e.target.value.toUpperCase())} maxLength={30}/>
 
           {/* Place selector */}
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:8}}>
-            SELECT PLACES ({selectedPlaces.length} selected)
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2}}>
+              SELECT PLACES ({selectedPlaces.length}/{places.length})
+            </div>
+            <button onClick={toggleAll} style={{padding:"4px 10px",border:`1.5px solid ${t.border}`,background:allSelected?t.accent:"transparent",color:allSelected?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:9,cursor:"pointer",letterSpacing:2,boxShadow:allSelected?`1px 1px 0 ${t.border}`:"none"}}>
+              {allSelected?"DESELECT ALL":"SELECT ALL"}
+            </button>
           </div>
 
           {places.length === 0
@@ -1869,7 +1876,7 @@ function FriendsModeView({places, cityList, cityEmojis, onClose, theme, t}) {
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
                       <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:1}}>
-                        {p.city}{p.neighborhood?` · ${p.neighborhood}`:""}{p.listType==="favorite"?" · ❤️":""}
+                        {p.neighborhood||""}{p.listType==="favorite"?" ❤️":""}
                       </div>
                     </div>
                   </div>
@@ -1894,7 +1901,6 @@ function FriendsModeView({places, cityList, cityEmojis, onClose, theme, t}) {
 function TryTab({places, setPlaces, cityList, setCityList, cityEmojis, setCityEmojis, theme, t, uid}) {
   const [selectedCity,setSelectedCity]=useState(null);
   const [managing,setManaging]=useState(false);
-  const [showFriends,setShowFriends]=useState(false);
   const [addingCity,setAddingCity]=useState(false);
   const [newCityVal,setNewCityVal]=useState("");
   const newCityInputRef=useRef(null);
@@ -1932,11 +1938,9 @@ function TryTab({places, setPlaces, cityList, setCityList, cityEmojis, setCityEm
 
   return(
     <div>
-      {showFriends&&<FriendsModeView places={places} cityList={cityList} cityEmojis={cityEmojis} onClose={()=>setShowFriends(false)} theme={theme} t={t}/>}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,borderBottom:`2px solid ${t.border}`,paddingBottom:10}}>
         <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4}}>📍 TRY</div>
         <div style={{display:"flex",gap:6}}>
-          <button onClick={()=>setShowFriends(true)} style={{background:"transparent",border:`1.5px solid ${t.border}`,padding:"6px 10px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1}}>👥 SHARE</button>
           <button onClick={()=>setManaging(true)} style={{background:"transparent",border:`1.5px solid ${t.border}`,padding:"6px 10px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1}}>⚙ MANAGE</button>
         </div>
       </div>
