@@ -1119,85 +1119,231 @@ function AddPlaceModal({onAdd, onClose, theme, t, uid}) {
   );
 }
 
-function TryTab({places, setPlaces, theme, t, uid}) {
+// Suggested starter cities — shown on landing screen
+const STARTER_CITIES = [
+  {name:"NEW YORK",emoji:"🗽"},
+  {name:"LOS ANGELES",emoji:"🌴"},
+  {name:"TOKYO",emoji:"🗼"},
+  {name:"LONDON",emoji:"💂"},
+  {name:"PARIS",emoji:"🥐"},
+  {name:"MEXICO CITY",emoji:"🌮"},
+  {name:"MIAMI",emoji:"🌊"},
+  {name:"CHICAGO",emoji:"🍕"},
+  {name:"BERLIN",emoji:"🍺"},
+  {name:"BARCELONA",emoji:"🎨"},
+  {name:"SEOUL",emoji:"🌸"},
+  {name:"SYDNEY",emoji:"🦘"},
+];
+
+// City view — places for one city with filters
+function CityView({city, places, setPlaces, theme, t, uid, onBack}) {
   const [showAdd,setShowAdd]=useState(false);
-  const [filterCity,setFilterCity]=useState("ALL");
   const [filterNeighborhood,setFilterNeighborhood]=useState("ALL");
   const [filterCat,setFilterCat]=useState("ALL");
   const [search,setSearch]=useState("");
   const [showVisited,setShowVisited]=useState(false);
 
-  const cities=["ALL",...[...new Set(places.map(p=>p.city).filter(Boolean))].sort()];
-  const neighborhoods=["ALL",...[...new Set(places.filter(p=>filterCity==="ALL"||p.city===filterCity).map(p=>p.neighborhood).filter(Boolean))].sort()];
-  const cats=["ALL",...[...new Set(places.map(p=>p.category).filter(Boolean))].sort()];
+  const cityPlaces=places.filter(p=>p.city===city);
+  const neighborhoods=["ALL",...[...new Set(cityPlaces.map(p=>p.neighborhood).filter(Boolean))].sort()];
+  const cats=[...new Set(cityPlaces.map(p=>p.category).filter(Boolean))].sort();
 
-  const filtered=places.filter(p=>{
+  const filtered=cityPlaces.filter(p=>{
     if(!showVisited&&p.visited) return false;
-    if(filterCity!=="ALL"&&p.city!==filterCity) return false;
     if(filterNeighborhood!=="ALL"&&p.neighborhood!==filterNeighborhood) return false;
     if(filterCat!=="ALL"&&p.category!==filterCat) return false;
-    if(search.trim()&&!`${p.name} ${p.city} ${p.neighborhood} ${p.category} ${p.description}`.toLowerCase().includes(search.toLowerCase())) return false;
+    if(search.trim()&&!`${p.name} ${p.neighborhood} ${p.category} ${p.description}`.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
-  const selStyle=(active)=>({background:active?t.accent:"transparent",border:`1.5px solid ${active?t.accent:t.border}`,color:active?t.textInv:t.textSub,padding:"5px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:1,whiteSpace:"nowrap"});
+  const doneCount=cityPlaces.filter(p=>p.visited).length;
+
+  // Category pill — emoji + label, bold border style
+  const CatPill=({cat,active})=>{
+    const emoji=cat.split(" ")[0];
+    const label=cat.split(" ").slice(1).join(" ");
+    return(
+      <button onClick={()=>setFilterCat(active?"ALL":cat)} style={{
+        display:"flex",alignItems:"center",gap:5,
+        padding:"7px 12px",
+        border:`2px solid ${active?t.accent:t.border}`,
+        background:active?t.accent:t.bgCard,
+        color:active?t.textInv:t.text,
+        fontFamily:"'Black Han Sans',sans-serif",
+        fontSize:11,letterSpacing:2,cursor:"pointer",
+        boxShadow:active?`2px 2px 0 ${t.border}`:`1px 1px 0 ${t.border}`,
+        whiteSpace:"nowrap",
+        transform:active?"translateY(-1px)":"none",
+        transition:"all 0.12s",
+      }}>
+        <span style={{fontSize:14}}>{emoji}</span>
+        <span>{label||cat}</span>
+      </button>
+    );
+  };
 
   return(
     <div>
-      {showAdd&&<AddPlaceModal onAdd={p=>{setPlaces(prev=>[...prev,p]);}} onClose={()=>setShowAdd(false)} theme={theme} t={t} uid={uid}/>}
+      {showAdd&&<AddPlaceModal onAdd={p=>{
+        // Force city to match current city view
+        setPlaces(prev=>[...prev,{...p,city:p.city||city}]);
+      }} onClose={()=>setShowAdd(false)} theme={theme} t={t} uid={uid}/>}
 
       {/* Header */}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,borderBottom:`2px solid ${t.border}`,paddingBottom:10}}>
-        <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4}}>📍 TRY LIST</div>
-        <button onClick={()=>setShowAdd(true)} style={{background:t.addBtn,border:`2px solid ${t.border}`,padding:"8px 16px",fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.addBtnText,cursor:"pointer",letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`}}>+ ADD</button>
+      <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:14,borderBottom:`2px solid ${t.border}`,paddingBottom:10}}>
+        <button onClick={onBack} style={{background:"transparent",border:`2px solid ${t.border}`,borderRight:"none",padding:"8px 12px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.textSub,boxShadow:`2px 2px 0 ${t.border}`}}>◀</button>
+        <div style={{flex:1,padding:"8px 14px",border:`2px solid ${t.border}`,borderRight:"none",background:t.bgCard,boxShadow:`2px 2px 0 ${t.border}`}}>
+          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:18,color:t.text,letterSpacing:4,lineHeight:1}}>{city}</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginTop:2}}>{cityPlaces.length} PLACES · {doneCount} VISITED</div>
+        </div>
+        <button onClick={()=>setShowAdd(true)} style={{background:t.addBtn,border:`2px solid ${t.border}`,padding:"8px 14px",fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.addBtnText,cursor:"pointer",letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`,whiteSpace:"nowrap",alignSelf:"stretch",display:"flex",alignItems:"center"}}>+ ADD</button>
       </div>
 
       {/* Search */}
-      <input style={{width:"100%",background:t.bgCard,border:`2px solid ${t.border}`,padding:"10px 12px",color:t.text,fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:10}} placeholder="SEARCH PLACES..." value={search} onChange={e=>setSearch(e.target.value)}/>
+      <input style={{width:"100%",background:t.bgCard,border:`2px solid ${t.border}`,padding:"10px 12px",color:t.text,fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:10}} placeholder="SEARCH IN THIS CITY..." value={search} onChange={e=>setSearch(e.target.value)}/>
 
-      {/* Filters */}
-      {places.length>0&&<>
-        {/* City filter */}
-        {cities.length>2&&<div style={{marginBottom:6}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:4}}>CITY</div>
-          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-            {cities.map(c=><button key={c} onClick={()=>{setFilterCity(c);setFilterNeighborhood("ALL");}} style={selStyle(filterCity===c)}>{c}</button>)}
-          </div>
-        </div>}
-        {/* Neighborhood filter */}
-        {neighborhoods.length>2&&<div style={{marginBottom:6}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:4}}>NEIGHBORHOOD</div>
-          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-            {neighborhoods.map(n=><button key={n} onClick={()=>setFilterNeighborhood(n)} style={selStyle(filterNeighborhood===n)}>{n}</button>)}
-          </div>
-        </div>}
-        {/* Category filter */}
-        <div style={{marginBottom:10}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:4}}>CATEGORY</div>
-          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-            {cats.map(c=><button key={c} onClick={()=>setFilterCat(filterCat===c?"ALL":c)} style={selStyle(filterCat===c)}>{c}</button>)}
-          </div>
+      {/* Neighborhood pills */}
+      {neighborhoods.length>2&&<div style={{marginBottom:10}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:5}}>NEIGHBORHOOD</div>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+          {neighborhoods.map(n=>(
+            <button key={n} onClick={()=>setFilterNeighborhood(n)} style={{
+              padding:"6px 12px",border:`2px solid ${filterNeighborhood===n?t.accent:t.border}`,
+              background:filterNeighborhood===n?t.accent:t.bgCard,
+              color:filterNeighborhood===n?t.textInv:t.textSub,
+              fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:2,
+              cursor:"pointer",whiteSpace:"nowrap",
+              boxShadow:filterNeighborhood===n?`2px 2px 0 ${t.border}`:"none",
+              fontWeight:filterNeighborhood===n?700:400,
+            }}>{n}</button>
+          ))}
         </div>
-        {/* Show visited toggle */}
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-          <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>{filtered.length} PLACE{filtered.length!==1?"S":""}</span>
-          <button onClick={()=>setShowVisited(v=>!v)} style={selStyle(showVisited)}>{showVisited?"HIDE VISITED":"SHOW VISITED"}</button>
-        </div>
-      </>}
-
-      {/* Empty state */}
-      {places.length===0&&<div style={{textAlign:"center",padding:"44px 20px",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,letterSpacing:2,border:`2px dashed ${t.border}`}}>
-        <div style={{fontSize:34,marginBottom:10}}>📍</div>
-        YOUR CITY GUIDE STARTS HERE.<br/>SEARCH, PASTE A MAPS LINK, OR ADD MANUALLY.
       </div>}
 
-      {/* Place list */}
+      {/* Category pills — improved design */}
+      {cats.length>0&&<div style={{marginBottom:10}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:5}}>TYPE</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {cats.map(c=><CatPill key={c} cat={c} active={filterCat===c}/>)}
+        </div>
+      </div>}
+
+      {/* Count + visited toggle */}
+      {cityPlaces.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>{filtered.length} SHOWING</span>
+        <button onClick={()=>setShowVisited(v=>!v)} style={{padding:"5px 10px",border:`1.5px solid ${t.border}`,background:showVisited?t.bgCard:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,cursor:"pointer",letterSpacing:1}}>{showVisited?"HIDE VISITED ✓":"SHOW VISITED"}</button>
+      </div>}
+
+      {/* Empty state for this city */}
+      {cityPlaces.length===0&&<div style={{textAlign:"center",padding:"40px 20px",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:2,border:`2px dashed ${t.border}`}}>
+        <div style={{fontSize:32,marginBottom:8}}>📍</div>
+        NO PLACES IN {city} YET.<br/>HIT + ADD TO START YOUR LIST.
+      </div>}
+
+      {/* Places */}
       {filtered.map(p=>(
         <PlaceCard key={p.id} place={p} theme={theme} t={t}
           onToggle={id=>setPlaces(prev=>prev.map(pl=>pl.id===id?{...pl,visited:!pl.visited}:pl))}
           onDelete={id=>setPlaces(prev=>prev.filter(pl=>pl.id!==id))}/>
       ))}
-      {places.length>0&&filtered.length===0&&<div style={{textAlign:"center",padding:"32px 20px",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:2,border:`2px dashed ${t.border}`}}>NO PLACES MATCH YOUR FILTERS</div>}
+      {cityPlaces.length>0&&filtered.length===0&&<div style={{textAlign:"center",padding:"28px",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:2,border:`2px dashed ${t.border}`}}>NO MATCHES — TRY CLEARING FILTERS</div>}
+    </div>
+  );
+}
+
+function TryTab({places, setPlaces, theme, t, uid}) {
+  const [selectedCity,setSelectedCity]=useState(null); // null = landing
+  const [addingCity,setAddingCity]=useState(false);
+  const [newCityVal,setNewCityVal]=useState("");
+  const newCityInputRef=useRef(null);
+
+  // All cities the user has places in
+  const usedCities=[...new Set(places.map(p=>p.city).filter(Boolean))].sort();
+  // Starter cities not yet used
+  const starterCities=STARTER_CITIES.filter(c=>!usedCities.includes(c.name));
+
+  // If selected city was deleted, go back
+  useEffect(()=>{
+    if(selectedCity&&!usedCities.includes(selectedCity)&&places.filter(p=>p.city===selectedCity).length===0){
+      setSelectedCity(null);
+    }
+  },[places]);
+
+  if(selectedCity){
+    return <CityView city={selectedCity} places={places} setPlaces={setPlaces} theme={theme} t={t} uid={uid} onBack={()=>setSelectedCity(null)}/>;
+  }
+
+  // Landing — city grid
+  return(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,borderBottom:`2px solid ${t.border}`,paddingBottom:10}}>
+        <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4}}>📍 TRY</div>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>{places.length} TOTAL PLACES</div>
+      </div>
+
+      {/* Cities with places */}
+      {usedCities.length>0&&<>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:3,marginBottom:8}}>YOUR CITIES</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:18}}>
+          {usedCities.map(city=>{
+            const cityPlaces=places.filter(p=>p.city===city);
+            const visited=cityPlaces.filter(p=>p.visited).length;
+            const starter=STARTER_CITIES.find(s=>s.name===city);
+            return(
+              <button key={city} onClick={()=>setSelectedCity(city)} style={{
+                background:t.bgCard,border:`2px solid ${t.border}`,
+                padding:"16px 14px",cursor:"pointer",textAlign:"left",
+                boxShadow:`3px 3px 0 ${t.border}`,transition:"all 0.12s",
+              }}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor=t.accent;e.currentTarget.style.boxShadow=`3px 3px 0 ${t.accent}`;}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor=t.border;e.currentTarget.style.boxShadow=`3px 3px 0 ${t.border}`;}}>
+                <div style={{fontSize:26,marginBottom:4}}>{starter?.emoji||"📍"}</div>
+                <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:t.text,letterSpacing:2,lineHeight:1.2}}>{city}</div>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginTop:4}}>{cityPlaces.length} places · {visited} visited</div>
+                {/* Mini category pills */}
+                <div style={{display:"flex",gap:3,flexWrap:"wrap",marginTop:6}}>
+                  {[...new Set(cityPlaces.map(p=>p.category?.split(" ")[0]).filter(Boolean))].slice(0,4).map((e,i)=>(
+                    <span key={i} style={{fontSize:14}}>{e}</span>
+                  ))}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </>}
+
+      {/* Starter cities to explore */}
+      {starterCities.length>0&&<>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:3,marginBottom:8}}>EXPLORE A CITY</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:14}}>
+          {starterCities.map(c=>(
+            <button key={c.name} onClick={()=>setSelectedCity(c.name)} style={{
+              background:"transparent",border:`2px dashed ${t.border}`,
+              padding:"14px 8px",cursor:"pointer",textAlign:"center",
+              transition:"all 0.12s",
+            }}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor=t.accent;e.currentTarget.style.borderStyle="solid";}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor=t.border;e.currentTarget.style.borderStyle="dashed";}}>
+              <div style={{fontSize:22}}>{c.emoji}</div>
+              <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:4,lineHeight:1.2}}>{c.name}</div>
+            </button>
+          ))}
+        </div>
+      </>}
+
+      {/* Add custom city */}
+      {addingCity
+        ?<div style={{display:"flex",gap:6}}>
+          <input ref={newCityInputRef} value={newCityVal} onChange={e=>setNewCityVal(e.target.value.toUpperCase())}
+            onKeyDown={e=>{
+              if(e.key==="Enter"){const v=newCityVal.trim();if(v){setSelectedCity(v);}setAddingCity(false);setNewCityVal("");}
+              if(e.key==="Escape"){setAddingCity(false);setNewCityVal("");}
+            }}
+            placeholder="CITY NAME" autoFocus
+            style={{flex:1,background:t.bg,border:`2px solid ${t.accent}`,padding:"10px 12px",color:t.text,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,letterSpacing:3,outline:"none"}}/>
+          <button onClick={()=>{const v=newCityVal.trim();if(v){setSelectedCity(v);}setAddingCity(false);setNewCityVal("");}} style={{padding:"10px 16px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`}}>GO</button>
+          <button onClick={()=>{setAddingCity(false);setNewCityVal("");}} style={{padding:"10px 12px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>✕</button>
+        </div>
+        :<button onClick={()=>{setAddingCity(true);setTimeout(()=>newCityInputRef.current?.focus(),50);}} style={{width:"100%",padding:"12px",border:`2px dashed ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:3}}>+ ADD A DIFFERENT CITY</button>}
     </div>
   );
 }
