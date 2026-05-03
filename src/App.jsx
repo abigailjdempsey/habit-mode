@@ -1380,15 +1380,51 @@ const CITY_EMOJI_OPTIONS = ["🗽","🌴","🗼","💂","🥐","🌮","🌊","�
 
 function ManageCitiesView({cityList, setCityList, cityEmojis, setCityEmojis, places, onBack, theme, t}) {
   const [editingEmoji,setEditingEmoji]=useState(null);
+  const [dragIdx,setDragIdx]=useState(null);   // index being dragged
+  const [overIdx,setOverIdx]=useState(null);   // index being hovered over
+  const [touchDragIdx,setTouchDragIdx]=useState(null);
+  const [touchOverIdx,setTouchOverIdx]=useState(null);
+  const listRef=useRef(null);
+
   const getCityEmoji=(city)=>cityEmojis[city]||(STARTER_CITIES.find(s=>s.name===city)?.emoji)||"📍";
 
-  const moveUp=(i)=>{ if(i===0)return; const l=[...cityList];[l[i-1],l[i]]=[l[i],l[i-1]];setCityList(l); };
-  const moveDown=(i)=>{ if(i===cityList.length-1)return; const l=[...cityList];[l[i],l[i+1]]=[l[i+1],l[i]];setCityList(l); };
   const removeCity=(city)=>{
-    if(!window.confirm(`Remove ${city} from your list?
-
-Places in ${city} will also be deleted.`))return;
+    if(!window.confirm(`Remove ${city} from your list? Places in ${city} will also be deleted.`))return;
     setCityList(prev=>prev.filter(c=>c!==city));
+  };
+
+  const reorder=(fromIdx,toIdx)=>{
+    if(fromIdx===toIdx||toIdx==null)return;
+    const l=[...cityList];
+    const [moved]=l.splice(fromIdx,1);
+    l.splice(toIdx,0,moved);
+    setCityList(l);
+  };
+
+  // Mouse drag handlers
+  const onDragStart=(i)=>setDragIdx(i);
+  const onDragEnter=(i)=>setOverIdx(i);
+  const onDragEnd=()=>{ reorder(dragIdx,overIdx); setDragIdx(null);setOverIdx(null); };
+
+  // Touch drag handlers
+  const onTouchStart=(i,e)=>{
+    setTouchDragIdx(i);
+    e.currentTarget.style.opacity="0.5";
+  };
+  const onTouchMove=(e)=>{
+    e.preventDefault();
+    const touch=e.touches[0];
+    const el=document.elementFromPoint(touch.clientX,touch.clientY);
+    const row=el?.closest("[data-drag-idx]");
+    if(row){
+      const idx=parseInt(row.getAttribute("data-drag-idx"));
+      if(!isNaN(idx)) setTouchOverIdx(idx);
+    }
+  };
+  const onTouchEnd=(e)=>{
+    e.currentTarget.style.opacity="1";
+    reorder(touchDragIdx,touchOverIdx??touchDragIdx);
+    setTouchDragIdx(null);setTouchOverIdx(null);
   };
 
   return(
@@ -1406,35 +1442,55 @@ Places in ${city} will also be deleted.`))return;
           </div>
         </div>
       )}
-      {/* Header */}
       <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:16,borderBottom:`2px solid ${t.border}`,paddingBottom:10}}>
         <button onClick={onBack} style={{background:"transparent",border:`2px solid ${t.border}`,borderRight:"none",padding:"8px 12px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.textSub,boxShadow:`2px 2px 0 ${t.border}`}}>◀</button>
         <div style={{flex:1,padding:"8px 14px",border:`2px solid ${t.border}`,background:t.bgCard,boxShadow:`2px 2px 0 ${t.border}`}}>
           <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,color:t.text,letterSpacing:4}}>MANAGE CITIES</div>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginTop:1}}>REORDER · CHANGE EMOJI · REMOVE</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginTop:1}}>DRAG TO REORDER · TAP EMOJI TO CHANGE · × TO REMOVE</div>
         </div>
       </div>
-      {cityList.map((city,i)=>{
-        const placeCount=places.filter(p=>p.city===city).length;
-        return(
-          <div key={city} style={{display:"flex",alignItems:"center",gap:0,marginBottom:6,border:`2px solid ${t.border}`,background:t.bgCard,boxShadow:`2px 2px 0 ${t.border}`}}>
-            {/* Reorder arrows */}
-            <div style={{display:"flex",flexDirection:"column",borderRight:`2px solid ${t.border}`,flexShrink:0}}>
-              <button onClick={()=>moveUp(i)} disabled={i===0} style={{background:"transparent",border:"none",padding:"6px 10px",cursor:i===0?"default":"pointer",color:i===0?t.border:t.textSub,fontSize:12,lineHeight:1}}>▲</button>
-              <button onClick={()=>moveDown(i)} disabled={i===cityList.length-1} style={{background:"transparent",border:"none",padding:"6px 10px",cursor:i===cityList.length-1?"default":"pointer",color:i===cityList.length-1?t.border:t.textSub,fontSize:12,lineHeight:1}}>▼</button>
+      <div ref={listRef}>
+        {cityList.map((city,i)=>{
+          const placeCount=places.filter(p=>p.city===city).length;
+          const isOver=(overIdx===i&&dragIdx!==null&&dragIdx!==i)||(touchOverIdx===i&&touchDragIdx!==null&&touchDragIdx!==i);
+          const isDragging=dragIdx===i||touchDragIdx===i;
+          return(
+            <div key={city}
+              data-drag-idx={i}
+              draggable
+              onDragStart={()=>onDragStart(i)}
+              onDragEnter={()=>onDragEnter(i)}
+              onDragEnd={onDragEnd}
+              onDragOver={e=>e.preventDefault()}
+              onTouchStart={e=>onTouchStart(i,e)}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
+              style={{
+                display:"flex",alignItems:"center",gap:0,marginBottom:6,
+                border:`2px solid ${isOver?t.accent:t.border}`,
+                background:isDragging?`${t.accent}18`:t.bgCard,
+                boxShadow:isOver?`3px 3px 0 ${t.accent}`:`2px 2px 0 ${t.border}`,
+                opacity:isDragging?0.5:1,
+                transform:isOver?"translateY(-2px)":"none",
+                transition:"transform 0.1s, border-color 0.1s, box-shadow 0.1s",
+                touchAction:"none",
+                cursor:"grab",
+              }}>
+              {/* Drag handle */}
+              <div style={{borderRight:`2px solid ${t.border}`,padding:"14px 12px",color:t.textSub,fontSize:14,flexShrink:0,userSelect:"none"}}>⠿</div>
+              {/* Emoji — tap to change */}
+              <button onClick={()=>setEditingEmoji(city)} style={{background:"transparent",border:"none",borderRight:`2px solid ${t.border}`,padding:"12px 14px",cursor:"pointer",fontSize:22,flexShrink:0}}>{getCityEmoji(city)}</button>
+              {/* Name + count */}
+              <div style={{flex:1,padding:"10px 12px",userSelect:"none"}}>
+                <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:t.text,letterSpacing:2}}>{city}</div>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginTop:2}}>{placeCount} place{placeCount!==1?"s":""}</div>
+              </div>
+              {/* Remove */}
+              <button onClick={()=>removeCity(city)} style={{background:"transparent",border:"none",borderLeft:`2px solid ${t.border}`,padding:"12px 14px",cursor:"pointer",color:t.textSub,fontSize:16,flexShrink:0}}>×</button>
             </div>
-            {/* Emoji */}
-            <button onClick={()=>setEditingEmoji(city)} style={{background:"transparent",border:"none",borderRight:`2px solid ${t.border}`,padding:"12px 14px",cursor:"pointer",fontSize:22,flexShrink:0}} title="Change emoji">{getCityEmoji(city)}</button>
-            {/* Name + count */}
-            <div style={{flex:1,padding:"10px 12px"}}>
-              <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:t.text,letterSpacing:2}}>{city}</div>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginTop:2}}>{placeCount} place{placeCount!==1?"s":""}</div>
-            </div>
-            {/* Remove */}
-            <button onClick={()=>removeCity(city)} style={{background:"transparent",border:"none",borderLeft:`2px solid ${t.border}`,padding:"12px 14px",cursor:"pointer",color:t.textSub,fontSize:16,flexShrink:0}}>×</button>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
       {cityList.length===0&&<div style={{textAlign:"center",padding:"32px",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:2,border:`2px dashed ${t.border}`}}>NO CITIES YET</div>}
     </div>
   );
