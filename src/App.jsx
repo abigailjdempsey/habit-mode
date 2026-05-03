@@ -1479,7 +1479,7 @@ function CityView({city, places, setPlaces, theme, t, uid, onBack}) {
         existingNeighborhoods={places.reduce((acc,p)=>{if(p.city&&p.neighborhood){if(!acc[p.city])acc[p.city]=[];if(!acc[p.city].includes(p.neighborhood))acc[p.city].push(p.neighborhood);}return acc;},{})}
       />}
 
-      {showShare&&<FriendsErrorBoundary onClose={()=>setShowShare(false)} t={t}><FriendsModeView places={cityPlaces} city={city} cityEmoji={cityEmoji||"📍"} onClose={()=>setShowShare(false)} theme={theme} t={t}/></FriendsErrorBoundary>}
+      {showShare&&<FriendsModeView places={cityPlaces} city={city} cityEmoji={cityEmoji||"📍"} onClose={()=>setShowShare(false)} theme={theme} t={t}/>}
       {/* Header */}
       <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:14,borderBottom:`2px solid ${t.border}`,paddingBottom:10}}>
         <button onClick={onBack} style={{background:"transparent",border:`2px solid ${t.border}`,borderRight:"none",padding:"8px 12px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.textSub,boxShadow:`2px 2px 0 ${t.border}`}}>◀</button>
@@ -1676,220 +1676,79 @@ function ManageCitiesView({cityList, setCityList, cityEmojis, setCityEmojis, pla
 }
 
 // ─── FRIENDS MODE ─────────────────────────────────────────────────────────────
-class FriendsErrorBoundary extends React.Component {
-  constructor(props){super(props);this.state={error:null};}
-  static getDerivedStateFromError(e){return{error:e.message};}
-  render(){
-    if(this.state.error){
-      const t=this.props.t||{};
-      return(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={this.props.onClose}>
-          <div style={{background:t.bg||"#f0ede8",width:"100%",maxWidth:500,border:"3px solid #1a1a1a",borderBottom:"none",padding:24,boxShadow:"-6px -6px 0 #1a1a1a"}} onClick={e=>e.stopPropagation()}>
-            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,marginBottom:8}}>OOPS — SOMETHING WENT WRONG</div>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:"#666",marginBottom:16}}>{this.state.error}</div>
-            <button onClick={this.props.onClose} style={{width:"100%",padding:"12px",border:"2px solid #1a1a1a",background:"transparent",fontFamily:"'Black Han Sans',sans-serif",fontSize:13,cursor:"pointer",letterSpacing:3}}>CLOSE</button>
-          </div>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
 function FriendsModeView({places, city, cityEmoji, onClose, theme, t}) {
-  // places is already filtered to this city
-  const [listName, setListName] = useState(city ? city + " PICKS" : "MY PICKS");
-  const [selectedPlaces, setSelectedPlaces] = useState(places.map(p => p.id)); // all selected by default
-  const allSelected = selectedPlaces.length === places.length;
-  const toggleAll = () => setSelectedPlaces(allSelected ? [] : places.map(p => p.id));
-  const [generating, setGenerating] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const canvasRef = useRef(null);
-  const togglePlace = (id) => setSelectedPlaces(prev =>
-    prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-  );
+  const [selected, setSelected] = useState(() => places.map(p => p.id));
+  const [listName, setListName] = useState((city||"") + " PICKS");
+  const allOn = selected.length === places.length;
 
-  const selectedList = places.filter(p => selectedPlaces.includes(p.id));
+  const toggle = (id) => setSelected(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev,id]);
+  const toggleAll = () => setSelected(allOn ? [] : places.map(p=>p.id));
 
-  // Places are already filtered to one city — just use them directly
-  const byCityEntries = [[city, selectedList]].filter(([,ps]) => ps.length > 0);
+  const selectedList = places.filter(p => selected.includes(p.id));
 
-  const generateImage = async () => {
-    setGenerating(true);
-    try {
-      const canvas = canvasRef.current;
-      const scale = 2; // retina
-      const W = 390, PADDING = 24, COL_W = W - PADDING * 2;
-      const FONT_TITLE = "bold 28px 'Arial Black', Arial";
-      const FONT_CITY = "bold 15px 'Arial Black', Arial";
-      const FONT_PLACE = "bold 13px Arial";
-      const FONT_SUB = "12px Arial";
-      const BG = "#f0ede8", BORDER = "#1a1a1a", ACCENT = "#1a1a1a";
-
-      // Measure height first
-      const ctx0 = document.createElement("canvas").getContext("2d");
-      ctx0.font = FONT_TITLE;
-      let H = PADDING + 42 + 16; // title row
-      byCityEntries.forEach(([cityName, ps]) => {
-        H += 34 + ps.length * 52 + 8;
-      });
-      H += PADDING + 24; // footer
-
-      canvas.width = W * scale;
-      canvas.height = H * scale;
-      canvas.style.width = W + "px";
-      canvas.style.height = H + "px";
-      const ctx = canvas.getContext("2d");
-      ctx.scale(scale, scale);
-
-      // Background
-      ctx.fillStyle = BG;
-      ctx.fillRect(0, 0, W, H);
-
-      // Border frame
-      ctx.strokeStyle = BORDER;
-      ctx.lineWidth = 3;
-      ctx.strokeRect(1.5, 1.5, W - 3, H - 3);
-
-      // Title
-      let y = PADDING;
-      ctx.fillStyle = BORDER;
-      ctx.font = FONT_TITLE;
-      ctx.fillText(listName || "MY PICKS", PADDING, y + 28);
-      ctx.font = "12px Arial";
-      ctx.fillStyle = "#666";
-      ctx.fillText("habit-mode.vercel.app", PADDING, y + 44);
-      y += 58;
-
-      // Divider
-      ctx.strokeStyle = BORDER;
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(PADDING, y); ctx.lineTo(W - PADDING, y); ctx.stroke();
-      y += 14;
-
-      // Cities + places
-      byCityEntries.forEach(([cityName, ps]) => {
-        // City header
-        ctx.fillStyle = BORDER;
-        ctx.font = FONT_CITY;
-        ctx.fillText(`${cityEmoji} ${cityName}`, PADDING, y + 16);
-        y += 30;
-
-        ps.forEach(p => {
-          // Card background
-          ctx.fillStyle = p.listType === "favorite" ? "#fff0f0" : "#fff";
-          ctx.strokeStyle = p.listType === "favorite" ? "#e74c3c" : "#ccc";
-          ctx.lineWidth = 1.5;
-          roundRect(ctx, PADDING, y, COL_W, 44, 4);
-          ctx.fill(); ctx.stroke();
-
-          // Emoji + name
-          ctx.font = "18px Arial";
-          ctx.fillText(p.category?.split(" ")[0] || "📍", PADDING + 8, y + 28);
-          ctx.fillStyle = "#1a1a1a";
-          ctx.font = FONT_PLACE;
-          const name = p.name.length > 28 ? p.name.slice(0, 27) + "…" : p.name;
-          ctx.fillText(name, PADDING + 34, y + 18);
-
-          // Sub info
-          ctx.font = FONT_SUB;
-          ctx.fillStyle = "#666";
-          let sub = "";
-          if (p.neighborhood) sub += `📍${p.neighborhood}  `;
-          if (p.rating) sub += "★".repeat(p.rating);
-          if (sub) ctx.fillText(sub, PADDING + 34, y + 34);
-
-          if (p.listType === "favorite") {
-            ctx.font = "14px Arial";
-            ctx.fillText("❤️", W - PADDING - 22, y + 28);
-          }
-          y += 52;
-        });
-        y += 8;
-      });
-
-      // Footer
-      y += 4;
-      ctx.strokeStyle = BORDER;
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(PADDING, y); ctx.lineTo(W - PADDING, y); ctx.stroke();
-      ctx.fillStyle = "#999";
-      ctx.font = "10px Arial";
-      ctx.fillText("made with habit mode ✨", PADDING, y + 16);
-
-      // Save
-      canvas.toBlob(blob => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${(listName || "my-picks").toLowerCase().replace(/\s+/g, "-")}.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
-        setGenerating(false);
-      }, "image/png");
-    } catch(e) {
-      console.error(e);
-      setGenerating(false);
+  const shareAsText = () => {
+    const lines = [`${cityEmoji} ${city} — MY PICKS`, ""];
+    selectedList.forEach(p => {
+      lines.push(`${p.category?.split(" ")[0]||"📍"} ${p.name}${p.neighborhood ? " · " + p.neighborhood : ""}${p.listType==="favorite" ? " ❤️" : ""}${p.rating ? " " + "★".repeat(p.rating) : ""}`);
+    });
+    lines.push("", "made with habit mode ✨");
+    const text = lines.join("\n");
+    if (navigator.share) {
+      navigator.share({ title: city + " picks", text }).catch(()=>{});
+    } else {
+      navigator.clipboard.writeText(text).then(()=>alert("Copied to clipboard!")).catch(()=>alert(text));
     }
   };
 
-  // Helper: rounded rect
-  function roundRect(ctx, x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
-    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-    ctx.lineTo(x + w, y + h - r);
-    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-    ctx.lineTo(x + r, y + h);
-    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-    ctx.lineTo(x, y + r);
-    ctx.quadraticCurveTo(x, y, x + r, y);
-    ctx.closePath();
-  }
-
-  const inp = {width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"11px 13px",color:t.text,fontSize:16,fontFamily:"'Black Han Sans',sans-serif",letterSpacing:3,outline:"none",boxSizing:"border-box",marginBottom:14,textTransform:"uppercase"};
+  const inp = {
+    width:"100%",
+    background:t.bgCard,
+    border:`2px solid ${t.border}`,
+    padding:"11px 13px",
+    color:t.text,
+    fontSize:15,
+    fontFamily:"'Black Han Sans',sans-serif",
+    letterSpacing:3,
+    outline:"none",
+    boxSizing:"border-box",
+    marginBottom:14,
+    textTransform:"uppercase"
+  };
 
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
       <div style={{background:t.bg,width:"100%",maxWidth:500,border:`3px solid ${t.border}`,borderBottom:"none",boxShadow:`-6px -6px 0 ${t.border}`,maxHeight:"90vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
-        <canvas ref={canvasRef} style={{display:"none"}}/>
 
-        {/* Header */}
         <div style={{padding:"18px 18px 14px",borderBottom:`2px solid ${t.border}`,flexShrink:0}}>
           <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:20,color:t.text,letterSpacing:4,marginBottom:2}}>{cityEmoji} {city} — SHARE</div>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>PICK PLACES · SAVES AS IMAGE</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>PICK PLACES TO SHARE</div>
         </div>
 
         <div style={{padding:"14px 18px",overflowY:"auto",flex:1}}>
-          {/* List name */}
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:5}}>LIST NAME</div>
           <input style={inp} placeholder="MY PICKS" value={listName} onChange={e=>setListName(e.target.value.toUpperCase())} maxLength={30}/>
 
-          {/* Place selector */}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2}}>
-              SELECT PLACES ({selectedPlaces.length}/{places.length})
-            </div>
-            <button onClick={toggleAll} style={{padding:"4px 10px",border:`1.5px solid ${t.border}`,background:allSelected?t.accent:"transparent",color:allSelected?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:9,cursor:"pointer",letterSpacing:2,boxShadow:allSelected?`1px 1px 0 ${t.border}`:"none"}}>
-              {allSelected?"DESELECT ALL":"SELECT ALL"}
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2}}>{selected.length}/{places.length} SELECTED</div>
+            <button onClick={toggleAll} style={{padding:"4px 10px",border:`1.5px solid ${t.border}`,background:allOn?t.accent:"transparent",color:allOn?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:9,cursor:"pointer",letterSpacing:2}}>
+              {allOn?"DESELECT ALL":"SELECT ALL"}
             </button>
           </div>
 
-          {places.length === 0
-            ? <div style={{textAlign:"center",padding:"24px",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:2,border:`2px dashed ${t.border}`}}>NO PLACES ADDED YET</div>
-            : places.map(p => {
-                const on = selectedPlaces.includes(p.id);
-                return (
-                  <div key={p.id} onClick={()=>togglePlace(p.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",border:`2px solid ${on?t.accent:t.border}`,marginBottom:5,cursor:"pointer",background:on?`${t.accent}11`:t.bg,boxShadow:on?`2px 2px 0 ${t.accent}`:`1px 1px 0 ${t.border}`,transition:"all 0.1s"}}>
+          {places.length===0
+            ? <div style={{textAlign:"center",padding:"24px",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:2,border:`2px dashed ${t.border}`}}>NO PLACES IN THIS CITY YET</div>
+            : places.map(p=>{
+                const on=selected.includes(p.id);
+                return(
+                  <div key={p.id} onClick={()=>toggle(p.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",border:`2px solid ${on?t.accent:t.border}`,marginBottom:5,cursor:"pointer",background:on?`${t.accent}11`:t.bg,transition:"all 0.1s"}}>
                     <div style={{width:20,height:20,border:`2px solid ${on?t.accent:t.border}`,background:on?t.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:t.textInv,flexShrink:0}}>{on?"✓":""}</div>
-                    <span style={{fontSize:16}}>{p.category?.split(" ")[0]||"📍"}</span>
+                    <span style={{fontSize:16,flexShrink:0}}>{p.category?.split(" ")[0]||"📍"}</span>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
-                      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:1}}>
-                        {p.neighborhood||""}{p.listType==="favorite"?" ❤️":""}
+                      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:1,display:"flex",gap:6}}>
+                        {p.neighborhood&&<span>📍{p.neighborhood}</span>}
+                        {p.listType==="favorite"&&<span>❤️</span>}
+                        {p.rating>0&&<span>{"★".repeat(p.rating)}</span>}
                       </div>
                     </div>
                   </div>
@@ -1898,10 +1757,9 @@ function FriendsModeView({places, city, cityEmoji, onClose, theme, t}) {
           }
         </div>
 
-        {/* Footer */}
         <div style={{padding:"12px 18px 18px",borderTop:`2px solid ${t.border}`,flexShrink:0}}>
-          <button onClick={generateImage} disabled={selectedPlaces.length===0||generating} style={{width:"100%",padding:"14px",border:`2px solid ${t.border}`,background:selectedPlaces.length>0?t.addBtn:"transparent",color:selectedPlaces.length>0?t.addBtnText:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:14,cursor:selectedPlaces.length>0?"pointer":"default",letterSpacing:3,boxShadow:selectedPlaces.length>0?`3px 3px 0 ${t.border}`:"none",opacity:selectedPlaces.length>0?1:0.4,marginBottom:8,transition:"all 0.15s"}}>
-            {generating?"GENERATING...":saved?"SAVED! CHECK YOUR DOWNLOADS ✓":"⬇ SAVE AS IMAGE"}
+          <button onClick={shareAsText} disabled={selected.length===0} style={{width:"100%",padding:"14px",border:`2px solid ${t.border}`,background:selected.length>0?t.addBtn:"transparent",color:selected.length>0?t.addBtnText:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:14,cursor:selected.length>0?"pointer":"default",letterSpacing:3,boxShadow:selected.length>0?`3px 3px 0 ${t.border}`:"none",opacity:selected.length>0?1:0.4,marginBottom:8}}>
+            👥 SHARE LIST
           </button>
           <button onClick={onClose} style={{width:"100%",padding:"11px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:3}}>CANCEL</button>
         </div>
