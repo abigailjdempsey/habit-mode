@@ -255,22 +255,26 @@ function SubcatBlock({subcat,habits,todayStr,theme,onComplete,onUndoOne,onDelete
 }
 
 // ─── CATEGORY BLOCK ──────────────────────────────────────────────────────────
-function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,onDeleteHabit,onRenameHabit,onOpenDrawer,onDeleteCat,onRenameCat,onAddSubcat,onDeleteSubcat,onRenameSubcat,onAddHabit}){
+function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,onDeleteHabit,onRenameHabit,onOpenDrawer,onDeleteCat,onRenameCat,onColorCat,onAddSubcat,onDeleteSubcat,onRenameSubcat,onAddHabit}){
   const t=THEMES[theme]||THEMES.ravewhite;
   const [collapsed,setCollapsed]=useState(cat.collapsed||false);
   const [editing,setEditing]=useState(false);
   const [editVal,setEditVal]=useState(cat.label);
+  const [pickingColor,setPickingColor]=useState(false);
   const [addingSubcat,setAddingSubcat]=useState(false);
   const [newSubcatVal,setNewSubcatVal]=useState("");
   const inputRef=useRef(null);
   const newSubcatRef=useRef(null);
 
-  // habits directly in category (no subcat)
+  const catColor=cat.color||t.accent;
   const directHabits=habits.filter(h=>h.catId===cat.id&&!h.subId);
   const catSubcats=subcats.filter(s=>s.catId===cat.id);
   const allHabits=habits.filter(h=>h.catId===cat.id);
   const doneCount=allHabits.filter(h=>isDone(h,todayStr)).length;
   const allDone=doneCount===allHabits.length&&allHabits.length>0;
+
+  // Habits inherit category color unless they have their own
+  const withCatColor=(h)=>({...h,color:h.color&&!h.isDefault?h.color:catColor});
 
   const commit=()=>{if(editVal.trim())onRenameCat(cat.id,editVal.trim().toUpperCase());setEditing(false);};
   const commitNewSubcat=()=>{
@@ -280,18 +284,37 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
   };
 
   return(
-    <div style={{marginBottom:14,border:`2px solid ${t.border}`,boxShadow:`3px 3px 0 ${t.border}`}}>
+    <div style={{marginBottom:14,border:`2px solid ${t.border}`,boxShadow:`3px 3px 0 ${t.border}`,overflow:"hidden"}}>
+      {/* Color picker dropdown */}
+      {pickingColor&&(
+        <div style={{background:t.bgCard,borderBottom:`2px solid ${t.border}`,padding:"10px 12px"}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:8}}>CATEGORY COLOR</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            {HABIT_COLORS.map(c=>(
+              <button key={c} onClick={()=>{onColorCat(cat.id,c);setPickingColor(false);}} style={{width:28,height:28,background:c,border:`3px solid ${catColor===c?t.text:"transparent"}`,cursor:"pointer",transition:"all 0.1s",boxShadow:catColor===c?`0 0 0 1px ${t.border}`:"none"}}/>
+            ))}
+            {/* Reset to theme default */}
+            <button onClick={()=>{onColorCat(cat.id,null);setPickingColor(false);}} style={{width:28,height:28,background:t.bgCard,border:`2px dashed ${t.border}`,cursor:"pointer",fontSize:10,color:t.textSub,display:"flex",alignItems:"center",justifyContent:"center"}} title="Reset">↺</button>
+          </div>
+        </div>
+      )}
       {/* Category header */}
       <div style={{background:t.bgCard,display:"flex",alignItems:"center",borderBottom:collapsed?`none`:`2px solid ${t.border}`}}>
-        <button onClick={()=>setCollapsed(c=>!c)} style={{background:"transparent",border:"none",borderRight:`2px solid ${t.border}`,padding:"12px 14px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.textSub}}>{collapsed?"▶":"▼"}</button>
+        {/* Color accent bar */}
+        <div style={{width:6,alignSelf:"stretch",background:catColor,flexShrink:0}}/>
+        <button onClick={()=>setCollapsed(c=>!c)} style={{background:"transparent",border:"none",borderRight:`2px solid ${t.border}`,padding:"12px 10px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.textSub}}>{collapsed?"▶":"▼"}</button>
         {editing
           ?<input ref={inputRef} value={editVal} onChange={e=>setEditVal(e.target.value.toUpperCase())} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter")commit();if(e.key==="Escape")setEditing(false);}} style={{flex:1,fontFamily:"'Black Han Sans',sans-serif",fontSize:18,letterSpacing:4,color:t.accent,background:"transparent",border:"none",borderBottom:`2px solid ${t.accent}`,outline:"none",padding:"12px 14px"}} autoFocus/>
           :<div onClick={()=>setCollapsed(c=>!c)} style={{flex:1,fontFamily:"'Black Han Sans',sans-serif",fontSize:18,color:t.text,letterSpacing:4,padding:"12px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
             {cat.label}
-            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:allDone?t.accent:t.textSub,letterSpacing:2,fontWeight:400}}>
+            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:allDone?catColor:t.textSub,letterSpacing:2,fontWeight:400}}>
               {allDone?"ALL DONE ✓":`${doneCount}/${allHabits.length}`}
             </span>
           </div>}
+        {/* Color dot button */}
+        <button onClick={()=>setPickingColor(v=>!v)} style={{background:"transparent",border:"none",borderLeft:`2px solid ${t.border}`,padding:"12px 10px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}} title="Change color">
+          <div style={{width:14,height:14,background:catColor,border:`2px solid ${t.border}`,borderRadius:2}}/>
+        </button>
         <button onClick={()=>{setEditVal(cat.label);setEditing(true);setTimeout(()=>inputRef.current?.focus(),50);}} style={{background:"transparent",border:"none",borderLeft:`2px solid ${t.border}`,padding:"12px 10px",cursor:"pointer",fontSize:11,color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>EDT</button>
         <button onClick={()=>onDeleteCat(cat.id)} style={{background:"transparent",border:"none",borderLeft:`2px solid ${t.border}`,padding:"12px 12px",cursor:"pointer",fontSize:16,color:t.textSub}}>×</button>
       </div>
@@ -300,14 +323,14 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
         <div style={{padding:"12px 12px 6px"}}>
           {/* Subcategories */}
           {catSubcats.map(sub=>{
-            const subHabits=habits.filter(h=>h.subId===sub.id);
+            const subHabits=habits.filter(h=>h.subId===sub.id).map(withCatColor);
             return <SubcatBlock key={sub.id} subcat={sub} habits={subHabits} todayStr={todayStr} theme={theme}
               onComplete={onComplete} onUndoOne={onUndoOne} onDelete={onDeleteHabit} onRename={onRenameHabit} onOpenDrawer={onOpenDrawer}
               onDeleteSubcat={onDeleteSubcat} onRenameSubcat={onRenameSubcat}/>;
           })}
 
-          {/* Direct habits */}
-          {directHabits.map(h=><HabitRow key={h.id} habit={h} onComplete={onComplete} onUndoOne={onUndoOne} onDelete={onDeleteHabit} onRename={onRenameHabit} todayStr={todayStr} theme={theme} onOpenDrawer={onOpenDrawer}/>)}
+          {/* Direct habits — inherit category color */}
+          {directHabits.map(withCatColor).map(h=><HabitRow key={h.id} habit={h} onComplete={onComplete} onUndoOne={onUndoOne} onDelete={onDeleteHabit} onRename={onRenameHabit} todayStr={todayStr} theme={theme} onOpenDrawer={onOpenDrawer}/>)}
 
           {/* Action buttons */}
           <div style={{display:"flex",gap:6,marginTop:6,marginBottom:4}}>
@@ -337,7 +360,6 @@ function AddHabitModal({catId,subId,cats,subcats,onAdd,onClose,theme}){
   const t=THEMES[theme]||THEMES.ravewhite;
   const [label,setLabel]=useState("");
   const [emoji,setEmoji]=useState("💪");
-  const [color,setColor]=useState(HABIT_COLORS[0]);
   const [xp,setXp]=useState(10);
   const [repeat,setRepeat]=useState(1);
   const [schedulePreset,setSchedulePreset]=useState("daily");
@@ -357,7 +379,7 @@ function AddHabitModal({catId,subId,cats,subcats,onAdd,onClose,theme}){
 
   const submit=()=>{
     if(!label.trim()||!selectedCat)return;
-    onAdd({id:uid(),emoji,label:label.trim().toUpperCase(),catId:selectedCat,subId:selectedSub==="none"?null:selectedSub,color,special:null,xp,streak:0,repeat,schedule:getSchedule(),completedDates:[],isDefault:false});
+    onAdd({id:uid(),emoji,label:label.trim().toUpperCase(),catId:selectedCat,subId:selectedSub==="none"?null:selectedSub,color:null,special:null,xp,streak:0,repeat,schedule:getSchedule(),completedDates:[],isDefault:false});
     onClose();
   };
 
@@ -401,13 +423,6 @@ function AddHabitModal({catId,subId,cats,subcats,onAdd,onClose,theme}){
             return <button key={i} onClick={()=>setCustomDays(prev=>on?prev.filter(d=>d!==i):[...prev,i].sort())} style={{flex:1,padding:"8px 0",border:`2px solid ${on?t.accent:t.border}`,background:on?t.accent:t.bgCard,color:on?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:9,cursor:"pointer",letterSpacing:1,boxShadow:on?`2px 2px 0 ${t.border}`:"none"}}>{day}</button>;
           })}
         </div>}
-        {/* Color */}
-        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:6}}>CARD COLOR:</div>
-        <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
-          {HABIT_COLORS.map(c=>(
-            <button key={c} onClick={()=>setColor(c)} style={{width:30,height:30,background:c,border:`3px solid ${color===c?t.text:"transparent"}`,cursor:"pointer",boxShadow:color===c?`0 0 0 1px ${t.border}`:"none",borderRadius:2,transition:"all 0.1s"}}/>
-          ))}
-        </div>
         {/* Repeat */}
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:6}}>TIMES PER DAY: <strong style={{color:t.accent,fontSize:15}}>{repeat}×</strong></div>
         <div style={{display:"flex",gap:5,marginBottom:12}}>
@@ -1659,127 +1674,222 @@ function ManageCitiesView({cityList, setCityList, cityEmojis, setCityEmojis, pla
 
 // ─── FRIENDS MODE ─────────────────────────────────────────────────────────────
 function FriendsModeView({places, cityList, cityEmojis, onClose, theme, t}) {
-  const [copied,setCopied]=useState(false);
-  const [activeCity,setActiveCity]=useState(null);
+  const [listName, setListName] = useState("MY PICKS");
+  const [selectedPlaces, setSelectedPlaces] = useState(
+    places.filter(p => p.listType === "favorite").map(p => p.id)
+  );
+  const [generating, setGenerating] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const canvasRef = useRef(null);
+  const getCityEmoji = (city) => cityEmojis[city] || (STARTER_CITIES.find(s => s.name === city)?.emoji) || "📍";
 
-  // Encode places into a shareable URL hash
-  const shareData={places:places.map(p=>({n:p.name,c:p.city,nb:p.neighborhood||"",cat:p.category||"",d:p.description||"",u:p.url||"",v:p.visited?1:0,r:p.rating||0,lt:p.listType||"w"})),cities:cityList,emojis:cityEmojis};
-  const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(shareData)))).slice(0,4000);
-  const shareUrl=`${window.location.origin}${window.location.pathname}?share=${encoded}`;
+  const togglePlace = (id) => setSelectedPlaces(prev =>
+    prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+  );
 
-  const copy=()=>{
-    navigator.clipboard.writeText(shareUrl).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});
+  const selectedList = places.filter(p => selectedPlaces.includes(p.id));
+
+  // Group selected places by city
+  const byCityEntries = Object.entries(
+    selectedList.reduce((acc, p) => {
+      const c = p.city || "Other";
+      if (!acc[c]) acc[c] = [];
+      acc[c].push(p);
+      return acc;
+    }, {})
+  );
+
+  const generateImage = async () => {
+    setGenerating(true);
+    try {
+      const canvas = canvasRef.current;
+      const scale = 2; // retina
+      const W = 390, PADDING = 24, COL_W = W - PADDING * 2;
+      const FONT_TITLE = "bold 28px 'Arial Black', Arial";
+      const FONT_CITY = "bold 15px 'Arial Black', Arial";
+      const FONT_PLACE = "bold 13px Arial";
+      const FONT_SUB = "12px Arial";
+      const BG = "#f0ede8", BORDER = "#1a1a1a", ACCENT = "#1a1a1a";
+
+      // Measure height first
+      const ctx0 = document.createElement("canvas").getContext("2d");
+      ctx0.font = FONT_TITLE;
+      let H = PADDING + 42 + 16; // title row
+      byCityEntries.forEach(([city, ps]) => {
+        H += 34 + ps.length * 52 + 8;
+      });
+      H += PADDING + 24; // footer
+
+      canvas.width = W * scale;
+      canvas.height = H * scale;
+      canvas.style.width = W + "px";
+      canvas.style.height = H + "px";
+      const ctx = canvas.getContext("2d");
+      ctx.scale(scale, scale);
+
+      // Background
+      ctx.fillStyle = BG;
+      ctx.fillRect(0, 0, W, H);
+
+      // Border frame
+      ctx.strokeStyle = BORDER;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(1.5, 1.5, W - 3, H - 3);
+
+      // Title
+      let y = PADDING;
+      ctx.fillStyle = BORDER;
+      ctx.font = FONT_TITLE;
+      ctx.fillText(listName || "MY PICKS", PADDING, y + 28);
+      ctx.font = "12px Arial";
+      ctx.fillStyle = "#666";
+      ctx.fillText("habit-mode.vercel.app", PADDING, y + 44);
+      y += 58;
+
+      // Divider
+      ctx.strokeStyle = BORDER;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(PADDING, y); ctx.lineTo(W - PADDING, y); ctx.stroke();
+      y += 14;
+
+      // Cities + places
+      byCityEntries.forEach(([city, ps]) => {
+        // City header
+        ctx.fillStyle = BORDER;
+        ctx.font = FONT_CITY;
+        ctx.fillText(`${getCityEmoji(city)} ${city}`, PADDING, y + 16);
+        y += 30;
+
+        ps.forEach(p => {
+          // Card background
+          ctx.fillStyle = p.listType === "favorite" ? "#fff0f0" : "#fff";
+          ctx.strokeStyle = p.listType === "favorite" ? "#e74c3c" : "#ccc";
+          ctx.lineWidth = 1.5;
+          roundRect(ctx, PADDING, y, COL_W, 44, 4);
+          ctx.fill(); ctx.stroke();
+
+          // Emoji + name
+          ctx.font = "18px Arial";
+          ctx.fillText(p.category?.split(" ")[0] || "📍", PADDING + 8, y + 28);
+          ctx.fillStyle = "#1a1a1a";
+          ctx.font = FONT_PLACE;
+          const name = p.name.length > 28 ? p.name.slice(0, 27) + "…" : p.name;
+          ctx.fillText(name, PADDING + 34, y + 18);
+
+          // Sub info
+          ctx.font = FONT_SUB;
+          ctx.fillStyle = "#666";
+          let sub = "";
+          if (p.neighborhood) sub += `📍${p.neighborhood}  `;
+          if (p.rating) sub += "★".repeat(p.rating);
+          if (sub) ctx.fillText(sub, PADDING + 34, y + 34);
+
+          if (p.listType === "favorite") {
+            ctx.font = "14px Arial";
+            ctx.fillText("❤️", W - PADDING - 22, y + 28);
+          }
+          y += 52;
+        });
+        y += 8;
+      });
+
+      // Footer
+      y += 4;
+      ctx.strokeStyle = BORDER;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(PADDING, y); ctx.lineTo(W - PADDING, y); ctx.stroke();
+      ctx.fillStyle = "#999";
+      ctx.font = "10px Arial";
+      ctx.fillText("made with habit mode ✨", PADDING, y + 16);
+
+      // Save
+      canvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${(listName || "my-picks").toLowerCase().replace(/\s+/g, "-")}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+        setGenerating(false);
+      }, "image/png");
+    } catch(e) {
+      console.error(e);
+      setGenerating(false);
+    }
   };
 
-  const displayCities=cityList.filter(c=>places.some(p=>p.city===c));
-  const getCityEmoji=(city)=>cityEmojis[city]||(STARTER_CITIES.find(s=>s.name===city)?.emoji)||"📍";
+  // Helper: rounded rect
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
 
-  return(
+  const inp = {width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"11px 13px",color:t.text,fontSize:16,fontFamily:"'Black Han Sans',sans-serif",letterSpacing:3,outline:"none",boxSizing:"border-box",marginBottom:14,textTransform:"uppercase"};
+
+  return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
       <div style={{background:t.bg,width:"100%",maxWidth:500,border:`3px solid ${t.border}`,borderBottom:"none",boxShadow:`-6px -6px 0 ${t.border}`,maxHeight:"90vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
-        <div style={{padding:"20px 20px 16px",borderBottom:`2px solid ${t.border}`,flexShrink:0}}>
-          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:20,color:t.text,letterSpacing:4,marginBottom:2}}>👥 SHARE YOUR TRY LIST</div>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>FRIENDS GET A READ-ONLY VIEW OF YOUR PLACES</div>
+        <canvas ref={canvasRef} style={{display:"none"}}/>
+
+        {/* Header */}
+        <div style={{padding:"18px 18px 14px",borderBottom:`2px solid ${t.border}`,flexShrink:0}}>
+          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:20,color:t.text,letterSpacing:4,marginBottom:2}}>📸 EXPORT AS IMAGE</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>SAVES TO YOUR PHONE — SHARE ANYWHERE</div>
         </div>
-        <div style={{padding:"16px 20px",overflowY:"auto",flex:1}}>
-          {/* Share link */}
-          <div style={{marginBottom:16}}>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:6}}>YOUR SHARE LINK</div>
-            <div style={{display:"flex",gap:6}}>
-              <div style={{flex:1,background:t.bgCard,border:`2px solid ${t.border}`,padding:"10px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{shareUrl}</div>
-              <button onClick={copy} style={{padding:"10px 16px",border:`2px solid ${t.border}`,background:copied?t.accent:t.addBtn,color:copied?t.textInv:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`,flexShrink:0,transition:"all 0.2s"}}>{copied?"COPIED ✓":"COPY"}</button>
-            </div>
+
+        <div style={{padding:"14px 18px",overflowY:"auto",flex:1}}>
+          {/* List name */}
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:5}}>LIST NAME</div>
+          <input style={inp} placeholder="MY PICKS" value={listName} onChange={e=>setListName(e.target.value.toUpperCase())} maxLength={30}/>
+
+          {/* Place selector */}
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:8}}>
+            SELECT PLACES ({selectedPlaces.length} selected)
           </div>
-          {/* Preview */}
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:8}}>WHAT THEY'LL SEE</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:14}}>
-            {displayCities.map(city=>{
-              const cnt=places.filter(p=>p.city===city).length;
-              return(
-                <button key={city} onClick={()=>setActiveCity(activeCity===city?null:city)} style={{background:activeCity===city?t.bgCard:"transparent",border:`2px ${activeCity===city?"solid":"dashed"} ${activeCity===city?t.accent:t.border}`,padding:"12px 6px",cursor:"pointer",textAlign:"center",boxShadow:activeCity===city?`2px 2px 0 ${t.accent}`:"none"}}>
-                  <div style={{fontSize:20}}>{getCityEmoji(city)}</div>
-                  <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:9,color:t.text,letterSpacing:1,marginTop:3}}>{city}</div>
-                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:t.textSub,letterSpacing:1,marginTop:2}}>{cnt} places</div>
-                </button>
-              );
-            })}
-          </div>
-          {activeCity&&<div style={{marginBottom:10}}>
-            {places.filter(p=>p.city===activeCity).map((p,i)=>(
-              <div key={i} style={{display:"flex",gap:8,padding:"8px 10px",border:`1.5px solid ${t.border}`,marginBottom:4,background:t.bgCard}}>
-                <span style={{fontSize:16}}>{p.category?.split(" ")[0]||"📍"}</span>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
-                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:1,display:"flex",gap:6}}>
-                    {p.neighborhood&&<span>📍{p.neighborhood}</span>}
-                    {p.listType==="favorite"&&<span style={{color:t.accent2}}>❤️ fav</span>}
-                    {p.rating>0&&<span style={{color:"#f1c40f"}}>{"★".repeat(p.rating)}</span>}
+
+          {places.length === 0
+            ? <div style={{textAlign:"center",padding:"24px",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:2,border:`2px dashed ${t.border}`}}>NO PLACES ADDED YET</div>
+            : places.map(p => {
+                const on = selectedPlaces.includes(p.id);
+                return (
+                  <div key={p.id} onClick={()=>togglePlace(p.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",border:`2px solid ${on?t.accent:t.border}`,marginBottom:5,cursor:"pointer",background:on?`${t.accent}11`:t.bg,boxShadow:on?`2px 2px 0 ${t.accent}`:`1px 1px 0 ${t.border}`,transition:"all 0.1s"}}>
+                    <div style={{width:20,height:20,border:`2px solid ${on?t.accent:t.border}`,background:on?t.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:t.textInv,flexShrink:0}}>{on?"✓":""}</div>
+                    <span style={{fontSize:16}}>{p.category?.split(" ")[0]||"📍"}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
+                      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:1}}>
+                        {p.city}{p.neighborhood?` · ${p.neighborhood}`:""}{p.listType==="favorite"?" · ❤️":""}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
-          </div>}
-          <div style={{padding:"12px 14px",border:`1.5px solid ${t.border}`,background:t.bgCard}}>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,lineHeight:1.6}}>
-              ✓ Friends can view all your places<br/>
-              ✓ They can see favorites, ratings, notes<br/>
-              ✗ They cannot edit or add anything<br/>
-              ✗ Habit data is never shared
-            </div>
-          </div>
+                );
+              })
+          }
         </div>
-        <div style={{padding:"0 20px 20px",flexShrink:0}}>
-          <button onClick={onClose} style={{width:"100%",padding:"11px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:3}}>CLOSE</button>
+
+        {/* Footer */}
+        <div style={{padding:"12px 18px 18px",borderTop:`2px solid ${t.border}`,flexShrink:0}}>
+          <button onClick={generateImage} disabled={selectedPlaces.length===0||generating} style={{width:"100%",padding:"14px",border:`2px solid ${t.border}`,background:selectedPlaces.length>0?t.addBtn:"transparent",color:selectedPlaces.length>0?t.addBtnText:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:14,cursor:selectedPlaces.length>0?"pointer":"default",letterSpacing:3,boxShadow:selectedPlaces.length>0?`3px 3px 0 ${t.border}`:"none",opacity:selectedPlaces.length>0?1:0.4,marginBottom:8,transition:"all 0.15s"}}>
+            {generating?"GENERATING...":saved?"SAVED! CHECK YOUR DOWNLOADS ✓":"⬇ SAVE AS IMAGE"}
+          </button>
+          <button onClick={onClose} style={{width:"100%",padding:"11px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:3}}>CANCEL</button>
         </div>
       </div>
     </div>
   );
 }
 
-// Read-only shared view (shown when ?share= param is in URL)
-function SharedView({data, theme, t}) {
-  const [activeCity,setActiveCity]=useState(null);
-  const cities=[...new Set(data.places.map(p=>p.c).filter(Boolean))];
-  const getCityEmoji=(city)=>(data.emojis||{})[city]||(STARTER_CITIES.find(s=>s.name===city)?.emoji)||"📍";
-  const cityPlaces=activeCity?data.places.filter(p=>p.c===activeCity):[];
-  return(
-    <div style={{background:t.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto",padding:"24px 16px"}}>
-      <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:28,color:t.text,letterSpacing:4,marginBottom:4}}>📍 TRY LIST</div>
-      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:20}}>SHARED READ-ONLY VIEW</div>
-      {!activeCity&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:14}}>
-        {cities.map(city=>{
-          const cnt=data.places.filter(p=>p.c===city).length;
-          return(
-            <button key={city} onClick={()=>setActiveCity(city)} style={{background:t.bgCard,border:`2px solid ${t.accent}`,padding:"14px 8px",cursor:"pointer",textAlign:"center",boxShadow:`2px 2px 0 ${t.accent}`}}>
-              <div style={{fontSize:22}}>{getCityEmoji(city)}</div>
-              <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:10,color:t.text,letterSpacing:1,marginTop:4}}>{city}</div>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:t.textSub,marginTop:2}}>{cnt} places</div>
-            </button>
-          );
-        })}
-      </div>}
-      {activeCity&&<>
-        <button onClick={()=>setActiveCity(null)} style={{background:"transparent",border:`2px solid ${t.border}`,padding:"7px 14px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.textSub,letterSpacing:2,marginBottom:14}}>◀ BACK</button>
-        <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:18,color:t.text,letterSpacing:4,marginBottom:12}}>{getCityEmoji(activeCity)} {activeCity}</div>
-        {cityPlaces.map((p,i)=>(
-          <div key={i} style={{background:t.bgCard,border:`2px solid ${p.lt==="f"?t.accent2:t.border}`,marginBottom:6,padding:"10px 12px",boxShadow:`2px 2px 0 ${t.border}`}}>
-            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
-              <span style={{fontSize:16}}>{p.cat?.split(" ")[0]||"📍"}</span>
-              <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.text,letterSpacing:2,flex:1}}>{p.n}</div>
-              {p.lt==="f"&&<span>❤️</span>}
-            </div>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,display:"flex",gap:6,flexWrap:"wrap"}}>
-              {p.nb&&<span style={{color:t.accent}}>📍{p.nb}</span>}
-              {p.r>0&&<span style={{color:"#f1c40f"}}>{"★".repeat(p.r)}</span>}
-              {p.v===1&&<span style={{color:t.accent}}>✓ BEEN</span>}
-            </div>
-            {p.d&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,marginTop:3,letterSpacing:1}}>{p.d}</div>}
-          </div>
-        ))}
-      </>}
-    </div>
-  );
-}
 
 function TryTab({places, setPlaces, cityList, setCityList, cityEmojis, setCityEmojis, theme, t, uid}) {
   const [selectedCity,setSelectedCity]=useState(null);
@@ -1900,7 +2010,6 @@ export default function App(){
   const [gdriveStatus,setGdriveStatus]=useState("idle"); // idle|connecting|connected|error
   const [showBackup,setShowBackup]=useState(false);
   const [showWeekly,setShowWeekly]=useState(false);
-  const [sharedData,setSharedData]=useState(null);
   const [viewOffset,setViewOffset]=useState(0); // 0=today, -1=yesterday, etc.
   const sounds=useSounds();
   const todayStr=TODAY();
@@ -1917,12 +2026,6 @@ export default function App(){
   const importRef=useRef(null);
 
   useEffect(()=>{load().then(saved=>{if(saved){setCats(saved.cats||DEFAULT_DATA.categories);setSubcats(saved.subcats||DEFAULT_DATA.subcategories);setHabits(saved.habits||DEFAULT_DATA.habits);setMovies(saved.movies||[]);setBooks(saved.books||[]);setPlaces(saved.places||[]);setCityList(saved.cityList||STARTER_CITIES.map(c=>c.name));setCityEmojis(saved.cityEmojis||{});setTotalXP(saved.totalXP||0);setTheme(saved.theme||"ravewhite");}setLoaded(true);});},[]);
-  useEffect(()=>{
-    const params=new URLSearchParams(window.location.search);
-    const share=params.get("share");
-    if(share){try{const d=JSON.parse(decodeURIComponent(escape(atob(share))));setSharedData(d);}catch(e){console.warn("Invalid share param",e);}}
-  },[]);
-
   useEffect(()=>{
     if(!loaded)return;
     const state={cats,subcats,habits,movies,books,places,cityList,cityEmojis,totalXP,theme};
@@ -1961,6 +2064,7 @@ export default function App(){
   const addCat=(cat)=>setCats(prev=>[...prev,cat]);
   const deleteCat=(id)=>{ setCats(p=>p.filter(c=>c.id!==id)); setSubcats(p=>p.filter(s=>s.catId!==id)); setHabits(p=>p.filter(h=>h.catId!==id)); };
   const renameCat=(id,label)=>setCats(p=>p.map(c=>c.id===id?{...c,label}:c));
+  const colorCat=(id,color)=>setCats(p=>p.map(c=>c.id===id?{...c,color}:c));
   const addSubcat=(sub)=>setSubcats(prev=>[...prev,sub]);
   const deleteSubcat=(id)=>{ setSubcats(p=>p.filter(s=>s.id!==id)); setHabits(p=>p.map(h=>h.subId===id?{...h,subId:null}:h)); };
   const renameSubcat=(id,label)=>setSubcats(p=>p.map(s=>s.id===id?{...s,label}:s));
@@ -2038,8 +2142,7 @@ export default function App(){
       {showWeekly&&<WeeklySummary habits={habits} totalXP={totalXP} onClose={()=>setShowWeekly(false)} theme={theme} t={t}/>}
       {drawerHabit&&<RepeatDrawer habit={drawerHabit} todayStr={viewDate} count={getCount(drawerHabit,viewDate)} onIncrement={isToday?completeHabit:()=>{}} onDecrement={isToday?undoOne:()=>{}} onRename={isToday?renameHabit:()=>{}} onClose={()=>setOpenDrawer(null)} theme={theme}/>}
 
-      {sharedData&&<SharedView data={sharedData} theme={theme} t={t}/>}
-      {!sharedData&&<div style={{background:t.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:90}}>
+      <div style={{background:t.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:90}}>
         {/* Header */}
         <div style={{padding:"22px 16px 12px",borderBottom:`2px solid ${t.border}`}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:tab==="today"?10:0}}>
@@ -2104,7 +2207,7 @@ export default function App(){
                   onComplete={isToday?completeHabit:()=>{}} onUndoOne={isToday?undoOne:()=>{}}
                   onDeleteHabit={isToday?deleteHabit:()=>{}} onRenameHabit={isToday?renameHabit:()=>{}}
                   onOpenDrawer={isToday?setOpenDrawer:()=>{}}
-                  onDeleteCat={isToday?deleteCat:()=>{}} onRenameCat={isToday?renameCat:()=>{}}
+                  onDeleteCat={isToday?deleteCat:()=>{}} onRenameCat={isToday?renameCat:()=>{}} onColorCat={colorCat}
                   onAddSubcat={isToday?addSubcat:()=>{}} onDeleteSubcat={isToday?deleteSubcat:()=>{}} onRenameSubcat={isToday?renameSubcat:()=>{}}
                   onAddHabit={isToday?(catId,subId)=>setAddHabitCtx({catId,subId}):()=>{}}/>
               ))}
@@ -2230,7 +2333,7 @@ export default function App(){
             </button>
           ))}
         </div>
-      </div>}
+      </div>
     </>
   );
 }
