@@ -1900,6 +1900,7 @@ export default function App(){
   const [gdriveStatus,setGdriveStatus]=useState("idle"); // idle|connecting|connected|error
   const [showBackup,setShowBackup]=useState(false);
   const [showWeekly,setShowWeekly]=useState(false);
+  const [sharedData,setSharedData]=useState(null);
   const [viewOffset,setViewOffset]=useState(0); // 0=today, -1=yesterday, etc.
   const sounds=useSounds();
   const todayStr=TODAY();
@@ -1916,6 +1917,12 @@ export default function App(){
   const importRef=useRef(null);
 
   useEffect(()=>{load().then(saved=>{if(saved){setCats(saved.cats||DEFAULT_DATA.categories);setSubcats(saved.subcats||DEFAULT_DATA.subcategories);setHabits(saved.habits||DEFAULT_DATA.habits);setMovies(saved.movies||[]);setBooks(saved.books||[]);setPlaces(saved.places||[]);setCityList(saved.cityList||STARTER_CITIES.map(c=>c.name));setCityEmojis(saved.cityEmojis||{});setTotalXP(saved.totalXP||0);setTheme(saved.theme||"ravewhite");}setLoaded(true);});},[]);
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.search);
+    const share=params.get("share");
+    if(share){try{const d=JSON.parse(decodeURIComponent(escape(atob(share))));setSharedData(d);}catch(e){console.warn("Invalid share param",e);}}
+  },[]);
+
   useEffect(()=>{
     if(!loaded)return;
     const state={cats,subcats,habits,movies,books,places,cityList,cityEmojis,totalXP,theme};
