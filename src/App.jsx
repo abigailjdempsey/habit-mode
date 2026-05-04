@@ -330,7 +330,13 @@ function SubcatBlock({subcat,habits,tasks,todayStr,theme,onComplete,onUndoOne,on
   const [editVal,setEditVal]=useState(subcat.label);
   const inputRef=useRef(null);
   const doneHere=habits.filter(h=>isDone(h,todayStr)).length;
-  const allDone=doneHere===habits.length&&habits.length>0;
+  const pendingSubTasks=(tasks||[]).filter(t2=>{
+    if(t2.subId!==subcat.id||t2.done) return false;
+    if(!t2.scheduledFor) return false;
+    return t2.scheduledFor<=todayStr;
+  });
+  const totalHere=habits.length+pendingSubTasks.length;
+  const allDone=doneHere===habits.length&&habits.length>=0&&pendingSubTasks.length===0&&totalHere>0;
   const commit=()=>{if(editVal.trim())onRenameSubcat(subcat.id,editVal.trim().toUpperCase());setEditing(false);};
   // Tasks belonging to this subcat
   const subcatTasks=(tasks||[]).filter(t2=>{
@@ -349,7 +355,7 @@ function SubcatBlock({subcat,habits,tasks,todayStr,theme,onComplete,onUndoOne,on
           :<div onClick={()=>setCollapsed(c=>!c)} style={{flex:1,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.textSub,letterSpacing:3,padding:"5px 10px",border:`1px solid ${t.border}`,borderRight:"none",cursor:"pointer",textTransform:"uppercase",display:"flex",alignItems:"center",gap:8}}>
             {subcat.label}
             {allDone&&<span style={{fontSize:10,color:t.accent}}>✓ ALL</span>}
-            {!allDone&&habits.length>0&&<span style={{fontSize:10,color:t.textSub}}>{doneHere}/{habits.length}</span>}
+            {!allDone&&totalHere>0&&<span style={{fontSize:10,color:t.textSub}}>{doneHere}/{totalHere}</span>}
           </div>}
         <button onClick={()=>{setEditVal(subcat.label);setEditing(true);setTimeout(()=>inputRef.current?.focus(),50);}} style={{background:"transparent",border:`1px solid ${t.border}`,borderRight:"none",padding:"5px 8px",cursor:"pointer",fontSize:10,color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,flexShrink:0}}>EDT</button>
         <button onClick={()=>onDeleteSubcat(subcat.id)} style={{background:"transparent",border:`1px solid ${t.border}`,padding:"5px 8px",cursor:"pointer",fontSize:10,color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,flexShrink:0}}>×</button>
@@ -654,6 +660,13 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
 
           {/* Tasks for this category */}
           {catTasks.map(task=>(
+            <TaskRow key={task.id} task={task} theme={theme} shopping={cat.isShoppingList}
+              onComplete={onCompleteTask} onUncomplete={onUncompleteTask}
+              onDelete={onDeleteTask} onRename={onRenameTask} onUpdate={onUpdateTask}/>
+          ))}
+
+          {/* Done tasks at bottom */}
+          {catTasks.filter(t=>t.done).map(task=>(
             <TaskRow key={task.id} task={task} theme={theme} shopping={cat.isShoppingList}
               onComplete={onCompleteTask} onUncomplete={onUncompleteTask}
               onDelete={onDeleteTask} onRename={onRenameTask} onUpdate={onUpdateTask}/>
@@ -1763,10 +1776,10 @@ function PlaceCard({place, onToggle, onDelete, onEdit, onUpdate, theme, t, exist
       existingNeighborhoods={existingNeighborhoods||{}}
     />}
     {showRating&&<RatingModal place={place} onRate={handleRate} onSkip={()=>setShowRating(false)} theme={theme} t={t}/>}
-    <div style={{border:`2px solid ${place.listType==="favorite"?t.accent2:t.border}`,marginBottom:8,boxShadow:`2px 2px 0 ${place.listType==="favorite"?t.accent2:t.border}`,overflow:"hidden"}}>
+    <div style={{border:`2px solid ${t.border}`,marginBottom:8,boxShadow:`2px 2px 0 ${t.border}`,overflow:"hidden"}}>
       {/* Collapsed row */}
       <div style={{background:place.visited?t.bgCard:t.bg,display:"flex",alignItems:"stretch",cursor:"pointer"}} onClick={()=>setExpanded(e=>!e)}>
-        <div style={{width:6,background:place.listType==="favorite"?t.accent2:`${t.accent}44`,flexShrink:0}}/>
+        <div style={{width:6,background:`${t.accent}44`,flexShrink:0}}/>
         <div style={{width:40,flexShrink:0,background:place.visited?t.border:`${t.accent}18`,borderRight:`2px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{catEmoji}</div>
         <div style={{flex:1,padding:"10px 12px",minWidth:0}}>
           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:1}}>
