@@ -2437,13 +2437,56 @@ Use emojis that match the insight tone. Titles should be punchy (3-5 words max).
 // ─── EVENTS TAB ───────────────────────────────────────────────────────────────
 const EVENT_CATS = ["🎵 Concert/Show","🍽️ Food/Pop-up","🎨 Art/Gallery","🎭 Theater/Comedy","🏃 Fitness/Wellness","🎉 Party/Social","📚 Talk/Workshop","📦 Other"];
 
+async function fetchRaEvent(eventId) {
+  // RA has a GraphQL API we can query directly
+  try {
+    const query = `{"query":"{ event(id: ${eventId}) { title date startTime venue { name area { name } location { city } } images { filename } } }"}`;
+    const r = await fetch("https://ra.co/graphql", {
+      method:"POST",
+      headers:{"Content-Type":"application/json","Referer":"https://ra.co"},
+      body: query
+    });
+    const data = await r.json();
+    const ev = data?.data?.event;
+    if(!ev) return null;
+    const date = ev.date ? ev.date.split("T")[0] : null;
+    const rawTime = ev.startTime;
+    let time = "";
+    if(rawTime) {
+      const [h,m] = rawTime.split(":").map(Number);
+      const ampm = h >= 12 ? "PM" : "AM";
+      const h12 = h % 12 || 12;
+      time = `${h12}:${String(m).padStart(2,"0")} ${ampm}`;
+    }
+    return {
+      title: ev.title,
+      date,
+      time,
+      venue: ev.venue?.name || "",
+      neighborhood: ev.venue?.area?.name || "",
+      city: ev.venue?.location?.city || "",
+      category: "🎵 Concert/Show",
+      notes: ""
+    };
+  } catch { return null; }
+}
+
 async function fetchEventMeta(url) {
+  // RA special handling — use their GraphQL API
+  const raMatch = url.match(/ra\.co\/events\/(\d+)/);
+  if(raMatch) {
+    const meta = await fetchRaEvent(raMatch[1]);
+    if(meta) return {...meta, url};
+  }
+
+  // Generic fetch for other sites
   try {
     const r = await fetch("/api/claude", {
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({mode:"fetch-url", url})
     });
     const pageData = await r.json();
+    if(!pageData.ogTitle&&!pageData.bodySnippet) return null;
     return claudeJSON(`Extract event details from this webpage.
 Final URL: ${pageData.finalUrl||url}
 Title: ${pageData.ogTitle||pageData.title||""}
@@ -2498,7 +2541,11 @@ function AddEventModal({onAdd, onClose, theme, t}) {
               <button onClick={doImport} disabled={!urlVal.trim()||status==="loading"} style={{padding:"10px 14px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:1,opacity:!urlVal.trim()?0.4:1,boxShadow:`2px 2px 0 ${t.border}`,flexShrink:0}}>{status==="loading"?"...":"IMPORT"}</button>
             </div>
             {status==="loading"&&<div style={{textAlign:"center",padding:"20px",border:`2px dashed ${t.border}`}}><div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.accent,letterSpacing:3}}>EXTRACTING EVENT INFO...</div></div>}
-            {status==="error"&&<div style={{padding:"12px",border:`2px solid ${t.accent2}`,background:`${t.accent2}11`,marginBottom:8}}><div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.accent2,letterSpacing:2}}>COULDN'T READ IT — TRY MANUAL.</div></div>}
+            {status==="error"&&<div style={{padding:"12px",border:`2px solid ${t.accent2}`,background:`${t.accent2}11`,marginBottom:8}}>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.accent2,letterSpacing:2,marginBottom:6}}>COULDN'T READ IT AUTOMATICALLY</div>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginBottom:8}}>This site requires JavaScript to load — add it manually and paste the link in the URL field.</div>
+      <button onClick={()=>{setMode("manual");setStatus("idle");}} style={{width:"100%",padding:"9px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>FILL IN MANUALLY →</button>
+    </div>}
             {status==="preview"&&preview&&(
               <div style={{border:`2px solid ${t.accent}`,boxShadow:`3px 3px 0 ${t.accent}`}}>
                 <div style={{background:`${t.accent}18`,borderBottom:`2px solid ${t.accent}`,padding:"7px 12px"}}><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.accent,letterSpacing:2}}>✓ FOUND IT — REVIEW & CONFIRM</span></div>
