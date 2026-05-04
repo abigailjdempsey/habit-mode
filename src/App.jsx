@@ -676,6 +676,33 @@ function ShortLinkForm({type,source,url,note,setNote,onAdd,theme}){
 }
 
 // ─── IMPORT MODAL ─────────────────────────────────────────────────────────────
+// ─── TV MANUAL FORM ──────────────────────────────────────────────────────────
+const STREAMING = ["Netflix","HBO Max","Hulu","Apple TV+","Prime Video","Disney+","Peacock","Paramount+","Showtime","AMC+","Other"];
+function TvManualForm({onAdd, theme, t, inp, lbl}) {
+  const [title,setTitle]=useState("");
+  const [platform,setPlatform]=useState("");
+  const [year,setYear]=useState("");
+  const [note,setNote]=useState("");
+  const submit=()=>{
+    if(!title.trim())return;
+    onAdd({title:title.trim(),subtitle:platform.trim()||null,year:year.trim()||null,rating:null,genre:null,source:platform.trim()||"TV",url:"",note:note.trim()});
+  };
+  return(
+    <div>
+      <input style={inp} placeholder="SHOW TITLE" value={title} onChange={e=>setTitle(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} autoFocus/>
+      <div style={lbl}>STREAMING PLATFORM</div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>
+        {STREAMING.map(s=>(
+          <button key={s} onClick={()=>setPlatform(platform===s?"":s)} style={{padding:"5px 10px",border:`1.5px solid ${platform===s?t.accent:t.border}`,background:platform===s?t.accent:"transparent",color:platform===s?t.textInv:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:1,boxShadow:platform===s?`1px 1px 0 ${t.border}`:"none"}}>{s}</button>
+        ))}
+      </div>
+      <input style={inp} placeholder="YEAR (OPTIONAL)" value={year} onChange={e=>setYear(e.target.value)}/>
+      <input style={{...inp,marginBottom:10}} placeholder="NOTE (OPTIONAL)" value={note} onChange={e=>setNote(e.target.value)}/>
+      <button onClick={submit} disabled={!title.trim()} style={{width:"100%",padding:"11px",border:`2px solid ${t.border}`,background:title.trim()?t.addBtn:"transparent",color:title.trim()?t.addBtnText:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,cursor:title.trim()?"pointer":"default",letterSpacing:3,boxShadow:title.trim()?`2px 2px 0 ${t.border}`:"none",opacity:title.trim()?1:0.45}}>ADD SHOW</button>
+    </div>
+  );
+}
+
 function AddModal({type,onAdd,onClose,theme}){
   const t=THEMES[theme]||THEMES.hawt;
   const [mode,setMode]=useState("url");
@@ -721,11 +748,13 @@ function AddModal({type,onAdd,onClose,theme}){
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
       <div style={{background:t.bg,width:"100%",maxWidth:500,border:`3px solid ${t.border}`,borderBottom:"none",boxShadow:`-6px -6px 0 ${t.border}`,maxHeight:"90vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
         <div style={{padding:"20px 20px 0",flexShrink:0}}>
-          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4,marginBottom:14}}>{type==="movie"?"🎬 ADD FILM":"📖 ADD BOOK"}</div>
-          <div style={{display:"flex",gap:6,marginBottom:16}}>{tabBtn("url","PASTE URL")}{tabBtn("search","SEARCH TITLE")}{tabBtn("manual","MANUAL")}</div>
+          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4,marginBottom:14}}>{type==="movie"?"🎬 ADD FILM":type==="tv"?"📺 ADD TV SHOW":"📖 ADD BOOK"}</div>
+          {type!=="tv"&&<div style={{display:"flex",gap:6,marginBottom:16}}>{tabBtn("url","PASTE URL")}{tabBtn("search","SEARCH TITLE")}{tabBtn("manual","MANUAL")}</div>}
+          {type==="tv"&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:16}}>ADD MANUALLY — SEARCH NOT AVAILABLE FOR TV</div>}
         </div>
         <div style={{padding:"0 20px 16px",overflowY:"auto",flex:1}}>
-          {mode==="url"&&<>
+          {type==="tv"&&<TvManualForm onAdd={addItem} theme={theme} t={t} inp={inp} lbl={lbl}/>}
+          {type!=="tv"&&mode==="url"&&<>
             <div style={lbl}>{type==="movie"?"LETTERBOXD OR ANY LINK":"GOODREADS OR ANY LINK"}</div>
             <div style={{display:"flex",gap:6,marginBottom:urlHint?4:12}}>
               <input style={{...inp,flex:1}} placeholder={type==="movie"?"letterboxd.com/film/...":"goodreads.com/book/..."} value={urlVal} onChange={e=>setUrlVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doImport()} autoFocus/>
@@ -733,14 +762,14 @@ function AddModal({type,onAdd,onClose,theme}){
             </div>
             {urlHint&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.accent,letterSpacing:2,marginBottom:10}}>{urlHint} detected</div>}
           </>}
-          {mode==="search"&&<>
+          {type!=="tv"&&mode==="search"&&<>
             <div style={lbl}>SEARCH BY TITLE</div>
             <div style={{display:"flex",gap:6,marginBottom:12}}>
               <input style={{...inp,flex:1}} placeholder={type==="movie"?"e.g. Mulholland Drive":"e.g. Normal People"} value={searchVal} onChange={e=>setSearchVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doSearch()} autoFocus/>
               <button onClick={doSearch} disabled={!searchVal.trim()||status==="loading"} style={{padding:"11px 14px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:1,opacity:!searchVal.trim()?0.4:1,boxShadow:`2px 2px 0 ${t.border}`,flexShrink:0}}>{status==="loading"?"...":"GO"}</button>
             </div>
           </>}
-          {mode==="manual"&&<ManualAddForm type={type} onAdd={addItem} theme={theme}/>}
+          {type!=="tv"&&mode==="manual"&&<ManualAddForm type={type} onAdd={addItem} theme={theme}/>}
 
           {status==="loading"&&<div style={{textAlign:"center",padding:"22px",border:`2px dashed ${t.border}`}}><div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:t.accent,letterSpacing:3}}>LOOKING IT UP...</div></div>}
 
@@ -1492,20 +1521,20 @@ function AutocompleteInput({value, onChange, options, placeholder, style, theme,
 }
 
 function AddPlaceModal({onAdd, onClose, theme, t, uid, existingCities, existingNeighborhoods, lockedCity}) {
-  const [form,setForm]=useState({name:"",category:PLACE_CATS[0],city:lockedCity||"",neighborhood:"",address:"",description:"",url:""});
+  const [form,setForm]=useState({name:"",category:PLACE_CATS[0],vibes:[],city:lockedCity||"",neighborhood:"",address:"",description:"",url:""});
+  const [newVibe,setNewVibe]=useState("");
   const fld=(k,v)=>setForm(p=>({...p,[k]:v}));
   const inp={width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"11px 13px",color:t.text,fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:8};
   const lbl={fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:4};
   const canAdd=form.name.trim()&&(lockedCity||form.city.trim());
 
-  // Neighborhoods filtered to selected city
   const cityNeighborhoods = form.city.trim()
     ? (existingNeighborhoods[form.city.trim()] || [])
     : Object.values(existingNeighborhoods).flat();
 
   const add=()=>{
     if(!canAdd)return;
-    onAdd({id:uid(),name:form.name.trim(),category:form.category,city:form.city.trim(),neighborhood:form.neighborhood.trim(),address:form.address.trim(),description:form.description.trim(),url:form.url.trim(),visited:false,addedDate:new Date().toISOString().split("T")[0]});
+    onAdd({id:uid(),name:form.name.trim(),category:form.category,vibes:form.vibes,city:lockedCity||form.city.trim(),neighborhood:form.neighborhood.trim(),address:form.address.trim(),description:form.description.trim(),url:form.url.trim(),visited:false,addedDate:new Date().toISOString().split("T")[0]});
     onClose();
   };
   return(
