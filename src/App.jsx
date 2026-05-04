@@ -2,12 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 
 // ─── THEMES ───────────────────────────────────────────────────────────────────
 const THEMES = {
-  ravewhite: { name:"RAVER",emoji:"⚡",bg:"#f0ede8",bgCard:"#e8e4de",nav:"rgba(240,237,232,0.97)",border:"#1a1a1a",accent:"#1a1a1a",accent2:"#ff3333",text:"#1a1a1a",textSub:"#666",textInv:"#f0ede8",xpBar:"linear-gradient(90deg,#1a1a1a,#555)",addBtn:"#1a1a1a",addBtnText:"#f0ede8" },
-  midnight: { name:"DARK",emoji:"🌑",bg:"#0a0a0a",bgCard:"#141414",nav:"rgba(10,10,10,0.97)",border:"#333",accent:"#e8ff00",accent2:"#ff3333",text:"#f0ede8",textSub:"#555",textInv:"#0a0a0a",xpBar:"linear-gradient(90deg,#e8ff00,#00ffcc)",addBtn:"#e8ff00",addBtnText:"#0a0a0a" },
-  pink: { name:"PINK",emoji:"🩷",bg:"#ffe0f0",bgCard:"#ffd0e8",nav:"rgba(255,224,240,0.97)",border:"#1a1a1a",accent:"#1a1a1a",accent2:"#ff0066",text:"#1a1a1a",textSub:"#aa5577",textInv:"#ffe0f0",xpBar:"linear-gradient(90deg,#ff0066,#1a1a1a)",addBtn:"#ff0066",addBtnText:"#fff" },
-  acid: { name:"ACID",emoji:"🟢",bg:"#0a1a00",bgCard:"#0d2200",nav:"rgba(10,26,0,0.97)",border:"#39ff14",accent:"#39ff14",accent2:"#ccff00",text:"#39ff14",textSub:"#1a7a00",textInv:"#0a1a00",xpBar:"linear-gradient(90deg,#39ff14,#ccff00)",addBtn:"#39ff14",addBtnText:"#0a1a00" },
-  cream: { name:"CREAM",emoji:"🤍",bg:"#faf7f0",bgCard:"#f2ede3",nav:"rgba(250,247,240,0.97)",border:"#c8b89a",accent:"#5c3d1e",accent2:"#8b5e3c",text:"#2d1f0e",textSub:"#9a7a5a",textInv:"#faf7f0",xpBar:"linear-gradient(90deg,#5c3d1e,#c8a06a)",addBtn:"#5c3d1e",addBtnText:"#faf7f0" },
-  void: { name:"VOID",emoji:"🟣",bg:"#08001a",bgCard:"#10003a",nav:"rgba(8,0,26,0.97)",border:"#6600ff",accent:"#cc00ff",accent2:"#ff00aa",text:"#f0d0ff",textSub:"#6633aa",textInv:"#08001a",xpBar:"linear-gradient(90deg,#cc00ff,#ff00aa)",addBtn:"#cc00ff",addBtnText:"#08001a" },
+  hawt:     { name:"HAWT",    emoji:"⚡",bg:"#f0ede8",bgCard:"#e8e4de",nav:"rgba(240,237,232,0.97)",border:"#1a1a1a",accent:"#1a1a1a",accent2:"#ff3333",text:"#1a1a1a",textSub:"#666",textInv:"#f0ede8",xpBar:"linear-gradient(90deg,#1a1a1a,#555)",addBtn:"#1a1a1a",addBtnText:"#f0ede8" },
+  midnight: { name:"DARK",    emoji:"🌑",bg:"#0a0a0a",bgCard:"#141414",nav:"rgba(10,10,10,0.97)",border:"#333",accent:"#e8ff00",accent2:"#ff3333",text:"#f0ede8",textSub:"#555",textInv:"#0a0a0a",xpBar:"linear-gradient(90deg,#e8ff00,#00ffcc)",addBtn:"#e8ff00",addBtnText:"#0a0a0a" },
+  pink:     { name:"PINK",    emoji:"🩷",bg:"#ffe0f0",bgCard:"#ffd0e8",nav:"rgba(255,224,240,0.97)",border:"#1a1a1a",accent:"#1a1a1a",accent2:"#ff0066",text:"#1a1a1a",textSub:"#aa5577",textInv:"#ffe0f0",xpBar:"linear-gradient(90deg,#ff0066,#1a1a1a)",addBtn:"#ff0066",addBtnText:"#fff" },
+  cream:    { name:"CREAM",   emoji:"🤍",bg:"#faf7f0",bgCard:"#f2ede3",nav:"rgba(250,247,240,0.97)",border:"#c8b89a",accent:"#5c3d1e",accent2:"#8b5e3c",text:"#2d1f0e",textSub:"#9a7a5a",textInv:"#faf7f0",xpBar:"linear-gradient(90deg,#5c3d1e,#c8a06a)",addBtn:"#5c3d1e",addBtnText:"#faf7f0" },
 };
 
 // ─── SOUND ────────────────────────────────────────────────────────────────────
@@ -41,9 +39,9 @@ function Confetti({ active, onDone, colors }) {
   return <canvas ref={ref} style={{position:"fixed",top:0,left:0,pointerEvents:"none",zIndex:9999}}/>;
 }
 function Flash({active,color}){if(!active)return null;return <div style={{position:"fixed",inset:0,zIndex:9998,pointerEvents:"none",background:color||"rgba(255,51,51,0.3)",animation:"flashPulse 0.7s ease-out forwards"}}/>;}
-function Toast({msg,emoji,show,theme}){const t=THEMES[theme]||THEMES.ravewhite;return <div style={{position:"fixed",top:20,left:"50%",transform:`translateX(-50%) translateY(${show?0:-90}px)`,transition:"transform 0.35s cubic-bezier(.34,1.56,.64,1),opacity 0.25s",opacity:show?1:0,background:t.accent,color:t.textInv,padding:"10px 24px",fontSize:15,fontFamily:"'Black Han Sans',sans-serif",letterSpacing:2,boxShadow:`4px 4px 0 ${t.border}`,zIndex:10000,whiteSpace:"nowrap",border:`2px solid ${t.border}`,textTransform:"uppercase"}}>{emoji} {msg}</div>;}
+function Toast({msg,emoji,show,theme}){const t=THEMES[theme]||THEMES.hawt;return <div style={{position:"fixed",top:20,left:"50%",transform:`translateX(-50%) translateY(${show?0:-90}px)`,transition:"transform 0.35s cubic-bezier(.34,1.56,.64,1),opacity 0.25s",opacity:show?1:0,background:t.accent,color:t.textInv,padding:"10px 24px",fontSize:15,fontFamily:"'Black Han Sans',sans-serif",letterSpacing:2,boxShadow:`4px 4px 0 ${t.border}`,zIndex:10000,whiteSpace:"nowrap",border:`2px solid ${t.border}`,textTransform:"uppercase"}}>{emoji} {msg}</div>;}
 function MilestoneBanner({show,streak,onDone,theme}){
-  const t=THEMES[theme]||THEMES.ravewhite;
+  const t=THEMES[theme]||THEMES.hawt;
   useEffect(()=>{if(show){const id=setTimeout(onDone,3000);return()=>clearTimeout(id);}},[show]);
   if(!show)return null;
   return <div style={{position:"fixed",inset:0,zIndex:9997,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.75)"}}><div style={{background:t.bg,border:`4px solid ${t.accent}`,padding:"40px 52px",textAlign:"center",animation:"milestoneIn 0.4s cubic-bezier(.34,1.56,.64,1)",boxShadow:`8px 8px 0 ${t.accent}`}}><div style={{fontSize:52}}>🏆</div><div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:48,color:t.accent,letterSpacing:4,lineHeight:1,marginTop:8}}>{streak}</div><div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:18,color:t.text,letterSpacing:6,marginTop:4}}>DAY STREAK</div><div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,color:t.textSub,marginTop:8,letterSpacing:2}}>ABSOLUTE LEGEND BEHAVIOR</div></div></div>;
@@ -129,13 +127,13 @@ function importData(file, onSuccess, onError) {
 
 // ─── XP BAR ───────────────────────────────────────────────────────────────────
 function XPBar({xp,theme}){
-  const t=THEMES[theme]||THEMES.ravewhite,level=Math.floor(xp/100)+1,prog=xp%100;
+  const t=THEMES[theme]||THEMES.hawt,level=Math.floor(xp/100)+1,prog=xp%100;
   return <div style={{padding:"14px 18px",background:t.bgCard,marginBottom:14,border:`2px solid ${t.border}`,boxShadow:`3px 3px 0 ${t.border}`}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:7}}><span style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,color:t.accent,letterSpacing:3}}>LVL {level}</span><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,color:t.textSub,letterSpacing:2}}>{xp} XP · {prog}/100</span></div><div style={{background:t.bg,height:10,border:`1.5px solid ${t.border}`,overflow:"hidden"}}><div style={{width:`${prog}%`,height:"100%",background:t.xpBar,transition:"width 0.8s cubic-bezier(.34,1.56,.64,1)"}}/></div></div>;
 }
 
 // ─── REPEAT DRAWER ────────────────────────────────────────────────────────────
 function RepeatDrawer({habit,todayStr,count,onIncrement,onDecrement,onRename,onClose,theme}){
-  const t=THEMES[theme]||THEMES.ravewhite;
+  const t=THEMES[theme]||THEMES.hawt;
   const [editing,setEditing]=useState(false);
   const [editVal,setEditVal]=useState(habit.label);
   const inputRef=useRef(null);
@@ -175,7 +173,7 @@ function RepeatDrawer({habit,todayStr,count,onIncrement,onDecrement,onRename,onC
 
 // ─── HABIT ROW ────────────────────────────────────────────────────────────────
 function HabitRow({habit,onComplete,onUndoOne,onDelete,onRename,todayStr,theme,onOpenDrawer}){
-  const t=THEMES[theme]||THEMES.ravewhite;
+  const t=THEMES[theme]||THEMES.hawt;
   const count=getCount(habit,todayStr),done=isDone(habit,todayStr),isRep=habit.repeat>1;
   const [editing,setEditing]=useState(false);
   const [editVal,setEditVal]=useState(habit.label);
@@ -222,7 +220,7 @@ function HabitRow({habit,onComplete,onUndoOne,onDelete,onRename,todayStr,theme,o
 
 // ─── SUBCATEGORY BLOCK ────────────────────────────────────────────────────────
 function SubcatBlock({subcat,habits,todayStr,theme,onComplete,onUndoOne,onDelete,onRename,onOpenDrawer,onDeleteSubcat,onRenameSubcat}){
-  const t=THEMES[theme]||THEMES.ravewhite;
+  const t=THEMES[theme]||THEMES.hawt;
   const [collapsed,setCollapsed]=useState(subcat.collapsed||false);
   const [editing,setEditing]=useState(false);
   const [editVal,setEditVal]=useState(subcat.label);
@@ -256,7 +254,7 @@ function SubcatBlock({subcat,habits,todayStr,theme,onComplete,onUndoOne,onDelete
 
 // ─── CATEGORY BLOCK ──────────────────────────────────────────────────────────
 function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,onDeleteHabit,onRenameHabit,onOpenDrawer,onDeleteCat,onRenameCat,onColorCat,onAddSubcat,onDeleteSubcat,onRenameSubcat,onAddHabit}){
-  const t=THEMES[theme]||THEMES.ravewhite;
+  const t=THEMES[theme]||THEMES.hawt;
   const [collapsed,setCollapsed]=useState(cat.collapsed||false);
   const [editing,setEditing]=useState(false);
   const [editVal,setEditVal]=useState(cat.label);
@@ -357,7 +355,7 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
 // ─── ADD HABIT MODAL ──────────────────────────────────────────────────────────
 const EMOJIS=["💪","🧘","🏃","🥗","💧","😴","📝","🎸","🧹","🛁","🧠","❤️","🌅","✍️","🎯","🎮","🎨","🧪","📸","🚶","🦷","🫖","🥤","📞","💼","📧","🗂️","🔬","🎵","🏋️"];
 function AddHabitModal({catId,subId,cats,subcats,onAdd,onClose,theme}){
-  const t=THEMES[theme]||THEMES.ravewhite;
+  const t=THEMES[theme]||THEMES.hawt;
   const [label,setLabel]=useState("");
   const [emoji,setEmoji]=useState("💪");
   const [xp,setXp]=useState(10);
@@ -512,7 +510,7 @@ Return ONLY the JSON array, nothing else.`);
 
 // ─── LIST ITEM ────────────────────────────────────────────────────────────────
 function ListItem({item,onToggle,onDelete,onRename,type,theme}){
-  const t=THEMES[theme]||THEMES.ravewhite;
+  const t=THEMES[theme]||THEMES.hawt;
   const [editing,setEditing]=useState(false);
   const [editVal,setEditVal]=useState(item.title);
   const ref=useRef(null);
@@ -550,7 +548,7 @@ function ListItem({item,onToggle,onDelete,onRename,type,theme}){
 
 // ─── MANUAL ADD FORM ──────────────────────────────────────────────────────────
 function ManualAddForm({type,onAdd,theme}){
-  const t=THEMES[theme]||THEMES.ravewhite;
+  const t=THEMES[theme]||THEMES.hawt;
   const [title,setTitle]=useState("");
   const [note,setNote]=useState("");
   const inp={width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"10px 12px",color:t.text,fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:8};
@@ -566,7 +564,7 @@ function ManualAddForm({type,onAdd,theme}){
 
 // ─── SHORT LINK FORM ─────────────────────────────────────────────────────────
 function ShortLinkForm({type,source,url,note,setNote,onAdd,theme}){
-  const t=THEMES[theme]||THEMES.ravewhite;
+  const t=THEMES[theme]||THEMES.hawt;
   const [title,setTitle]=useState("");
   const [searching,setSearching]=useState(false);
   const inp={width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"10px 12px",color:t.text,fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:8};
@@ -607,7 +605,7 @@ function ShortLinkForm({type,source,url,note,setNote,onAdd,theme}){
 
 // ─── IMPORT MODAL ─────────────────────────────────────────────────────────────
 function AddModal({type,onAdd,onClose,theme}){
-  const t=THEMES[theme]||THEMES.ravewhite;
+  const t=THEMES[theme]||THEMES.hawt;
   const [mode,setMode]=useState("url");
   const [urlVal,setUrlVal]=useState("");
   const [searchVal,setSearchVal]=useState("");
@@ -738,7 +736,7 @@ function AddModal({type,onAdd,onClose,theme}){
   );
 }
 function ThemePicker({current,onChange,onClose}){
-  const t=THEMES[current]||THEMES.ravewhite;
+  const t=THEMES[current]||THEMES.hawt;
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
       <div style={{background:t.bg,padding:24,width:"100%",maxWidth:500,border:`3px solid ${t.border}`,borderBottom:"none",boxShadow:`-6px -6px 0 ${t.border}`}} onClick={e=>e.stopPropagation()}>
@@ -901,7 +899,7 @@ function WeeklySummary({habits, totalXP, onClose, theme, t}) {
 
 // ─── BACKUP PANEL ─────────────────────────────────────────────────────────────
 function BackupPanel({theme, state, gdriveStatus, setGdriveStatus, onRestoreGdrive, onExport, onImport, importRef}) {
-  const t = THEMES[theme]||THEMES.ravewhite;
+  const t = THEMES[theme]||THEMES.hawt;
   const [restoring, setRestoring] = useState(false);
   const [lastBackup, setLastBackup] = useState(null);
   const s = {fontFamily:"'Barlow Condensed',sans-serif", letterSpacing:2};
@@ -996,7 +994,7 @@ function BackupPanel({theme, state, gdriveStatus, setGdriveStatus, onRestoreGdri
 
 // ─── HISTORY ──────────────────────────────────────────────────────────────────
 function CalendarView({habits,theme}){
-  const t=THEMES[theme]||THEMES.ravewhite;
+  const t=THEMES[theme]||THEMES.hawt;
   const todayActual=TODAY();
   const [calOffset,setCalOffset]=useState(0); // 0=current month, -1=last month etc
   const [selectedDay,setSelectedDay]=useState(null);
@@ -1098,7 +1096,8 @@ function CalendarView({habits,theme}){
 }
 
 // ─── TRY TAB ─────────────────────────────────────────────────────────────────
-const PLACE_CATS = ["🍽️ Restaurant","☕ Cafe","🍸 Bar","🛍️ Store","🌿 Park","🎨 Art/Culture","🎵 Music/Venue","💆 Wellness","🎭 Entertainment","📦 Other"];
+const PLACE_CATS = ["🍽️ Restaurant","☕ Cafe","🍸 Bar","🛍️ Store","🛒 Grocery","🌿 Park","🎨 Art/Culture","🎵 Music/Venue","💆 Wellness","🎭 Entertainment","📦 Other"];
+const PLACE_VIBES = ["🌅 Breakfast","🥂 Brunch","🍝 Casual Dinner","🕯️ Nice Dinner","⚡ Quick Lunch","💼 Sit-down Lunch","🪩 Shaking Ass","🔥 Hotties","🌙 Late Night","🏖️ Outdoor","🤫 Hidden Gem","💸 Splurge","💰 Budget","👨‍👩‍👧 Family","🥳 Special Occasion"];
 
 async function searchPlace(query, locationHint) {
   try {
@@ -1210,6 +1209,18 @@ function EditPlaceModal({place, onSave, onClose, theme, t, uid, existingCities, 
               );
             })}
           </div>
+          <div style={lbl}>VIBE <span style={{opacity:0.5}}>(OPTIONAL — SELECT MULTIPLE)</span></div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>
+            {PLACE_VIBES.map(v=>{
+              const on=form.vibes.includes(v);
+              return <button key={v} onClick={()=>fld("vibes",on?form.vibes.filter(x=>x!==v):[...form.vibes,v])} style={{padding:"5px 9px",border:`1.5px solid ${on?t.accent:t.border}`,background:on?t.accent:"transparent",color:on?t.textInv:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:1,boxShadow:on?`1px 1px 0 ${t.border}`:"none"}}>{v}</button>;
+            })}
+          </div>
+          {/* Custom vibe */}
+          <div style={{display:"flex",gap:6,marginBottom:10}}>
+            <input style={{...inp,flex:1,marginBottom:0,fontSize:11}} placeholder="+ ADD YOUR OWN VIBE" value={newVibe} onChange={e=>setNewVibe(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newVibe.trim()){fld("vibes",[...form.vibes,newVibe.trim()]);setNewVibe("");}}}/>
+            {newVibe.trim()&&<button onClick={()=>{fld("vibes",[...form.vibes,newVibe.trim()]);setNewVibe("");}} style={{padding:"8px 12px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:1}}>ADD</button>}
+          </div>
           <div style={lbl}>ADDRESS <span style={{opacity:0.5}}>(OPTIONAL)</span></div>
           <input style={inp} placeholder="123 Main St" value={form.address} onChange={e=>fld("address",e.target.value)}/>
           <div style={lbl}>NOTES <span style={{opacity:0.5}}>(OPTIONAL)</span></div>
@@ -1318,19 +1329,20 @@ function PlaceCard({place, onToggle, onDelete, onEdit, onUpdate, theme, t, exist
       existingNeighborhoods={existingNeighborhoods||{}}
     />}
     {showRating&&<RatingModal place={place} onRate={handleRate} onSkip={()=>setShowRating(false)} theme={theme} t={t}/>}
-    <div style={{background:place.visited?t.bgCard:t.bg,border:`2px solid ${place.listType==="favorite"?t.accent2:t.border}`,marginBottom:8,display:"flex",alignItems:"stretch",boxShadow:`2px 2px 0 ${place.listType==="favorite"?t.accent2:t.border}`,overflow:"hidden",opacity:place.visited?0.75:1}}>
+    <div style={{background:place.visited?t.bgCard:t.bg,border:`2px solid ${place.listType==="favorite"?t.accent2:t.border}`,marginBottom:8,display:"flex",alignItems:"stretch",boxShadow:`2px 2px 0 ${place.listType==="favorite"?t.accent2:t.border}`,overflow:"hidden",opacity:1}}>
       {/* List type indicator */}
       <div style={{width:6,background:place.listType==="favorite"?t.accent2:`${t.accent}44`,flexShrink:0}}/>
       <div style={{width:40,flexShrink:0,background:place.visited?t.border:`${t.accent}18`,borderRight:`2px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{catEmoji}</div>
       <div style={{flex:1,padding:"10px 12px",minWidth:0}}>
         <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:1}}>
-          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:place.visited?t.textSub:t.text,letterSpacing:2,textDecoration:place.visited?"line-through":"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",flex:1}}>{place.name}</div>
+          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:place.visited?t.textSub:t.text,letterSpacing:2,textDecoration:"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",flex:1}}>{place.name}</div>
           {place.listType==="favorite"&&<span style={{fontSize:12,flexShrink:0}}>❤️</span>}
         </div>
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginTop:1,display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
           {place.neighborhood&&<span style={{color:t.accent}}>📍{place.neighborhood}</span>}
           {place.category&&<span style={{background:`${t.accent}18`,padding:"0 4px",border:`1px solid ${t.border}`}}>{place.category}</span>}
           {place.rating&&<span style={{color:"#f1c40f"}}>{"★".repeat(place.rating)}{"☆".repeat(5-place.rating)}</span>}
+          {place.vibes?.length>0&&place.vibes.slice(0,2).map((v,i)=><span key={i} style={{background:`${t.accent2}18`,padding:"0 4px",border:`1px solid ${t.accent2}44`,color:t.accent2,fontSize:9}}>{v.split(" ").slice(1).join(" ")||v}</span>)}
         </div>
         {place.visitNote&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,marginTop:2,letterSpacing:1,fontStyle:"italic"}}>"{place.visitNote}"</div>}
         {place.visitPhoto&&<img src={place.visitPhoto} alt="visit" style={{width:"100%",marginTop:6,border:`1px solid ${t.border}`,display:"block",maxHeight:120,objectFit:"cover"}}/>}
@@ -1478,6 +1490,18 @@ function AddPlaceModal({onAdd, onClose, theme, t, uid, existingCities, existingN
                 </button>
               );
             })}
+          </div>
+          <div style={lbl}>VIBE <span style={{opacity:0.5}}>(OPTIONAL — SELECT MULTIPLE)</span></div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>
+            {PLACE_VIBES.map(v=>{
+              const on=form.vibes.includes(v);
+              return <button key={v} onClick={()=>fld("vibes",on?form.vibes.filter(x=>x!==v):[...form.vibes,v])} style={{padding:"5px 9px",border:`1.5px solid ${on?t.accent:t.border}`,background:on?t.accent:"transparent",color:on?t.textInv:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:1,boxShadow:on?`1px 1px 0 ${t.border}`:"none"}}>{v}</button>;
+            })}
+          </div>
+          {/* Custom vibe */}
+          <div style={{display:"flex",gap:6,marginBottom:10}}>
+            <input style={{...inp,flex:1,marginBottom:0,fontSize:11}} placeholder="+ ADD YOUR OWN VIBE" value={newVibe} onChange={e=>setNewVibe(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newVibe.trim()){fld("vibes",[...form.vibes,newVibe.trim()]);setNewVibe("");}}}/>
+            {newVibe.trim()&&<button onClick={()=>{fld("vibes",[...form.vibes,newVibe.trim()]);setNewVibe("");}} style={{padding:"8px 12px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:1}}>ADD</button>}
           </div>
           <div style={lbl}>ADDRESS <span style={{opacity:0.5}}>(OPTIONAL)</span></div>
           <input style={inp} placeholder="123 Main St" value={form.address} onChange={e=>fld("address",e.target.value)}/>
@@ -2075,7 +2099,7 @@ Use emojis that match the insight tone. Titles should be punchy (3-5 words max).
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,borderBottom:`2px solid ${t.border}`,paddingBottom:10}}>
         <div>
           <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4}}>✨ INSIGHTS</div>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginTop:2}}>ANALYSIS OF YOUR HABITS</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginTop:2}}>AI-POWERED ANALYSIS OF YOUR HABITS</div>
         </div>
         <button onClick={generate} disabled={loading} style={{background:t.addBtn,border:`2px solid ${t.border}`,padding:"8px 14px",cursor:loading?"default":"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:11,color:t.addBtnText,letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`,opacity:loading?0.6:1}}>
           {loading?"ANALYZING...":"✨ ANALYZE"}
@@ -2087,7 +2111,7 @@ Use emojis that match the insight tone. Titles should be punchy (3-5 words max).
           <div style={{fontSize:36,marginBottom:12}}>✨</div>
           <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:14,letterSpacing:3,marginBottom:8,color:t.text}}>WHAT'S YOUR DATA SAYING?</div>
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:2,lineHeight:1.6}}>
-            HIT ANALYZE AND WE'LL LOOK AT<br/>YOUR STREAKS, PATTERNS, AND CONSISTENCY<br/>TO GIVE YOU REAL OBSERVATIONS.
+            HIT ANALYZE AND CLAUDE WILL LOOK AT<br/>YOUR STREAKS, PATTERNS, AND CONSISTENCY<br/>TO GIVE YOU REAL OBSERVATIONS.
           </div>
         </div>
       )}
@@ -2122,12 +2146,13 @@ export default function App(){
   const [habits,setHabits]=useState(DEFAULT_DATA.habits);
   const [movies,setMovies]=useState([]);
   const [books,setBooks]=useState([]);
+  const [tvshows,setTvshows]=useState([]);
   const [totalXP,setTotalXP]=useState(0);
   const [places,setPlaces]=useState([]);
   const [cityList,setCityList]=useState(STARTER_CITIES.map(c=>c.name)); // ordered list of all cities
   const [cityEmojis,setCityEmojis]=useState({}); // {cityName: customEmoji}
-  const [watchSubtab,setWatchSubtab]=useState("movies"); // movies|books
-  const [theme,setTheme]=useState("ravewhite");
+  const [watchSubtab,setWatchSubtab]=useState("movies"); // movies|books|tv
+  const [theme,setTheme]=useState("hawt");
   const [tab,setTab]=useState("today");
   const [confetti,setConfetti]=useState(false);
   const [flash,setFlash]=useState(false);
@@ -2145,8 +2170,6 @@ export default function App(){
   const [pendingDelete,setPendingDelete]=useState(null);
   const pendingDeleteTimer=useRef(null);
   const [showWeekly,setShowWeekly]=useState(false);
-  const [insights,setInsights]=useState(null);
-  const [insightsLoading,setInsightsLoading]=useState(false);
   const [viewOffset,setViewOffset]=useState(0); // 0=today, -1=yesterday, etc.
   const sounds=useSounds();
   const todayStr=TODAY();
@@ -2158,14 +2181,14 @@ export default function App(){
   })();
   const isToday=viewOffset===0;
   const viewDateLabel=isToday?"TODAY":viewOffset===-1?"YESTERDAY":new Date(viewDate+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"}).toUpperCase();
-  const t=THEMES[theme]||THEMES.ravewhite;
+  const t=THEMES[theme]||THEMES.hawt;
   const newCatRef=useRef(null);
   const importRef=useRef(null);
 
-  useEffect(()=>{load().then(saved=>{if(saved){setCats(saved.cats||DEFAULT_DATA.categories);setSubcats(saved.subcats||DEFAULT_DATA.subcategories);setHabits(saved.habits||DEFAULT_DATA.habits);setMovies(saved.movies||[]);setBooks(saved.books||[]);setPlaces(saved.places||[]);setCityList(saved.cityList||STARTER_CITIES.map(c=>c.name));setCityEmojis(saved.cityEmojis||{});setTotalXP(saved.totalXP||0);setTheme(saved.theme||"ravewhite");}setLoaded(true);});},[]);
+  useEffect(()=>{load().then(saved=>{if(saved){setCats(saved.cats||DEFAULT_DATA.categories);setSubcats(saved.subcats||DEFAULT_DATA.subcategories);setHabits(saved.habits||DEFAULT_DATA.habits);setMovies(saved.movies||[]);setBooks(saved.books||[]);setTvshows(saved.tvshows||[]);setPlaces(saved.places||[]);setCityList(saved.cityList||STARTER_CITIES.map(c=>c.name));setCityEmojis(saved.cityEmojis||{});setTotalXP(saved.totalXP||0);setTheme(saved.theme||"hawt");}setLoaded(true);});},[]);
   useEffect(()=>{
     if(!loaded)return;
-    const state={cats,subcats,habits,movies,books,places,cityList,cityEmojis,totalXP,theme};
+    const state={cats,subcats,habits,movies,books,tvshows,places,cityList,cityEmojis,totalXP,theme};
     save(state);
     // Auto-backup to Google Drive (debounced — only after 3s of no changes)
     if(gdriveStatus==="connected"){
@@ -2230,7 +2253,7 @@ export default function App(){
     scheduleDelete(h?.label||"habit",()=>setHabits(p=>p.filter(x=>x.id!==id)));
   };
 
-  const handleExport=()=>exportData({cats,subcats,habits,movies,books,places,cityList,cityEmojis,totalXP,theme});
+  const handleExport=()=>exportData({cats,subcats,habits,movies,books,tvshows,places,cityList,cityEmojis,totalXP,theme});
   const handleImport=(file)=>{
     importData(file, (data)=>{
       if(data.cats) setCats(data.cats);
@@ -2249,6 +2272,7 @@ export default function App(){
     if(data.habits) setHabits(data.habits);
     if(data.movies) setMovies(data.movies);
     if(data.books) setBooks(data.books);
+    if(data.tvshows) setTvshows(data.tvshows);
     if(data.places) setPlaces(data.places);
     if(data.cityList) setCityList(data.cityList);
     if(data.cityEmojis) setCityEmojis(data.cityEmojis);
@@ -2269,7 +2293,7 @@ export default function App(){
   const scheduledHabits=habits.filter(h=>isScheduledFor(h,viewDate));
   const drawerHabit=habits.find(h=>h.id===openDrawer);
 
-  const navItems=[{id:"today",emoji:"☀️",label:"TODAY"},{id:"watchread",emoji:"🎬",label:"WATCH"},{id:"try",emoji:"📍",label:"TRY"},{id:"log",emoji:"📊",label:"LOG"},{id:"insights",emoji:"✨",label:"INSIGHTS"},{id:"settings",emoji:"⚙️",label:"SETTINGS"}];
+  const navItems=[{id:"today",emoji:"☀️",label:"TODAY"},{id:"watchread",emoji:"🎬",label:"MEDIA"},{id:"try",emoji:"📍",label:"TRY"},{id:"log",emoji:"📊",label:"LOG"},{id:"settings",emoji:"⚙️",label:"SETTINGS"}];
 
   if(!loaded) return <div style={{background:"#0a0a0a",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:28,color:"#e8ff00",letterSpacing:6}}>LOADING...</div></div>;
 
@@ -2396,18 +2420,18 @@ export default function App(){
             <>
               {/* Sub-tabs */}
               <div style={{display:"flex",gap:0,marginBottom:14,border:`2px solid ${t.border}`,boxShadow:`2px 2px 0 ${t.border}`}}>
-                {["movies","books"].map(st=>(
-                  <button key={st} onClick={()=>setWatchSubtab(st)} style={{flex:1,padding:"10px",border:"none",borderRight:st==="movies"?`2px solid ${t.border}`:"none",background:watchSubtab===st?t.accent:"transparent",color:watchSubtab===st?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,cursor:"pointer",letterSpacing:3}}>
-                    {st==="movies"?"🎬 FILMS":"📖 BOOKS"}
+                {[["movies","🎬 FILMS"],["tv","📺 TV"],["books","📖 BOOKS"]].map(([st,lbl],i)=>(
+                  <button key={st} onClick={()=>setWatchSubtab(st)} style={{flex:1,padding:"10px",border:"none",borderRight:i<2?`2px solid ${t.border}`:"none",background:watchSubtab===st?t.accent:"transparent",color:watchSubtab===st?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>
+                    {lbl}
                   </button>
                 ))}
               </div>
               <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
-                <button onClick={()=>setAddModal(watchSubtab==="movies"?"movie":"book")} style={{background:t.addBtn,border:`2px solid ${t.border}`,padding:"8px 16px",fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.addBtnText,cursor:"pointer",letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`}}>+ ADD</button>
+                <button onClick={()=>setAddModal(watchSubtab==="movies"?"movie":watchSubtab==="tv"?"tv":"book")} style={{background:t.addBtn,border:`2px solid ${t.border}`,padding:"8px 16px",fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.addBtnText,cursor:"pointer",letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`}}>+ ADD</button>
               </div>
-              {(watchSubtab==="movies"?movies:books).length===0
-                ?<div style={{textAlign:"center",padding:"44px 20px",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,letterSpacing:2,border:`2px dashed ${t.border}`}}><div style={{fontSize:34,marginBottom:10}}>{watchSubtab==="movies"?"🎬":"📖"}</div>NOTHING YET.<br/>PASTE A LINK — TITLE AUTO-FILLS.</div>
-                :(watchSubtab==="movies"?movies:books).map(item=><ListItem key={item.id} item={item} type={watchSubtab==="movies"?"movie":"book"} onToggle={id=>toggleList(watchSubtab==="movies"?"movie":"book",id)} onDelete={id=>deleteList(watchSubtab==="movies"?"movie":"book",id)} onRename={(id,title)=>renameList(watchSubtab==="movies"?"movie":"book",id,title)} theme={theme}/>)}
+              {(watchSubtab==="movies"?movies:watchSubtab==="tv"?tvshows:books).length===0
+                ?<div style={{textAlign:"center",padding:"44px 20px",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,letterSpacing:2,border:`2px dashed ${t.border}`}}><div style={{fontSize:34,marginBottom:10}}>{watchSubtab==="movies"?"🎬":watchSubtab==="tv"?"📺":"📖"}</div>NOTHING YET.<br/>PASTE A LINK — TITLE AUTO-FILLS.</div>
+                :(watchSubtab==="movies"?movies:watchSubtab==="tv"?tvshows:books).map(item=><ListItem key={item.id} item={item} type={watchSubtab==="movies"?"movie":watchSubtab==="tv"?"tv":"book"} onToggle={id=>toggleList(watchSubtab,id)} onDelete={id=>deleteList(watchSubtab,id)} onRename={(id,title)=>renameList(watchSubtab,id,title)} theme={theme}/>)}
             </>
           )}
 
@@ -2501,13 +2525,6 @@ export default function App(){
               {/* History log */}
               <CalendarView habits={habits} theme={theme}/>
             </>
-          )}
-
-          {tab==="insights"&&(
-            <InsightsTab habits={habits} movies={movies} books={books} places={places} totalXP={totalXP}
-              insights={insights} setInsights={setInsights}
-              loading={insightsLoading} setLoading={setInsightsLoading}
-              theme={theme} t={t}/>
           )}
 
           {tab==="settings"&&(
