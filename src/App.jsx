@@ -415,13 +415,17 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
   const catColor=cat.color||t.accent;
   const directHabits=habits.filter(h=>h.catId===cat.id&&!h.subId);
   const catTasks=(tasks||[]).filter(t=>{
-    if(t.catId!==cat.id||t.subId) return false;
-    // Repeating task: show every day from scheduledFor until dueDate (if not done)
+    if(t.catId!==cat.id) return false;
+    if(t.subId) return false;
+    if(!t.scheduledFor) return false;
+    // Repeating task: show every day from scheduledFor until dueDate
     if(t.repeatUntilDue&&t.dueDate){
-      return t.scheduledFor<=todayStr&&todayStr<=t.dueDate&&!t.done;
+      if(t.done) return false; // checked off — hide permanently
+      return t.scheduledFor<=todayStr&&todayStr<=t.dueDate;
     }
-    // One-time task: show on its scheduled day (and after if not done)
-    return t.scheduledFor<=todayStr&&!t.done||t.doneDate===todayStr;
+    // One-time task: show on scheduled day and stay until checked off
+    if(t.done) return t.doneDate===todayStr; // only show on the day it was completed
+    return t.scheduledFor===todayStr; // show exactly on its day
   });
   const catSubcats=subcats.filter(s=>s.catId===cat.id);
   const allHabits=habits.filter(h=>h.catId===cat.id);
