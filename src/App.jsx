@@ -414,7 +414,6 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
 
   const catColor=cat.color||t.accent;
   const directHabits=habits.filter(h=>h.catId===cat.id&&!h.subId);
-  if(tasks&&tasks.length>0)console.log('TASKS IN CATBLOCK:',cat.id,JSON.stringify(tasks.map(t=>({id:t.id,catId:t.catId,scheduledFor:t.scheduledFor,todayStr}))));
   const catTasks=(tasks||[]).filter(t=>{
     if(t.catId!==cat.id) return false;
     if(t.subId) return false;
@@ -533,7 +532,7 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
           ))}
 
           {/* Action buttons */}
-          <div style={{display:"flex",gap:6,marginTop:6,marginBottom:4}}>
+          <div style={{display:"flex",gap:6,marginTop:6,marginBottom:4}} onDragStart={e=>e.stopPropagation()} onDragOver={e=>e.stopPropagation()} onDrop={e=>e.stopPropagation()}>
             {addingSubcat
               ?<div style={{display:"flex",flex:1,gap:6}}>
                 <input ref={newSubcatRef} value={newSubcatVal} onChange={e=>setNewSubcatVal(e.target.value.toUpperCase())}
@@ -544,9 +543,9 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
                 <button onClick={()=>{setAddingSubcat(false);setNewSubcatVal("");}} style={{padding:"8px 12px",border:`1.5px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>✕</button>
               </div>
               :<>
-                <button onClick={()=>onAddHabit(cat.id,null)} style={{flex:1,padding:"8px",border:`1.5px dashed ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>+ HABIT</button>
-                <button onClick={()=>onAddTask(cat.id,null)} style={{flex:1,padding:"8px",border:`1.5px dashed ${t.accent}66`,background:"transparent",color:t.accent,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>+ TASK</button>
-                <button onClick={()=>{setAddingSubcat(true);setTimeout(()=>newSubcatRef.current?.focus(),50);}} style={{flex:1,padding:"8px",border:`1.5px dashed ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>+ SUBCAT</button>
+                <button onClick={e=>{e.stopPropagation();onAddHabit(cat.id,null);}} style={{flex:1,padding:"8px",border:`1.5px dashed ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>+ HABIT</button>
+                <button onClick={e=>{e.stopPropagation();onAddTask(cat.id,null);}} style={{flex:1,padding:"8px",border:`1.5px dashed ${t.accent}66`,background:"transparent",color:t.accent,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>+ TASK</button>
+                <button onClick={e=>{e.stopPropagation();setAddingSubcat(true);setTimeout(()=>newSubcatRef.current?.focus(),50);}} style={{flex:1,padding:"8px",border:`1.5px dashed ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>+ SUBCAT</button>
               </>}
           </div>
         </div>
@@ -2515,7 +2514,7 @@ export default function App(){
 
   // Habit CRUD
   const addHabit=(h)=>{setHabits(prev=>[...prev,h]);showToast("HABIT ADDED",h.emoji);};
-  const addTask=(task)=>{console.log('ADDING TASK:',JSON.stringify(task));setTasks(prev=>{const updated=[...prev,task];console.log('TASKS NOW:',JSON.stringify(updated));return updated;});}
+  const addTask=(task)=>setTasks(prev=>[...prev,task]);
   const completeTask=(id)=>setTasks(prev=>prev.map(t=>t.id===id?{...t,done:true,doneDate:TODAY()}:t));
   const uncompleteTask=(id)=>setTasks(prev=>prev.map(t=>t.id===id?{...t,done:false,doneDate:null}:t));
   const deleteTask=(id)=>setTasks(prev=>prev.filter(t=>t.id!==id));
