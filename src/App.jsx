@@ -90,19 +90,22 @@ const uid=()=>`${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
 // habits can also live directly on a category (subcatId: null)
 const DEFAULT_DATA = {
   categories: [
-    { id:"cat_body", label:"BODY", collapsed:false },
     { id:"cat_health", label:"HEALTH", collapsed:false },
+    { id:"cat_work",   label:"WORK",   collapsed:false },
   ],
   subcategories: [
     { id:"sub_meds",  catId:"cat_health", label:"MEDS",  collapsed:false },
     { id:"sub_fiber", catId:"cat_health", label:"FIBER", collapsed:false },
   ],
   habits: [
-    { id:"poop",     emoji:"💩",label:"DID YOU POOP?",      catId:"cat_body",   subId:null,       color:"#8B4513",special:"poop",xp:20,streak:0,repeat:1,schedule:null,completedDates:[],isDefault:true },
-    { id:"vitamins", emoji:"💊",label:"MORNING VITAMINS",   catId:"cat_health", subId:"sub_meds", color:"#cc0044",special:null, xp:15,streak:0,repeat:1,schedule:null,completedDates:[],isDefault:true },
-    { id:"nightmeds",emoji:"🌙",label:"NIGHTTIME MEDS",     catId:"cat_health", subId:"sub_meds", color:"#4400cc",special:null, xp:15,streak:0,repeat:1,schedule:null,completedDates:[],isDefault:true },
-    { id:"fiber",    emoji:"🌾",label:"FIBER DOSE",         catId:"cat_health", subId:"sub_fiber",color:"#2a6600",special:null, xp:10,streak:0,repeat:3,schedule:null,completedDates:[],isDefault:true },
+    { id:"poop",     emoji:"💩",label:"DID YOU POOP?",      catId:"cat_health", subId:null,       color:"#8B4513",special:"poop",xp:20,streak:0,repeat:1,schedule:null,createdDate:"2025-01-01",completedDates:[],isDefault:true },
+    { id:"vitamins", emoji:"💊",label:"MORNING VITAMINS",   catId:"cat_health", subId:"sub_meds", color:"#cc0044",special:null, xp:15,streak:0,repeat:1,schedule:null,createdDate:"2025-01-01",completedDates:[],isDefault:true },
+    { id:"nightmeds",emoji:"🌙",label:"NIGHTTIME MEDS",     catId:"cat_health", subId:"sub_meds", color:"#4400cc",special:null, xp:15,streak:0,repeat:1,schedule:null,createdDate:"2025-01-01",completedDates:[],isDefault:true },
+    { id:"fiber",    emoji:"🌾",label:"FIBER DOSE",         catId:"cat_health", subId:"sub_fiber",color:"#2a6600",special:null, xp:10,streak:0,repeat:3,schedule:null,createdDate:"2025-01-01",completedDates:[],isDefault:true },
   ],
+  tasks: [
+    { id:"sample_task", label:"ADD YOUR FIRST TASK BELOW 👇", note:"tasks are one-time to-dos — check them off when done!", catId:"cat_work", subId:null, scheduledFor:"2025-01-01", dueDate:null, dueTime:null, priority:false, repeatUntilDue:false, done:false, doneDate:null, createdDate:"2025-01-01", isTask:true },
+  ]
 };
 
 const STORAGE_KEY="habittracker_v5";
@@ -806,14 +809,27 @@ function ListItem({item,onToggle,onDelete,onRename,type,theme}){
 function ManualAddForm({type,onAdd,theme}){
   const t=THEMES[theme]||THEMES.hawt;
   const [title,setTitle]=useState("");
+  const [subtitle,setSubtitle]=useState("");
+  const [year,setYear]=useState("");
+  const [genre,setGenre]=useState("");
   const [note,setNote]=useState("");
+  const isBook=type==="book";
+  const isMovie=type==="movie";
+  const subtitleLabel=isBook?"AUTHOR *":isMovie?"DIRECTOR (OPTIONAL)":"CREATOR (OPTIONAL)";
+  const canAdd=title.trim()&&(!isBook||subtitle.trim());
   const inp={width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"10px 12px",color:t.text,fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:8};
-  const submit=()=>{if(!title.trim())return;onAdd({title:title.trim(),note:note.trim(),subtitle:null,year:null,rating:null,genre:null,source:null,url:""});};
+  const submit=()=>{if(!canAdd)return;onAdd({title:title.trim(),subtitle:subtitle.trim()||null,year:year.trim()||null,rating:null,genre:genre.trim()||null,source:null,url:"",note:note.trim()});};
   return(
     <div>
-      <input style={inp} placeholder="TITLE" value={title} onChange={e=>setTitle(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} autoFocus/>
+      <input style={inp} placeholder="TITLE *" value={title} onChange={e=>setTitle(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} autoFocus/>
+      <input style={{...inp,border:`2px solid ${isBook&&!subtitle.trim()?t.accent+"88":t.border}`}} placeholder={subtitleLabel} value={subtitle} onChange={e=>setSubtitle(e.target.value)}/>
+      <div style={{display:"flex",gap:8}}>
+        <input style={{...inp,flex:1}} placeholder="YEAR (OPTIONAL)" value={year} onChange={e=>setYear(e.target.value)}/>
+        <input style={{...inp,flex:1}} placeholder="GENRE (OPTIONAL)" value={genre} onChange={e=>setGenre(e.target.value)}/>
+      </div>
       <input style={{...inp,marginBottom:10}} placeholder="NOTE (OPTIONAL)" value={note} onChange={e=>setNote(e.target.value)}/>
-      <button onClick={submit} disabled={!title.trim()} style={{width:"100%",padding:"11px",border:`2px solid ${t.border}`,background:title.trim()?t.addBtn:"transparent",color:title.trim()?t.addBtnText:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,cursor:title.trim()?"pointer":"default",letterSpacing:3,boxShadow:title.trim()?`2px 2px 0 ${t.border}`:"none",opacity:title.trim()?1:0.45}}>ADD MANUALLY</button>
+      {isBook&&!subtitle.trim()&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.accent,letterSpacing:1,marginBottom:8}}>↑ AUTHOR IS REQUIRED FOR BOOKS</div>}
+      <button onClick={submit} disabled={!canAdd} style={{width:"100%",padding:"11px",border:`2px solid ${t.border}`,background:canAdd?t.addBtn:"transparent",color:canAdd?t.addBtnText:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,cursor:canAdd?"pointer":"default",letterSpacing:3,boxShadow:canAdd?`2px 2px 0 ${t.border}`:"none",opacity:canAdd?1:0.45}}>ADD MANUALLY</button>
     </div>
   );
 }
