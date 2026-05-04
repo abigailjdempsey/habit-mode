@@ -995,39 +995,104 @@ function BackupPanel({theme, state, gdriveStatus, setGdriveStatus, onRestoreGdri
 }
 
 // ─── HISTORY ──────────────────────────────────────────────────────────────────
-function HistoryLog({habits,theme}){
+function CalendarView({habits,theme}){
   const t=THEMES[theme]||THEMES.ravewhite;
   const todayActual=TODAY();
-  const days=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(13-i));return d.toISOString().split("T")[0];});
-  const totals=days.map(d=>({date:d,done:habits.filter(h=>isDone(h,d)).length,total:habits.length}));
+  const [calOffset,setCalOffset]=useState(0); // 0=current month, -1=last month etc
+  const [selectedDay,setSelectedDay]=useState(null);
+
+  const refDate=new Date();
+  refDate.setDate(1);
+  refDate.setMonth(refDate.getMonth()+calOffset);
+  const year=refDate.getFullYear();
+  const month=refDate.getMonth();
+  const monthLabel=refDate.toLocaleDateString("en-US",{month:"long",year:"numeric"}).toUpperCase();
+
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  const firstDow=new Date(year,month,1).getDay(); // 0=Sun
+  const toStr=(d)=>`${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+
+  const getDayPct=(dateStr)=>{
+    const scheduled=habits.filter(h=>isScheduledFor(h,dateStr));
+    if(!scheduled.length) return null;
+    const done=scheduled.filter(h=>isDone(h,dateStr)).length;
+    return done/scheduled.length;
+  };
+
+  const selectedStr=selectedDay?toStr(selectedDay):null;
+  const selectedHabits=selectedStr?habits.filter(h=>isScheduledFor(h,selectedStr)):[];
+  const DAY_NAMES=["SUN","MON","TUE","WED","THU","FRI","SAT"];
+
   return(
     <div>
-      <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:26,color:t.text,letterSpacing:4,marginBottom:4}}>HISTORY</div>
-      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:14}}>LAST 14 DAYS</div>
-      <div style={{display:"flex",gap:3,alignItems:"flex-end",height:72,marginBottom:3,border:`2px solid ${t.border}`,padding:"6px 6px 0",background:t.bgCard,boxShadow:`3px 3px 0 ${t.border}`}}>
-        {totals.map(({date,done,total})=>{const p=total>0?done/total:0,isToday2=date===todayActual;return<div key={date} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center"}}><div style={{width:"100%",background:p===1?t.accent:p>0?t.accent+"88":t.border,height:`${Math.max(p*52+4,4)}px`,border:isToday2?`2px solid ${t.accent2}`:"none",boxSizing:"border-box",transition:"height 0.4s"}}/></div>;})}
+      {/* Month nav */}
+      <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:14,border:`2px solid ${t.border}`,boxShadow:`2px 2px 0 ${t.border}`}}>
+        <button onClick={()=>{setCalOffset(o=>o-1);setSelectedDay(null);}} style={{background:"transparent",border:"none",borderRight:`2px solid ${t.border}`,padding:"10px 14px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:t.textSub}}>◀</button>
+        <div style={{flex:1,textAlign:"center",fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:t.text,letterSpacing:3,padding:"10px"}}>{monthLabel}</div>
+        <button onClick={()=>{setCalOffset(o=>Math.min(0,o+1));setSelectedDay(null);}} disabled={calOffset===0} style={{background:"transparent",border:"none",borderLeft:`2px solid ${t.border}`,padding:"10px 14px",cursor:calOffset===0?"default":"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:calOffset===0?t.border:t.textSub}}>▶</button>
       </div>
-      <div style={{display:"flex",gap:3,marginBottom:18}}>{totals.map(({date})=><div key={date} style={{flex:1,textAlign:"center",fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:t.textSub}}>{new Date(date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short"}).slice(0,1)}</div>)}</div>
-      <div style={{overflowX:"auto"}}>
-        <div style={{minWidth:"max-content"}}>
-          <div style={{display:"flex",gap:3,marginBottom:5,paddingLeft:112}}>{days.map(d=><div key={d} style={{width:26,textAlign:"center",fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:t.textSub}}>{new Date(d+"T12:00:00").getDate()}</div>)}</div>
-          {habits.map(h=>(
-            <div key={h.id} style={{display:"flex",gap:3,alignItems:"center",marginBottom:3}}>
-              <div style={{width:108,fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",letterSpacing:1,display:"flex",alignItems:"center",gap:3}}>
-                <span>{h.emoji}</span><span>{h.label.slice(0,11)}{h.label.length>11?"…":""}</span>
-                {h.repeat>1&&<span style={{fontSize:8,color:t.accent}}>×{h.repeat}</span>}
-              </div>
-              {days.map(d=>{
-                const cnt=getCount(h,d),full=isDone(h,d),today=d===todayActual,pp=h.repeat>1&&!full&&cnt>0?cnt/h.repeat:0;
-                return<div key={d} style={{width:26,height:18,background:full?h.color:t.bgCard,border:`${today?"2px":"1px"} solid ${today?t.accent:full?h.color:t.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,position:"relative",overflow:"hidden"}}>
-                  {!full&&pp>0&&<div style={{position:"absolute",left:0,top:0,bottom:0,width:`${pp*100}%`,background:`${h.color}55`}}/>}
-                  <span style={{position:"relative"}}>{full?h.emoji:cnt>0?cnt:""}</span>
-                </div>;
-              })}
+
+      {/* Day of week headers */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:2}}>
+        {DAY_NAMES.map(d=><div key={d} style={{textAlign:"center",fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:t.textSub,letterSpacing:1,padding:"4px 0"}}>{d}</div>)}
+      </div>
+
+      {/* Calendar grid */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:16}}>
+        {Array.from({length:firstDow},(_,i)=><div key={`e${i}`}/>)}
+        {Array.from({length:daysInMonth},(_,i)=>{
+          const day=i+1;
+          const dateStr=toStr(day);
+          const pct=getDayPct(dateStr);
+          const isToday=dateStr===todayActual;
+          const isFuture=dateStr>todayActual;
+          const isSel=selectedDay===day;
+          const bg=isFuture?"transparent":pct===null?"transparent":pct===1?t.accent:pct>0?t.accent+"66":t.bgCard;
+          return(
+            <div key={day} onClick={()=>!isFuture&&setSelectedDay(isSel?null:day)} style={{
+              aspectRatio:"1",display:"flex",alignItems:"center",justifyContent:"center",
+              background:bg,
+              border:`${isToday||isSel?"2px":"1px"} solid ${isSel?t.accent2:isToday?t.accent:isFuture?t.border+"44":pct===1?t.accent:t.border}`,
+              cursor:isFuture?"default":"pointer",
+              position:"relative",
+              opacity:isFuture?0.3:1,
+              boxShadow:isSel?`2px 2px 0 ${t.accent2}`:"none",
+              transition:"all 0.1s"
+            }}>
+              <span style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:11,color:pct===1?t.textInv:isToday?t.accent:t.text,letterSpacing:0}}>{day}</span>
             </div>
-          ))}
-        </div>
+          );
+        })}
       </div>
+
+      {/* Selected day detail */}
+      {selectedStr&&(
+        <div style={{border:`2px solid ${t.accent}`,boxShadow:`3px 3px 0 ${t.accent}`,marginBottom:16}}>
+          <div style={{background:`${t.accent}18`,borderBottom:`2px solid ${t.accent}`,padding:"8px 12px"}}>
+            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.accent,letterSpacing:3}}>
+              {new Date(selectedStr+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}).toUpperCase()}
+            </div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginTop:2}}>
+              {selectedHabits.filter(h=>isDone(h,selectedStr)).length}/{selectedHabits.length} HABITS DONE
+            </div>
+          </div>
+          <div style={{padding:"8px 12px"}}>
+            {selectedHabits.map(h=>{
+              const done=isDone(h,selectedStr);
+              const cnt=getCount(h,selectedStr);
+              return(
+                <div key={h.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:`1px solid ${t.border}`}}>
+                  <span style={{fontSize:16}}>{h.emoji}</span>
+                  <div style={{flex:1,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:done?t.text:t.textSub,letterSpacing:1}}>{h.label}</div>
+                  <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:11,color:done?t.accent:t.textSub}}>
+                    {done?"✓":h.repeat>1?`${cnt}/${h.repeat}`:"✗"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1167,9 +1232,31 @@ function EditPlaceModal({place, onSave, onClose, theme, t, uid, existingCities, 
 function RatingModal({place, onRate, onSkip, theme, t}) {
   const [rating,setRating]=useState(0);
   const [note,setNote]=useState("");
+  const [photo,setPhoto]=useState(null);
+  const photoRef=useRef(null);
+
+  const handlePhoto=(e)=>{
+    const file=e.target.files?.[0];
+    if(!file)return;
+    // Compress to max 400px wide before storing as base64
+    const img=new Image();
+    const url=URL.createObjectURL(file);
+    img.onload=()=>{
+      const canvas=document.createElement("canvas");
+      const MAX=400;
+      const scale=Math.min(1,MAX/img.width,MAX/img.height);
+      canvas.width=img.width*scale;
+      canvas.height=img.height*scale;
+      canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height);
+      setPhoto(canvas.toDataURL("image/jpeg",0.7));
+      URL.revokeObjectURL(url);
+    };
+    img.src=url;
+  };
+
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1001,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 16px"}} onClick={onSkip}>
-      <div style={{background:t.bg,width:"100%",maxWidth:400,border:`3px solid ${t.border}`,boxShadow:`6px 6px 0 ${t.border}`,padding:24}} onClick={e=>e.stopPropagation()}>
+      <div style={{background:t.bg,width:"100%",maxWidth:400,border:`3px solid ${t.border}`,boxShadow:`6px 6px 0 ${t.border}`,padding:24,maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
         <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:18,color:t.text,letterSpacing:3,marginBottom:4}}>HOW WAS IT?</div>
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,color:t.textSub,letterSpacing:2,marginBottom:16}}>{place.name}</div>
         {/* Stars */}
@@ -1178,10 +1265,19 @@ function RatingModal({place, onRate, onSkip, theme, t}) {
             <button key={s} onClick={()=>setRating(s)} style={{fontSize:32,background:"none",border:"none",cursor:"pointer",opacity:s<=rating?1:0.25,transform:s<=rating?"scale(1.1)":"scale(1)",transition:"all 0.1s"}}>★</button>
           ))}
         </div>
-        <input style={{width:"100%",background:t.bgCard,border:`2px solid ${t.border}`,padding:"10px 12px",color:t.text,fontSize:12,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:14}} placeholder="LEAVE A NOTE (OPTIONAL)" value={note} onChange={e=>setNote(e.target.value)}/>
+        <input style={{width:"100%",background:t.bgCard,border:`2px solid ${t.border}`,padding:"10px 12px",color:t.text,fontSize:12,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:10}} placeholder="LEAVE A NOTE (OPTIONAL)" value={note} onChange={e=>setNote(e.target.value)}/>
+        {/* Photo upload */}
+        <input ref={photoRef} type="file" accept="image/*" style={{display:"none"}} onChange={handlePhoto}/>
+        {photo
+          ?<div style={{marginBottom:12,position:"relative"}}>
+            <img src={photo} style={{width:"100%",border:`2px solid ${t.border}`,display:"block"}} alt="visit"/>
+            <button onClick={()=>setPhoto(null)} style={{position:"absolute",top:6,right:6,background:"rgba(0,0,0,0.7)",border:"none",color:"#fff",width:24,height:24,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+          </div>
+          :<button onClick={()=>photoRef.current?.click()} style={{width:"100%",padding:"10px",border:`2px dashed ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,marginBottom:12}}>📷 ADD A PHOTO (OPTIONAL)</button>
+        }
         <div style={{display:"flex",gap:8}}>
           <button onClick={onSkip} style={{flex:1,padding:"11px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:2}}>SKIP</button>
-          <button onClick={()=>onRate(rating,note)} disabled={rating===0} style={{flex:2,padding:"11px",border:`2px solid ${t.border}`,background:rating>0?t.addBtn:"transparent",color:rating>0?t.addBtnText:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:rating>0?"pointer":"default",letterSpacing:2,boxShadow:rating>0?`2px 2px 0 ${t.border}`:"none",opacity:rating>0?1:0.4}}>SAVE RATING</button>
+          <button onClick={()=>onRate(rating,note,photo)} disabled={rating===0} style={{flex:2,padding:"11px",border:`2px solid ${t.border}`,background:rating>0?t.addBtn:"transparent",color:rating>0?t.addBtnText:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:rating>0?"pointer":"default",letterSpacing:2,boxShadow:rating>0?`2px 2px 0 ${t.border}`:"none",opacity:rating>0?1:0.4}}>SAVE</button>
         </div>
       </div>
     </div>
@@ -1203,8 +1299,8 @@ function PlaceCard({place, onToggle, onDelete, onEdit, onUpdate, theme, t, exist
     }
   };
 
-  const handleRate=(rating,note)=>{
-    onUpdate({...place,visited:true,rating:rating||null,visitNote:note||null,visitedDate:TODAY()});
+  const handleRate=(rating,note,photo)=>{
+    onUpdate({...place,visited:true,rating:rating||null,visitNote:note||null,visitPhoto:photo||null,visitedDate:TODAY()});
     setShowRating(false);
   };
 
@@ -1237,6 +1333,7 @@ function PlaceCard({place, onToggle, onDelete, onEdit, onUpdate, theme, t, exist
           {place.rating&&<span style={{color:"#f1c40f"}}>{"★".repeat(place.rating)}{"☆".repeat(5-place.rating)}</span>}
         </div>
         {place.visitNote&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,marginTop:2,letterSpacing:1,fontStyle:"italic"}}>"{place.visitNote}"</div>}
+        {place.visitPhoto&&<img src={place.visitPhoto} alt="visit" style={{width:"100%",marginTop:6,border:`1px solid ${t.border}`,display:"block",maxHeight:120,objectFit:"cover"}}/>}
         {place.description&&!place.visitNote&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,marginTop:2,letterSpacing:1,lineHeight:1.4}}>{place.description}</div>}
         {place.address&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:t.textSub,marginTop:2,letterSpacing:1}}>{place.address}</div>}
         {place.url&&<a href={place.url} target="_blank" rel="noopener noreferrer" style={{fontSize:9,color:t.accent2,fontFamily:"'Barlow Condensed',sans-serif",textDecoration:"none",display:"block",marginTop:2,letterSpacing:1}}>↗ {place.url.replace(/^https?:\/\//,"").slice(0,36)}</a>}
@@ -1922,6 +2019,102 @@ function TryTab({places, setPlaces, cityList, setCityList, cityEmojis, setCityEm
     </div>
   );
 }
+
+// ─── INSIGHTS TAB ─────────────────────────────────────────────────────────────
+function InsightsTab({habits, movies, books, places, totalXP, insights, setInsights, loading, setLoading, theme, t}) {
+
+  const generate = async () => {
+    setLoading(true);
+    // Build a data summary to send to Claude
+    const totalDays = habits.length > 0
+      ? Math.ceil((Date.now() - new Date(Math.min(...habits.flatMap(h => h.completedDates.map(d => new Date(typeof d==="string"?d:d.date).getTime())).filter(Boolean))).getTime()) / 86400000)
+      : 0;
+
+    const habitSummary = habits.map(h => ({
+      name: h.label,
+      streak: h.streak,
+      completions: h.completedDates.length,
+      schedule: h.schedule ? h.schedule.map(d => ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d]).join(",") : "daily"
+    }));
+
+    const dayStats = Array.from({length:7},(_,i) => {
+      const done = habits.reduce((s,h) => s + h.completedDates.filter(e => {
+        const d = typeof e==="string"?e:e.date;
+        return new Date(d+"T12:00:00").getDay()===i;
+      }).length, 0);
+      return {day:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][i], completions: done};
+    });
+
+    const prompt = `You are analyzing someone's personal habit tracking data. Be warm, specific, and insightful. Don't be generic.
+
+Habit data:
+${JSON.stringify(habitSummary, null, 2)}
+
+Day of week completions:
+${JSON.stringify(dayStats, null, 2)}
+
+Other stats:
+- Total XP: ${totalXP}
+- Level: ${Math.floor(totalXP/100)+1}
+- Films watched: ${movies.filter(m=>m.done).length} of ${movies.length}
+- Books done: ${books.filter(b=>b.done).length} of ${books.length}
+- Places visited: ${places.filter(p=>p.visited).length} of ${places.length}
+
+Give me 4-5 short, specific insights about their habits. Each insight should be 1-2 sentences. Be honest about weaknesses but encouraging. Notice patterns, streaks, consistency. Point out what's working and what could improve.
+
+Return JSON array of objects: [{"emoji": string, "title": string, "body": string}]
+Use emojis that match the insight tone. Titles should be punchy (3-5 words max).`;
+
+    const result = await claudeJSON(prompt);
+    setInsights(Array.isArray(result) ? result : null);
+    setLoading(false);
+  };
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,borderBottom:`2px solid ${t.border}`,paddingBottom:10}}>
+        <div>
+          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4}}>✨ INSIGHTS</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginTop:2}}>AI-POWERED ANALYSIS OF YOUR HABITS</div>
+        </div>
+        <button onClick={generate} disabled={loading} style={{background:t.addBtn,border:`2px solid ${t.border}`,padding:"8px 14px",cursor:loading?"default":"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:11,color:t.addBtnText,letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`,opacity:loading?0.6:1}}>
+          {loading?"ANALYZING...":"✨ ANALYZE"}
+        </button>
+      </div>
+
+      {!insights&&!loading&&(
+        <div style={{textAlign:"center",padding:"44px 20px",border:`2px dashed ${t.border}`,color:t.textSub}}>
+          <div style={{fontSize:36,marginBottom:12}}>✨</div>
+          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:14,letterSpacing:3,marginBottom:8,color:t.text}}>WHAT'S YOUR DATA SAYING?</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:2,lineHeight:1.6}}>
+            HIT ANALYZE AND CLAUDE WILL LOOK AT<br/>YOUR STREAKS, PATTERNS, AND CONSISTENCY<br/>TO GIVE YOU REAL OBSERVATIONS.
+          </div>
+        </div>
+      )}
+
+      {loading&&(
+        <div style={{textAlign:"center",padding:"44px 20px",border:`2px dashed ${t.border}`}}>
+          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:t.accent,letterSpacing:4}}>READING YOUR DATA...</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginTop:8}}>THIS TAKES A FEW SECONDS</div>
+        </div>
+      )}
+
+      {insights&&!loading&&<>
+        {insights.map((ins,i)=>(
+          <div key={i} style={{background:t.bgCard,border:`2px solid ${t.border}`,padding:"16px 16px",marginBottom:10,boxShadow:`3px 3px 0 ${t.border}`}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+              <span style={{fontSize:24}}>{ins.emoji}</span>
+              <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:t.accent,letterSpacing:3}}>{ins.title?.toUpperCase()}</div>
+            </div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,color:t.text,letterSpacing:1,lineHeight:1.6}}>{ins.body}</div>
+          </div>
+        ))}
+        <button onClick={()=>setInsights(null)} style={{width:"100%",padding:"10px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,marginTop:4}}>CLEAR — ANALYZE AGAIN</button>
+      </>}
+    </div>
+  );
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App(){
   const [cats,setCats]=useState(DEFAULT_DATA.categories);
@@ -1952,6 +2145,8 @@ export default function App(){
   const [pendingDelete,setPendingDelete]=useState(null);
   const pendingDeleteTimer=useRef(null);
   const [showWeekly,setShowWeekly]=useState(false);
+  const [insights,setInsights]=useState(null);
+  const [insightsLoading,setInsightsLoading]=useState(false);
   const [viewOffset,setViewOffset]=useState(0); // 0=today, -1=yesterday, etc.
   const sounds=useSounds();
   const todayStr=TODAY();
@@ -2074,7 +2269,7 @@ export default function App(){
   const scheduledHabits=habits.filter(h=>isScheduledFor(h,viewDate));
   const drawerHabit=habits.find(h=>h.id===openDrawer);
 
-  const navItems=[{id:"today",emoji:"☀️",label:"TODAY"},{id:"watchread",emoji:"🎬",label:"WATCH"},{id:"try",emoji:"📍",label:"TRY"},{id:"log",emoji:"📊",label:"LOG"},{id:"settings",emoji:"⚙️",label:"SETTINGS"}];
+  const navItems=[{id:"today",emoji:"☀️",label:"TODAY"},{id:"watchread",emoji:"🎬",label:"WATCH"},{id:"try",emoji:"📍",label:"TRY"},{id:"log",emoji:"📊",label:"LOG"},{id:"insights",emoji:"✨",label:"INSIGHTS"},{id:"settings",emoji:"⚙️",label:"SETTINGS"}];
 
   if(!loaded) return <div style={{background:"#0a0a0a",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:28,color:"#e8ff00",letterSpacing:6}}>LOADING...</div></div>;
 
@@ -2236,6 +2431,56 @@ export default function App(){
                   </div>
                 ))}
               </div>
+              {/* Best/Worst day */}
+              {(()=>{
+                const DAY_FULL=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+                const stats=Array.from({length:7},(_,i)=>({dow:i,done:0,total:0}));
+                habits.forEach(h=>{
+                  h.completedDates.forEach(entry=>{
+                    const d=typeof entry==="string"?entry:entry.date;
+                    const dow=new Date(d+"T12:00:00").getDay();
+                    stats[dow].done+=(typeof entry==="object"?entry.count:1);
+                    stats[dow].total+=h.repeat||1;
+                  });
+                  // add scheduled-but-missed days
+                });
+                const withPct=stats.map(s=>({...s,pct:s.total>0?s.done/s.total:null})).filter(s=>s.pct!==null);
+                if(withPct.length<2) return null;
+                const best=withPct.reduce((a,b)=>b.pct>a.pct?b:a);
+                const worst=withPct.reduce((a,b)=>b.pct<a.pct?b:a);
+                return(
+                  <div style={{marginBottom:16}}>
+                    <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,color:t.text,marginBottom:8,letterSpacing:4}}>📅 BEST & WORST DAY</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                      <div style={{background:t.bgCard,border:`2px solid ${t.accent}`,padding:"12px 14px",boxShadow:`2px 2px 0 ${t.accent}`}}>
+                        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.accent,letterSpacing:2,marginBottom:4}}>BEST DAY</div>
+                        <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:18,color:t.text,letterSpacing:2}}>{DAY_FULL[best.dow]}</div>
+                        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.textSub,letterSpacing:1,marginTop:2}}>{Math.round(best.pct*100)}% avg completion</div>
+                      </div>
+                      <div style={{background:t.bgCard,border:`2px solid ${t.accent2}`,padding:"12px 14px",boxShadow:`2px 2px 0 ${t.accent2}`}}>
+                        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.accent2,letterSpacing:2,marginBottom:4}}>NEEDS WORK</div>
+                        <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:18,color:t.text,letterSpacing:2}}>{DAY_FULL[worst.dow]}</div>
+                        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.textSub,letterSpacing:1,marginTop:2}}>{Math.round(worst.pct*100)}% avg completion</div>
+                      </div>
+                    </div>
+                    {/* Day bar chart */}
+                    <div style={{display:"flex",gap:4,alignItems:"flex-end",height:50,border:`2px solid ${t.border}`,padding:"6px 8px 0",background:t.bgCard,boxShadow:`2px 2px 0 ${t.border}`}}>
+                      {stats.map(s=>{
+                        const p=s.pct||0;
+                        const dow=s.dow;
+                        const isB=dow===best.dow,isW=dow===worst.dow;
+                        return(
+                          <div key={dow} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                            <div style={{width:"100%",background:isB?t.accent:isW?t.accent2:t.border,height:`${Math.max(p*34,2)}px`,transition:"height 0.4s"}}/>
+                            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:8,color:isB?t.accent:isW?t.accent2:t.textSub,letterSpacing:0}}>{"SMTWTFS"[dow]}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Streaks */}
               <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,color:t.text,marginBottom:8,letterSpacing:4}}>🔥 STREAKS</div>
               <div style={{marginBottom:20}}>
@@ -2254,8 +2499,15 @@ export default function App(){
                 ))}
               </div>
               {/* History log */}
-              <HistoryLog habits={habits} theme={theme}/>
+              <CalendarView habits={habits} theme={theme}/>
             </>
+          )}
+
+          {tab==="insights"&&(
+            <InsightsTab habits={habits} movies={movies} books={books} places={places} totalXP={totalXP}
+              insights={insights} setInsights={setInsights}
+              loading={insightsLoading} setLoading={setInsightsLoading}
+              theme={theme} t={t}/>
           )}
 
           {tab==="settings"&&(
