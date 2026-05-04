@@ -484,7 +484,10 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
   const catSubcats=subcats.filter(s=>s.catId===cat.id);
   const allHabits=habits.filter(h=>h.catId===cat.id);
   const doneCount=allHabits.filter(h=>isDone(h,todayStr)).length;
-  const allDone=doneCount===allHabits.length&&allHabits.length>0;
+  const catTasksAll=(tasks||[]).filter(t=>t.catId===cat.id&&t.scheduledFor<=todayStr&&!t.done&&!t.doneDate);
+  const allDone=doneCount===allHabits.length&&allHabits.length>0&&catTasksAll.length===0;
+  const totalItems=allHabits.length+catTasksAll.length;
+  const doneItems=doneCount+(tasks||[]).filter(t=>t.catId===cat.id&&t.done&&t.doneDate===todayStr).length;
 
   // Habits inherit category color unless they have their own
   const withCatColor=(h)=>({...h,color:h.color&&!h.isDefault?h.color:catColor});
@@ -540,7 +543,7 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
           :<div onClick={()=>setCollapsed(c=>!c)} style={{flex:1,fontFamily:"'Black Han Sans',sans-serif",fontSize:18,color:t.text,letterSpacing:4,padding:"12px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
             {cat.label}
             <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:allDone?catColor:t.textSub,letterSpacing:2,fontWeight:400}}>
-              {allDone?"ALL DONE ✓":`${doneCount}/${allHabits.length}`}
+              {allDone?"ALL DONE ✓":`${doneItems}/${totalItems}`}
             </span>
           </div>}
         {/* Color dot button */}
