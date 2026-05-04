@@ -3206,13 +3206,19 @@ export default function App(){
               <div style={{background:t.bgCard,border:`2px solid ${t.border}`,padding:"12px 16px",marginBottom:14,boxShadow:`3px 3px 0 ${t.border}`,display:"flex",alignItems:"center",gap:12}}>
                 <div style={{flex:1}}>
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
-                    <span style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:3}}>{doneCount===scheduledHabits.length&&scheduledHabits.length>0?"ALL DONE 🏆":doneCount===0?"LET'S GO":`${scheduledHabits.length-doneCount} REMAINING`}</span>
-                    <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.textSub,letterSpacing:2}}>{doneCount}/{scheduledHabits.length}</span>
+                    <span style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:3}}>{(()=>{
+                      const totalToday=scheduledHabits.length+scheduledTasks.length;
+                      const allDoneToday=doneCount>=totalToday&&totalToday>0;
+                      return allDoneToday?"ALL DONE 🏆":doneCount===0?"LET'S GO":`${totalToday-doneCount} REMAINING`;
+                    })()}</span>
+                    <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.textSub,letterSpacing:2}}>{doneCount}/{scheduledHabits.length+scheduledTasks.length}</span>
                   </div>
-                  <div style={{background:t.bg,height:7,border:`1.5px solid ${t.border}`}}><div style={{width:`${Math.round((doneCount/Math.max(scheduledHabits.length,1))*100)}%`,height:"100%",background:t.accent,transition:"width 0.6s ease"}}/></div>
+                  <div style={{background:t.bg,height:7,border:`1.5px solid ${t.border}`}}><div style={{width:`${Math.round((doneCount/Math.max(scheduledHabits.length+scheduledTasks.length,1))*100)}%`,height:"100%",background:t.accent,transition:"width 0.6s ease"}}/></div>
                 </div>
               </div>
 
+              {/* Quick add bar */}
+              {!isPast&&<QuickAddBar cats={cats} viewDate={viewDate} onAdd={addTask} theme={theme} t={t}/>}
               {/* Reset day button — only shown on today */}
               {!isPast&&doneCount>0&&<div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}>
                 <button onClick={()=>{
