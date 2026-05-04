@@ -268,7 +268,7 @@ function HabitRow({habit,onComplete,onUndoOne,onDelete,onRename,todayStr,theme,o
 }
 
 // ─── SUBCATEGORY BLOCK ────────────────────────────────────────────────────────
-function SubcatBlock({subcat,habits,todayStr,theme,onComplete,onUndoOne,onDelete,onRename,onOpenDrawer,onDeleteSubcat,onRenameSubcat}){
+function SubcatBlock({subcat,habits,tasks,todayStr,theme,onComplete,onUndoOne,onDelete,onRename,onOpenDrawer,onDeleteSubcat,onRenameSubcat,onAddTask,onCompleteTask,onUncompleteTask,onDeleteTask,onRenameTask,onUpdateTask}){
   const t=THEMES[theme]||THEMES.hawt;
   const [collapsed,setCollapsed]=useState(subcat.collapsed||false);
   const [editing,setEditing]=useState(false);
@@ -277,9 +277,18 @@ function SubcatBlock({subcat,habits,todayStr,theme,onComplete,onUndoOne,onDelete
   const doneHere=habits.filter(h=>isDone(h,todayStr)).length;
   const allDone=doneHere===habits.length&&habits.length>0;
   const commit=()=>{if(editVal.trim())onRenameSubcat(subcat.id,editVal.trim().toUpperCase());setEditing(false);};
+  // Tasks belonging to this subcat
+  const subcatTasks=(tasks||[]).filter(t2=>{
+    if(t2.subId!==subcat.id) return false;
+    if(!t2.scheduledFor) return false;
+    if(t2.repeatUntilDue&&t2.dueDate){
+      if(t2.done) return t2.doneDate===todayStr;
+      return t2.scheduledFor<=todayStr&&todayStr<=t2.dueDate;
+    }
+    return t2.scheduledFor===todayStr||(t2.done&&t2.doneDate===todayStr);
+  });
   return(
     <div style={{marginBottom:8}}>
-      {/* Subcat header */}
       <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:collapsed?0:4}}>
         <button onClick={()=>setCollapsed(c=>!c)} style={{background:"transparent",border:`1px solid ${t.border}`,borderRight:"none",padding:"5px 8px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,flexShrink:0}}>{collapsed?"▶":"▼"}</button>
         {editing
@@ -295,6 +304,8 @@ function SubcatBlock({subcat,habits,todayStr,theme,onComplete,onUndoOne,onDelete
       {!collapsed&&(
         <div style={{paddingLeft:12,borderLeft:`2px solid ${t.border}`}}>
           {habits.map(h=><HabitRow key={h.id} habit={h} onComplete={onComplete} onUndoOne={onUndoOne} onDelete={onDelete} onRename={onRename} todayStr={todayStr} theme={theme} onOpenDrawer={onOpenDrawer}/>)}
+          {subcatTasks.map(task=><TaskRow key={task.id} task={task} theme={theme} onComplete={onCompleteTask} onUncomplete={onUncompleteTask} onDelete={onDeleteTask} onRename={onRenameTask} onUpdate={onUpdateTask}/>)}
+          <button onClick={e=>{e.stopPropagation();onAddTask(subcat.catId,subcat.id);}} style={{width:"100%",padding:"5px",border:`1px dashed ${t.accent}44`,background:"transparent",color:t.accent,fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,cursor:"pointer",letterSpacing:2,marginTop:3}}>+ TASK</button>
         </div>
       )}
     </div>
@@ -304,33 +315,60 @@ function SubcatBlock({subcat,habits,todayStr,theme,onComplete,onUndoOne,onDelete
 
 // ─── TASK ROW ─────────────────────────────────────────────────────────────────
 // Tasks are one-time items — checkbox style, disappear when done (or stay visible)
-function TaskRow({task, onComplete, onUncomplete, onDelete, onRename, theme}) {
+function TaskRow({task, onComplete, onUncomplete, onDelete, onRename, onUpdate, theme}) {
   const t=THEMES[theme]||THEMES.hawt;
   const [editing,setEditing]=useState(false);
   const [editVal,setEditVal]=useState(task.label);
+  const [extending,setExtending]=useState(false);
+  const [newDate,setNewDate]=useState("");
+  const [newTime,setNewTime]=useState("");
   const ref=useRef(null);
+  const today=TODAY();
+  const isOverdue=!task.done&&task.dueDate&&task.dueDate<today;
   const commit=()=>{if(editVal.trim())onRename(task.id,editVal.trim());setEditing(false);};
 
+  const extend=()=>{
+    if(!newDate)return;
+    onUpdate({...task,dueDate:newDate,dueTime:newTime||null,scheduledFor:task.scheduledFor});
+    setExtending(false);setNewDate("");setNewTime("");
+  };
+
+  const inp={background:t.bg,border:`1.5px solid ${t.border}`,padding:"6px 8px",color:t.text,fontSize:12,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,outline:"none",colorScheme:"dark"};
+
   return(
-    <div style={{display:"flex",alignItems:"center",gap:0,border:`1.5px solid ${task.done?t.border:t.accent+"66"}`,marginBottom:5,background:task.done?t.bgCard:t.bg,opacity:task.done?0.6:1,transition:"all 0.2s",boxShadow:task.done?"none":`1px 1px 0 ${t.border}`}}>
-      {/* Checkbox */}
-      <button onClick={()=>task.done?onUncomplete(task.id):onComplete(task.id)} style={{width:40,alignSelf:"stretch",background:"transparent",border:"none",borderRight:`1.5px solid ${task.done?t.border:t.accent+"66"}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,color:task.done?t.accent:t.textSub,flexShrink:0}}>
-        {task.done?"☑":"☐"}
-      </button>
-      {/* Label */}
-      <div style={{flex:1,padding:"9px 10px",minWidth:0}}>
-        {editing
-          ?<input ref={ref} value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter")commit();if(e.key==="Escape")setEditing(false);}} onClick={e=>e.stopPropagation()} style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,letterSpacing:1,color:t.text,background:"transparent",border:"none",borderBottom:`1.5px solid ${t.accent}`,outline:"none",width:"100%"}} autoFocus/>
-          :<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,color:task.done?t.textSub:t.text,letterSpacing:1,textDecoration:task.done?"line-through":"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{task.label}</div>
-        }
-        {task.note&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:1}}>{task.note}</div>}
-        {task.dueDate&&task.dueDate!==task.scheduledFor&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:t.accent2,letterSpacing:1,marginTop:1}}>DUE {task.dueDate}</div>}
+    <div style={{border:`1.5px solid ${isOverdue?t.accent2:task.done?t.border:t.accent+"66"}`,marginBottom:5,background:task.done?t.bgCard:t.bg,transition:"all 0.2s",boxShadow:task.done?"none":`1px 1px 0 ${t.border}`}}>
+      <div style={{display:"flex",alignItems:"center",gap:0}}>
+        <button onClick={()=>task.done?onUncomplete(task.id):onComplete(task.id)} style={{width:40,alignSelf:"stretch",background:"transparent",border:"none",borderRight:`1.5px solid ${task.done?t.border:t.accent+"66"}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,color:task.done?t.accent:t.textSub,flexShrink:0}}>
+          {task.done?"☑":"☐"}
+        </button>
+        <div style={{flex:1,padding:"9px 10px",minWidth:0}}>
+          {editing
+            ?<input ref={ref} value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter")commit();if(e.key==="Escape")setEditing(false);}} onClick={e=>e.stopPropagation()} style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,letterSpacing:1,color:t.text,background:"transparent",border:"none",borderBottom:`1.5px solid ${t.accent}`,outline:"none",width:"100%"}} autoFocus/>
+            :<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,color:task.done?t.textSub:t.text,letterSpacing:1,textDecoration:task.done?"line-through":"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{task.label}</div>
+          }
+          {task.note&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:1}}>{task.note}</div>}
+          <div style={{display:"flex",gap:6,alignItems:"center",marginTop:1,flexWrap:"wrap"}}>
+            {task.dueDate&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:isOverdue?t.accent2:t.textSub,letterSpacing:1}}>
+              {isOverdue?"⚠️ OVERDUE:":""} DUE {task.dueDate}{task.dueTime?" @ "+task.dueTime:""}
+            </div>}
+            {isOverdue&&!extending&&<button onClick={e=>{e.stopPropagation();setExtending(true);}} style={{fontSize:9,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,background:`${t.accent2}22`,color:t.accent2,border:`1px solid ${t.accent2}`,padding:"1px 6px",cursor:"pointer"}}>EXTEND</button>}
+          </div>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",borderLeft:`1.5px solid ${t.border}`,flexShrink:0}}>
+          <button onClick={e=>{e.stopPropagation();setEditVal(task.label);setEditing(true);setTimeout(()=>ref.current?.focus(),50);}} style={{background:"transparent",border:"none",borderBottom:`1px solid ${t.border}`,color:t.textSub,cursor:"pointer",fontSize:10,padding:"7px 10px",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>EDT</button>
+          <button onClick={e=>{e.stopPropagation();onDelete(task.id);}} style={{background:"transparent",border:"none",color:t.textSub,cursor:"pointer",fontSize:13,padding:"7px 10px",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+        </div>
       </div>
-      {/* Edit/delete */}
-      <div style={{display:"flex",flexDirection:"column",borderLeft:`1.5px solid ${t.border}`,flexShrink:0}}>
-        <button onClick={e=>{e.stopPropagation();setEditVal(task.label);setEditing(true);setTimeout(()=>ref.current?.focus(),50);}} style={{background:"transparent",border:"none",borderBottom:`1px solid ${t.border}`,color:t.textSub,cursor:"pointer",fontSize:10,padding:"7px 10px",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>EDT</button>
-        <button onClick={e=>{e.stopPropagation();onDelete(task.id);}} style={{background:"transparent",border:"none",color:t.textSub,cursor:"pointer",fontSize:13,padding:"7px 10px",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
-      </div>
+      {/* Overdue extension panel */}
+      {extending&&(
+        <div style={{borderTop:`1px solid ${t.border}`,padding:"10px 12px",background:`${t.accent2}0a`,display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.accent2,letterSpacing:1,flex:"0 0 100%",marginBottom:4}}>PICK NEW DUE DATE:</div>
+          <input type="date" style={{...inp,flex:2}} value={newDate} onChange={e=>setNewDate(e.target.value)}/>
+          <input type="time" style={{...inp,flex:1}} value={newTime} onChange={e=>setNewTime(e.target.value)}/>
+          <button onClick={extend} disabled={!newDate} style={{padding:"6px 12px",border:`1.5px solid ${t.accent}`,background:newDate?t.accent:"transparent",color:newDate?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:10,cursor:newDate?"pointer":"default",letterSpacing:1}}>SET</button>
+          <button onClick={()=>setExtending(false)} style={{padding:"6px 10px",border:`1.5px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,cursor:"pointer"}}>✕</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -342,6 +380,7 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
   const [note,setNote]=useState("");
   const [dueDate,setDueDate]=useState("");
   const [repeatUntilDue,setRepeatUntilDue]=useState(false);
+  const [dueTime,setDueTime]=useState("");
   const [selectedCat,setSelectedCat]=useState(catId||cats[0]?.id||"");
   const [selectedSub,setSelectedSub]=useState(subId||"none");
   const availSubs=subcats.filter(s=>s.catId===selectedCat);
@@ -355,6 +394,7 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
       catId:selectedCat, subId:selectedSub==="none"?null:selectedSub,
       scheduledFor:defaultDate||TODAY(),
       dueDate:dueDate||null,
+      dueTime:dueTime||null,
       repeatUntilDue:repeatUntilDue&&!!dueDate,
       done:false, doneDate:null,
       createdDate:TODAY(), isTask:true
@@ -380,8 +420,11 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
             {availSubs.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
         </>}
-        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:4}}>DUE DATE (OPTIONAL):</div>
-        <input type="date" style={{...inp,marginBottom:dueDate?8:16,colorScheme:"dark"}} value={dueDate} onChange={e=>{setDueDate(e.target.value);if(!e.target.value)setRepeatUntilDue(false);}}/>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:4}}>DUE DATE & TIME (OPTIONAL):</div>
+        <div style={{display:"flex",gap:6,marginBottom:dueDate?8:16}}>
+          <input type="date" style={{...inp,flex:2,marginBottom:0,colorScheme:"dark"}} value={dueDate} onChange={e=>{setDueDate(e.target.value);if(!e.target.value){setRepeatUntilDue(false);setDueTime("");}}}/>
+          <input type="time" style={{...inp,flex:1,marginBottom:0,colorScheme:"dark"}} value={dueTime} onChange={e=>setDueTime(e.target.value)} disabled={!dueDate} placeholder="TIME"/>
+        </div>
         {dueDate&&<div style={{marginBottom:16}}>
           <button onClick={()=>setRepeatUntilDue(v=>!v)} style={{width:"100%",padding:"10px 14px",border:`2px solid ${repeatUntilDue?t.accent:t.border}`,background:repeatUntilDue?`${t.accent}18`:"transparent",color:repeatUntilDue?t.accent:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
             <div style={{width:18,height:18,border:`2px solid ${repeatUntilDue?t.accent:t.border}`,background:repeatUntilDue?t.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:t.textInv,flexShrink:0}}>{repeatUntilDue?"✓":""}</div>
@@ -401,7 +444,7 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
 }
 
 // ─── CATEGORY BLOCK ──────────────────────────────────────────────────────────
-function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,onDeleteHabit,onRenameHabit,onOpenDrawer,onDeleteCat,onRenameCat,onColorCat,onHideDays,onAddSubcat,onDeleteSubcat,onRenameSubcat,onAddHabit,onAddTask,tasks,onCompleteTask,onUncompleteTask,onDeleteTask,onRenameTask,onReorderCat,onReorderHabit,onReorderSubcat}){
+function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,onDeleteHabit,onRenameHabit,onOpenDrawer,onDeleteCat,onRenameCat,onColorCat,onHideDays,onAddSubcat,onDeleteSubcat,onRenameSubcat,onAddHabit,onAddTask,tasks,onCompleteTask,onUncompleteTask,onDeleteTask,onRenameTask,onUpdateTask,onReorderCat,onReorderHabit,onReorderSubcat}){
   const t=THEMES[theme]||THEMES.hawt;
   const [collapsed,setCollapsed]=useState(cat.collapsed||false);
   const [editing,setEditing]=useState(false);
@@ -506,9 +549,10 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
                 onDragStart={e=>{e.dataTransfer.setData("subcatId",sub.id);e.dataTransfer.effectAllowed="move";e.stopPropagation();}}
                 onDragOver={e=>{e.preventDefault();e.stopPropagation();}}
                 onDrop={e=>{e.preventDefault();e.stopPropagation();const fromId=e.dataTransfer.getData("subcatId");if(fromId&&fromId!==sub.id)onReorderSubcat(fromId,sub.id);}}>
-                <SubcatBlock subcat={sub} habits={subHabits} todayStr={todayStr} theme={theme}
+                <SubcatBlock subcat={sub} habits={subHabits} tasks={tasks} todayStr={todayStr} theme={theme}
                   onComplete={onComplete} onUndoOne={onUndoOne} onDelete={onDeleteHabit} onRename={onRenameHabit} onOpenDrawer={onOpenDrawer}
-                  onDeleteSubcat={onDeleteSubcat} onRenameSubcat={onRenameSubcat}/>
+                  onDeleteSubcat={onDeleteSubcat} onRenameSubcat={onRenameSubcat}
+                  onAddTask={onAddTask} onCompleteTask={onCompleteTask} onUncompleteTask={onUncompleteTask} onDeleteTask={onDeleteTask} onRenameTask={onRenameTask} onUpdateTask={onUpdateTask}/>
               </div>
             );
           })}
@@ -527,7 +571,7 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
           {catTasks.map(task=>(
             <TaskRow key={task.id} task={task} theme={theme}
               onComplete={onCompleteTask} onUncomplete={onUncompleteTask}
-              onDelete={onDeleteTask} onRename={onRenameTask}/>
+              onDelete={onDeleteTask} onRename={onRenameTask} onUpdate={onUpdateTask}/>
           ))}
 
           {/* Action buttons */}
@@ -2531,6 +2575,7 @@ export default function App(){
   const uncompleteTask=(id)=>setTasks(prev=>prev.map(t=>t.id===id?{...t,done:false,doneDate:null}:t));
   const deleteTask=(id)=>setTasks(prev=>prev.filter(t=>t.id!==id));
   const renameTask=(id,label)=>setTasks(prev=>prev.map(t=>t.id===id?{...t,label}:t));
+  const updateTask=(task)=>setTasks(prev=>prev.map(t=>t.id===task.id?task:t));
   const deleteHabit=(id)=>{
     const h=habits.find(x=>x.id===id);
     if(!window.confirm(`Delete "${h?.label}"? All streak and completion data will be lost.`)) return;
@@ -2687,7 +2732,7 @@ export default function App(){
                   onAddTask={(catId,subId)=>setAddTaskCtx({catId,subId})}
                   tasks={tasks||[]}
                   onCompleteTask={!isPast?completeTask:()=>{}} onUncompleteTask={!isPast?uncompleteTask:()=>{}}
-                  onDeleteTask={deleteTask} onRenameTask={renameTask}
+                  onDeleteTask={deleteTask} onRenameTask={renameTask} onUpdateTask={updateTask}
                   onReorderCat={reorderCats} onReorderHabit={reorderHabits} onReorderSubcat={reorderSubcats}/>
               ))}
 
