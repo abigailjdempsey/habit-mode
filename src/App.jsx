@@ -339,7 +339,7 @@ function SubcatBlock({subcat,habits,tasks,todayStr,theme,onComplete,onUndoOne,on
     if(t2.done) return t2.doneDate===todayStr;
     if(t2.dueDate) return t2.scheduledFor<=todayStr;
     return t2.scheduledFor<=todayStr;
-  });
+  }).sort((a,b)=>(a.done===b.done)?0:a.done?1:-1);
   return(
     <div style={{marginBottom:8}}>
       <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:collapsed?0:4}}>
@@ -368,7 +368,7 @@ function SubcatBlock({subcat,habits,tasks,todayStr,theme,onComplete,onUndoOne,on
 
 // ─── TASK ROW ─────────────────────────────────────────────────────────────────
 // Tasks are one-time items — checkbox style, disappear when done (or stay visible)
-function TaskRow({task, onComplete, onUncomplete, onDelete, onRename, onUpdate, theme}) {
+function TaskRow({task, onComplete, onUncomplete, onDelete, onRename, onUpdate, theme, shopping}) {
   const t=THEMES[theme]||THEMES.hawt;
   const [editing,setEditing]=useState(false);
   const [editVal,setEditVal]=useState(task.label);
@@ -413,12 +413,12 @@ function TaskRow({task, onComplete, onUncomplete, onDelete, onRename, onUpdate, 
             </div>
           }
           {task.note&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:1}}>{task.note}</div>}
-          <div style={{display:"flex",gap:6,alignItems:"center",marginTop:1,flexWrap:"wrap"}}>
+          {!shopping&&<div style={{display:"flex",gap:6,alignItems:"center",marginTop:1,flexWrap:"wrap"}}>
             {task.dueDate&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:isOverdue?t.accent2:t.textSub,letterSpacing:1}}>
               {isOverdue?"⚠️ OVERDUE:":""} DUE {task.dueDate}{task.dueTime?" @ "+task.dueTime:""}
             </div>}
             {isOverdue&&!extending&&<button onClick={e=>{e.stopPropagation();setExtending(true);}} style={{fontSize:9,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,background:`${t.accent2}22`,color:t.accent2,border:`1px solid ${t.accent2}`,padding:"1px 6px",cursor:"pointer"}}>EXTEND</button>}
-          </div>
+          </div>}
         </div>
         <div style={{display:"flex",flexDirection:"column",borderLeft:`1.5px solid ${t.border}`,flexShrink:0}}>
           <button onClick={e=>{e.stopPropagation();setEditVal(task.label);setEditing(true);setTimeout(()=>ref.current?.focus(),50);}} style={{background:"transparent",border:"none",borderBottom:`1px solid ${t.border}`,color:t.textSub,cursor:"pointer",fontSize:10,padding:"7px 10px",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>EDT</button>
@@ -522,7 +522,7 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
 }
 
 // ─── CATEGORY BLOCK ──────────────────────────────────────────────────────────
-function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,onDeleteHabit,onRenameHabit,onOpenDrawer,onDeleteCat,onRenameCat,onColorCat,onHideDays,onAddSubcat,onDeleteSubcat,onRenameSubcat,onAddHabit,onAddTask,tasks,onCompleteTask,onUncompleteTask,onDeleteTask,onRenameTask,onUpdateTask,onReorderCat,onReorderHabit,onReorderSubcat}){
+function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,onDeleteHabit,onRenameHabit,onOpenDrawer,onDeleteCat,onRenameCat,onColorCat,onHideDays,onToggleShopping,onAddSubcat,onDeleteSubcat,onRenameSubcat,onAddHabit,onAddTask,tasks,onCompleteTask,onUncompleteTask,onDeleteTask,onRenameTask,onUpdateTask,onReorderCat,onReorderHabit,onReorderSubcat}){
   const t=THEMES[theme]||THEMES.hawt;
   const [collapsed,setCollapsed]=useState(cat.collapsed||false);
   const [editing,setEditing]=useState(false);
@@ -534,7 +534,7 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
   const newSubcatRef=useRef(null);
 
   const catColor=cat.color||t.accent;
-  const directHabits=habits.filter(h=>h.catId===cat.id&&!h.subId);
+  const directHabits=habits.filter(h=>h.catId===cat.id&&!h.subId).sort((a,b)=>{const ad=isDone(a,todayStr),bd=isDone(b,todayStr);return ad===bd?0:ad?1:-1;});
   const catTasks=(tasks||[]).filter(t=>{
     if(t.catId!==cat.id) return false;
     if(t.subId) return false;
@@ -593,6 +593,12 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
           {(cat.hideDays||[]).length>0&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.accent2,letterSpacing:1,marginBottom:4}}>
             HIDDEN ON: {(cat.hideDays||[]).map(d=>["SUN","MON","TUE","WED","THU","FRI","SAT"][d]).join(", ")}
           </div>}
+          <div style={{marginTop:8,paddingTop:8,borderTop:`1px solid ${t.border}`}}>
+            <button onClick={()=>onToggleShopping(cat.id)} style={{width:"100%",padding:"8px 10px",border:`1.5px solid ${cat.isShoppingList?"#f1c40f":t.border}`,background:cat.isShoppingList?"#f1c40f22":"transparent",color:cat.isShoppingList?"#f1c40f":t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:10,cursor:"pointer",letterSpacing:2,display:"flex",alignItems:"center",gap:8,justifyContent:"center"}}>
+              <span>🛒</span>{cat.isShoppingList?"SHOPPING MODE ON":"ENABLE SHOPPING MODE"}
+            </button>
+            {cat.isShoppingList&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:4,textAlign:"center"}}>Tasks become shopping items · checked items clear after 24hrs</div>}
+          </div>
         </div>
       )}
       {/* Category header */}
@@ -605,7 +611,7 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
         {editing
           ?<input ref={inputRef} value={editVal} onChange={e=>setEditVal(e.target.value.toUpperCase())} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter")commit();if(e.key==="Escape")setEditing(false);}} style={{flex:1,fontFamily:"'Black Han Sans',sans-serif",fontSize:18,letterSpacing:4,color:t.accent,background:"transparent",border:"none",borderBottom:`2px solid ${t.accent}`,outline:"none",padding:"12px 14px"}} autoFocus/>
           :<div onClick={()=>setCollapsed(c=>!c)} style={{flex:1,fontFamily:"'Black Han Sans',sans-serif",fontSize:18,color:t.text,letterSpacing:4,padding:"12px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
-            {cat.label}
+            {cat.isShoppingList&&<span style={{fontSize:14}}>🛒</span>}{cat.label}
             <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:allDone?catColor:t.textSub,letterSpacing:2,fontWeight:400}}>
               {allDone?"ALL DONE ✓":`${doneItems}/${totalItems}`}
             </span>
@@ -648,7 +654,7 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
 
           {/* Tasks for this category */}
           {catTasks.map(task=>(
-            <TaskRow key={task.id} task={task} theme={theme}
+            <TaskRow key={task.id} task={task} theme={theme} shopping={cat.isShoppingList}
               onComplete={onCompleteTask} onUncomplete={onUncompleteTask}
               onDelete={onDeleteTask} onRename={onRenameTask} onUpdate={onUpdateTask}/>
           ))}
@@ -1278,10 +1284,12 @@ function QuickAddBar({cats, viewDate, onAdd, theme, t}) {
   const submit=()=>{
     if(!val.trim()||!targetCat)return;
     haptic(40);
+    const isShopping=targetCat.isShoppingList;
     onAdd({
       id:uid(), label:val.trim(), note:"",
       catId:targetCat.id, subId:null,
-      scheduledFor:viewDate, dueDate:null, dueTime:null,
+      scheduledFor:isShopping?"2000-01-01":viewDate,
+      dueDate:null, dueTime:null,
       priority:false, repeatUntilDue:false,
       done:false, doneDate:null, createdDate:TODAY(), isTask:true
     });
@@ -3070,6 +3078,7 @@ export default function App(){
     });
   };
   const colorCat=(id,color)=>setCats(p=>p.map(c=>c.id===id?{...c,color}:c));
+  const toggleShoppingList=(id)=>setCats(p=>p.map(c=>c.id===id?{...c,isShoppingList:!c.isShoppingList}:c));
   const hideDaysCat=(id,hideDays)=>setCats(p=>p.map(c=>c.id===id?{...c,hideDays}:c));
   const addSubcat=(sub)=>setSubcats(prev=>[...prev,sub]);
   const deleteSubcat=(id)=>{
@@ -3181,7 +3190,7 @@ export default function App(){
             <div>
               <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:32,color:t.text,letterSpacing:5,lineHeight:1}}>HABIT MODE</div>
             </div>
-            {tab!=="log"&&<button onClick={()=>setTab("log")} style={{background:"transparent",border:`1.5px solid ${t.border}`,padding:"6px 10px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.textSub,letterSpacing:1}}>⚙️</button>}
+            {tab!=="log"&&<button onClick={()=>{setTab("log");setTimeout(()=>document.getElementById("settings-section")?.scrollIntoView({behavior:"smooth"}),150);}} style={{background:"transparent",border:`1.5px solid ${t.border}`,padding:"6px 10px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.textSub,letterSpacing:1}}>⚙️</button>}
           </div>
           {/* Day navigation — only shown on Today tab */}
           {tab==="today"&&(
@@ -3245,7 +3254,7 @@ export default function App(){
                   onComplete={!isPast?completeHabit:()=>{}} onUndoOne={!isPast?undoOne:()=>{}}
                   onDeleteHabit={!isPast?deleteHabit:()=>{}} onRenameHabit={!isPast?renameHabit:()=>{}}
                   onOpenDrawer={!isPast?setOpenDrawer:()=>{}}
-                  onDeleteCat={!isPast?deleteCat:()=>{}} onRenameCat={!isPast?renameCat:()=>{}} onColorCat={colorCat} onHideDays={hideDaysCat}
+                  onDeleteCat={!isPast?deleteCat:()=>{}} onRenameCat={!isPast?renameCat:()=>{}} onColorCat={colorCat} onHideDays={hideDaysCat} onToggleShopping={toggleShoppingList}
                   onAddSubcat={!isPast?addSubcat:()=>{}} onDeleteSubcat={!isPast?deleteSubcat:()=>{}} onRenameSubcat={!isPast?renameSubcat:()=>{}}
                   onAddHabit={!isPast?(catId,subId)=>setAddHabitCtx({catId,subId}):()=>{}}
                   onAddTask={(catId,subId)=>setAddTaskCtx({catId,subId})}
@@ -3406,7 +3415,7 @@ export default function App(){
               <CalendarView habits={habits} theme={theme}/>
 
               {/* Settings section */}
-              <div style={{marginTop:24,paddingTop:16,borderTop:`2px solid ${t.border}`}}>
+              <div id="settings-section" style={{marginTop:24,paddingTop:16,borderTop:`2px solid ${t.border}`}}>
                 <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,color:t.text,letterSpacing:4,marginBottom:12}}>⚙️ SETTINGS</div>
                 <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:3,marginBottom:8}}>🎨 THEME</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:16}}>
