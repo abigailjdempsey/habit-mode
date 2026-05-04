@@ -2075,7 +2075,7 @@ Use emojis that match the insight tone. Titles should be punchy (3-5 words max).
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,borderBottom:`2px solid ${t.border}`,paddingBottom:10}}>
         <div>
           <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4}}>✨ INSIGHTS</div>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginTop:2}}>AI-POWERED ANALYSIS OF YOUR HABITS</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginTop:2}}>ANALYSIS OF YOUR HABITS</div>
         </div>
         <button onClick={generate} disabled={loading} style={{background:t.addBtn,border:`2px solid ${t.border}`,padding:"8px 14px",cursor:loading?"default":"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:11,color:t.addBtnText,letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`,opacity:loading?0.6:1}}>
           {loading?"ANALYZING...":"✨ ANALYZE"}
@@ -2087,7 +2087,7 @@ Use emojis that match the insight tone. Titles should be punchy (3-5 words max).
           <div style={{fontSize:36,marginBottom:12}}>✨</div>
           <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:14,letterSpacing:3,marginBottom:8,color:t.text}}>WHAT'S YOUR DATA SAYING?</div>
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:2,lineHeight:1.6}}>
-            HIT ANALYZE AND CLAUDE WILL LOOK AT<br/>YOUR STREAKS, PATTERNS, AND CONSISTENCY<br/>TO GIVE YOU REAL OBSERVATIONS.
+            HIT ANALYZE AND WE'LL LOOK AT<br/>YOUR STREAKS, PATTERNS, AND CONSISTENCY<br/>TO GIVE YOU REAL OBSERVATIONS.
           </div>
         </div>
       )}
