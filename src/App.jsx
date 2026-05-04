@@ -281,11 +281,9 @@ function SubcatBlock({subcat,habits,tasks,todayStr,theme,onComplete,onUndoOne,on
   const subcatTasks=(tasks||[]).filter(t2=>{
     if(t2.subId!==subcat.id) return false;
     if(!t2.scheduledFor) return false;
-    if(t2.repeatUntilDue&&t2.dueDate){
-      if(t2.done) return t2.doneDate===todayStr;
-      return t2.scheduledFor<=todayStr&&todayStr<=t2.dueDate;
-    }
-    return t2.scheduledFor===todayStr||(t2.done&&t2.doneDate===todayStr);
+    if(t2.done) return t2.doneDate===todayStr;
+    if(t2.dueDate) return t2.scheduledFor<=todayStr;
+    return t2.scheduledFor<=todayStr;
   });
   return(
     <div style={{marginBottom:8}}>
@@ -324,7 +322,7 @@ function TaskRow({task, onComplete, onUncomplete, onDelete, onRename, onUpdate, 
   const [newTime,setNewTime]=useState("");
   const ref=useRef(null);
   const today=TODAY();
-  const isOverdue=!task.done&&task.dueDate&&task.dueDate<today;
+  const isOverdue=!task.done&&task.dueDate&&task.dueDate<=today;
   const commit=()=>{if(editVal.trim())onRename(task.id,editVal.trim());setEditing(false);};
 
   const extend=()=>{
@@ -364,7 +362,10 @@ function TaskRow({task, onComplete, onUncomplete, onDelete, onRename, onUpdate, 
         <div style={{borderTop:`1px solid ${t.border}`,padding:"10px 12px",background:`${t.accent2}0a`,display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.accent2,letterSpacing:1,flex:"0 0 100%",marginBottom:4}}>PICK NEW DUE DATE:</div>
           <input type="date" style={{...inp,flex:2}} value={newDate} onChange={e=>setNewDate(e.target.value)}/>
-          <input type="time" style={{...inp,flex:1}} value={newTime} onChange={e=>setNewTime(e.target.value)}/>
+          <select style={{...inp,flex:1,appearance:"none",cursor:"pointer"}} value={newTime} onChange={e=>setNewTime(e.target.value)}>
+            <option value="">ANY TIME</option>
+            {["12:00 AM","1:00 AM","2:00 AM","3:00 AM","4:00 AM","5:00 AM","6:00 AM","7:00 AM","8:00 AM","9:00 AM","10:00 AM","11:00 AM","12:00 PM","1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM","6:00 PM","7:00 PM","8:00 PM","9:00 PM","10:00 PM","11:00 PM"].map(t2=><option key={t2} value={t2}>{t2}</option>)}
+          </select>
           <button onClick={extend} disabled={!newDate} style={{padding:"6px 12px",border:`1.5px solid ${t.accent}`,background:newDate?t.accent:"transparent",color:newDate?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:10,cursor:newDate?"pointer":"default",letterSpacing:1}}>SET</button>
           <button onClick={()=>setExtending(false)} style={{padding:"6px 10px",border:`1.5px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,cursor:"pointer"}}>✕</button>
         </div>
@@ -423,7 +424,10 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:4}}>DUE DATE & TIME (OPTIONAL):</div>
         <div style={{display:"flex",gap:6,marginBottom:dueDate?8:16}}>
           <input type="date" style={{...inp,flex:2,marginBottom:0,colorScheme:"dark"}} value={dueDate} onMouseDown={e=>e.stopPropagation()} onChange={e=>{setDueDate(e.target.value);if(!e.target.value){setRepeatUntilDue(false);setDueTime("");}}}/>
-          <input type="time" style={{...inp,flex:1,marginBottom:0,colorScheme:"dark"}} value={dueTime} onMouseDown={e=>e.stopPropagation()} onChange={e=>setDueTime(e.target.value)} disabled={!dueDate} placeholder="TIME"/>
+          <select style={{...inp,flex:1,marginBottom:0,appearance:"none",cursor:"pointer"}} value={dueTime} onMouseDown={e=>e.stopPropagation()} onChange={e=>setDueTime(e.target.value)} disabled={!dueDate}>
+            <option value="">ANY TIME</option>
+            {["12:00 AM","1:00 AM","2:00 AM","3:00 AM","4:00 AM","5:00 AM","6:00 AM","7:00 AM","8:00 AM","9:00 AM","10:00 AM","11:00 AM","12:00 PM","1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM","6:00 PM","7:00 PM","8:00 PM","9:00 PM","10:00 PM","11:00 PM"].map(t2=><option key={t2} value={t2}>{t2}</option>)}
+          </select>
         </div>
         {dueDate&&<div style={{marginBottom:16}}>
           <button onClick={()=>setRepeatUntilDue(v=>!v)} style={{width:"100%",padding:"10px 14px",border:`2px solid ${repeatUntilDue?t.accent:t.border}`,background:repeatUntilDue?`${t.accent}18`:"transparent",color:repeatUntilDue?t.accent:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
@@ -461,13 +465,11 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
     if(t.catId!==cat.id) return false;
     if(t.subId) return false;
     if(!t.scheduledFor) return false;
-    // Repeating task: show every day from scheduledFor until dueDate
-    if(t.repeatUntilDue&&t.dueDate){
-      if(t.done) return t.doneDate===todayStr; // show with strikethrough on day completed
-      return t.scheduledFor<=todayStr&&todayStr<=t.dueDate;
-    }
-    // One-time task: show on its scheduled day (done or not)
-    return t.scheduledFor===todayStr||(t.done&&t.doneDate===todayStr);
+    if(t.done) return t.doneDate===todayStr; // completed tasks only show on their completion day
+    // Task with due date: show every day from scheduledFor until done (keep nagging)
+    if(t.dueDate) return t.scheduledFor<=todayStr;
+    // One-time task no due date: show from scheduled day until checked off
+    return t.scheduledFor<=todayStr;
   });
   const catSubcats=subcats.filter(s=>s.catId===cat.id);
   const allHabits=habits.filter(h=>h.catId===cat.id);
