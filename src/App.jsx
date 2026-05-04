@@ -359,9 +359,9 @@ function TaskRow({task, onComplete, onUncomplete, onDelete, onRename, onUpdate, 
       </div>
       {/* Overdue extension panel */}
       {extending&&(
-        <div style={{borderTop:`1px solid ${t.border}`,padding:"10px 12px",background:`${t.accent2}0a`,display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+        <div style={{borderTop:`1px solid ${t.border}`,padding:"10px 12px",background:`${t.accent2}0a`,display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}} onMouseDown={e=>e.stopPropagation()} onDragStart={e=>e.preventDefault()}>
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.accent2,letterSpacing:1,flex:"0 0 100%",marginBottom:4}}>PICK NEW DUE DATE:</div>
-          <input type="date" style={{...inp,flex:2}} value={newDate} onChange={e=>setNewDate(e.target.value)}/>
+          <input type="date" style={{...inp,flex:2}} value={newDate} onMouseDown={e=>e.stopPropagation()} onChange={e=>setNewDate(e.target.value)}/>
           <select style={{...inp,flex:1,appearance:"none",cursor:"pointer"}} value={newTime} onChange={e=>setNewTime(e.target.value)}>
             <option value="">ANY TIME</option>
             {["12:00 AM","1:00 AM","2:00 AM","3:00 AM","4:00 AM","5:00 AM","6:00 AM","7:00 AM","8:00 AM","9:00 AM","10:00 AM","11:00 AM","12:00 PM","1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM","6:00 PM","7:00 PM","8:00 PM","9:00 PM","10:00 PM","11:00 PM"].map(t2=><option key={t2} value={t2}>{t2}</option>)}
