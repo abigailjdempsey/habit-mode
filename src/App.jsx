@@ -420,12 +420,11 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
     if(!t.scheduledFor) return false;
     // Repeating task: show every day from scheduledFor until dueDate
     if(t.repeatUntilDue&&t.dueDate){
-      if(t.done) return false; // checked off — hide permanently
+      if(t.done) return t.doneDate===todayStr; // show with strikethrough on day completed
       return t.scheduledFor<=todayStr&&todayStr<=t.dueDate;
     }
-    // One-time task: show on scheduled day and stay until checked off
-    if(t.done) return t.doneDate===todayStr; // only show on the day it was completed
-    return t.scheduledFor===todayStr; // show exactly on its day
+    // One-time task: show on its scheduled day (done or not)
+    return t.scheduledFor===todayStr||(t.done&&t.doneDate===todayStr);
   });
   const catSubcats=subcats.filter(s=>s.catId===cat.id);
   const allHabits=habits.filter(h=>h.catId===cat.id);
@@ -1534,11 +1533,11 @@ function RatingModal({place, onRate, onSkip, theme, t}) {
 function PlaceCard({place, onToggle, onDelete, onEdit, onUpdate, theme, t, existingCities, existingNeighborhoods}) {
   const [editing,setEditing]=useState(false);
   const [showRating,setShowRating]=useState(false);
+  const [expanded,setExpanded]=useState(false);
   const catEmoji = place.category?.split(" ")?.[0] || "📍";
 
   const handleToggle=()=>{
     if(!place.visited){
-      // Mark visited — show rating prompt
       onToggle(place.id);
       setShowRating(true);
     } else {
@@ -1550,9 +1549,6 @@ function PlaceCard({place, onToggle, onDelete, onEdit, onUpdate, theme, t, exist
     onUpdate({...place,visited:true,rating:rating||null,visitNote:note||null,visitPhoto:photo||null,visitedDate:TODAY()});
     setShowRating(false);
   };
-
-  const isFav=place.listType==="favorite";
-  const isWish=!place.listType||place.listType==="wishlist";
 
   return (
     <>
@@ -1566,32 +1562,48 @@ function PlaceCard({place, onToggle, onDelete, onEdit, onUpdate, theme, t, exist
       existingNeighborhoods={existingNeighborhoods||{}}
     />}
     {showRating&&<RatingModal place={place} onRate={handleRate} onSkip={()=>setShowRating(false)} theme={theme} t={t}/>}
-    <div style={{background:place.visited?t.bgCard:t.bg,border:`2px solid ${place.listType==="favorite"?t.accent2:t.border}`,marginBottom:8,display:"flex",alignItems:"stretch",boxShadow:`2px 2px 0 ${place.listType==="favorite"?t.accent2:t.border}`,overflow:"hidden",opacity:1}}>
-      {/* List type indicator */}
-      <div style={{width:6,background:place.listType==="favorite"?t.accent2:`${t.accent}44`,flexShrink:0}}/>
-      <div style={{width:40,flexShrink:0,background:place.visited?t.border:`${t.accent}18`,borderRight:`2px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{catEmoji}</div>
-      <div style={{flex:1,padding:"10px 12px",minWidth:0}}>
-        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:1}}>
-          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:place.visited?t.textSub:t.text,letterSpacing:2,textDecoration:"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",flex:1}}>{place.name}</div>
-          {place.listType==="favorite"&&<span style={{fontSize:12,flexShrink:0}}>❤️</span>}
+    <div style={{border:`2px solid ${place.listType==="favorite"?t.accent2:t.border}`,marginBottom:8,boxShadow:`2px 2px 0 ${place.listType==="favorite"?t.accent2:t.border}`,overflow:"hidden"}}>
+      {/* Collapsed row */}
+      <div style={{background:place.visited?t.bgCard:t.bg,display:"flex",alignItems:"stretch",cursor:"pointer"}} onClick={()=>setExpanded(e=>!e)}>
+        <div style={{width:6,background:place.listType==="favorite"?t.accent2:`${t.accent}44`,flexShrink:0}}/>
+        <div style={{width:40,flexShrink:0,background:place.visited?t.border:`${t.accent}18`,borderRight:`2px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{catEmoji}</div>
+        <div style={{flex:1,padding:"10px 12px",minWidth:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:1}}>
+            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:place.visited?t.textSub:t.text,letterSpacing:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",flex:1}}>{place.name}</div>
+            {place.listType==="favorite"&&<span style={{fontSize:12,flexShrink:0}}>❤️</span>}
+          </div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginTop:1,display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+            {place.neighborhood&&<span style={{color:t.accent}}>📍{place.neighborhood}</span>}
+            {place.category&&<span style={{background:`${t.accent}18`,padding:"0 4px",border:`1px solid ${t.border}`}}>{place.category}</span>}
+            {place.rating&&<span style={{color:"#f1c40f"}}>{"★".repeat(place.rating)}{"☆".repeat(5-place.rating)}</span>}
+            {place.vibes?.length>0&&place.vibes.slice(0,2).map((v,i)=><span key={i} style={{background:`${t.accent2}18`,padding:"0 4px",border:`1px solid ${t.accent2}44`,color:t.accent2,fontSize:9}}>{v.split(" ").slice(1).join(" ")||v}</span>)}
+          </div>
         </div>
-        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginTop:1,display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-          {place.neighborhood&&<span style={{color:t.accent}}>📍{place.neighborhood}</span>}
-          {place.category&&<span style={{background:`${t.accent}18`,padding:"0 4px",border:`1px solid ${t.border}`}}>{place.category}</span>}
-          {place.rating&&<span style={{color:"#f1c40f"}}>{"★".repeat(place.rating)}{"☆".repeat(5-place.rating)}</span>}
-          {place.vibes?.length>0&&place.vibes.slice(0,2).map((v,i)=><span key={i} style={{background:`${t.accent2}18`,padding:"0 4px",border:`1px solid ${t.accent2}44`,color:t.accent2,fontSize:9}}>{v.split(" ").slice(1).join(" ")||v}</span>)}
+        <div style={{display:"flex",flexDirection:"column",borderLeft:`2px solid ${t.border}`,flexShrink:0}}>
+          <button onClick={e=>{e.stopPropagation();handleToggle();}} style={{flex:1,width:44,background:place.visited?t.accent:"transparent",border:"none",borderBottom:`1px solid ${t.border}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,color:place.visited?t.textInv:t.textSub}}>✓</button>
+          <button onClick={e=>{e.stopPropagation();onUpdate({...place,listType:place.listType==="favorite"?"wishlist":"favorite"});}} style={{flex:1,width:44,background:"none",border:"none",borderBottom:`1px solid ${t.border}`,color:place.listType==="favorite"?t.accent2:t.textSub,cursor:"pointer",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center"}}>❤</button>
+          <button onClick={e=>{e.stopPropagation();setEditing(true);}} style={{flex:1,width:44,background:"none",border:"none",color:t.textSub,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,letterSpacing:1,display:"flex",alignItems:"center",justifyContent:"center"}}>EDIT</button>
         </div>
-        {place.visitNote&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,marginTop:2,letterSpacing:1,fontStyle:"italic"}}>"{place.visitNote}"</div>}
-        {place.visitPhoto&&<img src={place.visitPhoto} alt="visit" style={{width:"100%",marginTop:6,border:`1px solid ${t.border}`,display:"block",maxHeight:120,objectFit:"cover"}}/>}
-        {place.description&&!place.visitNote&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,marginTop:2,letterSpacing:1,lineHeight:1.4}}>{place.description}</div>}
-        {place.address&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:t.textSub,marginTop:2,letterSpacing:1}}>{place.address}</div>}
-        {place.url&&<a href={place.url} target="_blank" rel="noopener noreferrer" style={{fontSize:9,color:t.accent2,fontFamily:"'Barlow Condensed',sans-serif",textDecoration:"none",display:"block",marginTop:2,letterSpacing:1}}>↗ {place.url.replace(/^https?:\/\//,"").slice(0,36)}</a>}
       </div>
-      <div style={{display:"flex",flexDirection:"column",borderLeft:`2px solid ${t.border}`,flexShrink:0}}>
-        <button onClick={handleToggle} style={{flex:1,width:44,background:place.visited?t.accent:"transparent",border:"none",borderBottom:`1px solid ${t.border}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,color:place.visited?t.textInv:t.textSub}}>✓</button>
-        <button onClick={()=>onUpdate({...place,listType:place.listType==="favorite"?"wishlist":"favorite"})} style={{flex:1,width:44,background:"none",border:"none",borderBottom:`1px solid ${t.border}`,color:place.listType==="favorite"?t.accent2:t.textSub,cursor:"pointer",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center"}}>❤</button>
-        <button onClick={()=>setEditing(true)} style={{flex:1,width:44,background:"none",border:"none",color:t.textSub,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,letterSpacing:1,display:"flex",alignItems:"center",justifyContent:"center"}}>EDIT</button>
-      </div>
+
+      {/* Expanded detail panel */}
+      {expanded&&(
+        <div style={{borderTop:`2px solid ${t.border}`,background:t.bgCard,padding:"12px 14px"}}>
+          {place.visitPhoto&&<img src={place.visitPhoto} alt="visit" style={{width:"100%",marginBottom:10,border:`1px solid ${t.border}`,display:"block",maxHeight:200,objectFit:"cover"}}/>}
+          {place.visitNote&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.text,letterSpacing:1,marginBottom:8,fontStyle:"italic",lineHeight:1.5}}>"{place.visitNote}"</div>}
+          {place.description&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.textSub,letterSpacing:1,marginBottom:8,lineHeight:1.5}}>{place.description}</div>}
+          {place.vibes?.length>0&&<div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:8}}>
+            {place.vibes.map((v,i)=><span key={i} style={{background:`${t.accent2}18`,padding:"3px 8px",border:`1px solid ${t.accent2}44`,color:t.accent2,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,letterSpacing:1}}>{v}</span>)}
+          </div>}
+          {place.address&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginBottom:place.url?6:0,display:"flex",gap:6,alignItems:"center"}}>
+            <span>📍</span><span>{place.address}</span>
+          </div>}
+          {place.url&&<a href={place.url} target="_blank" rel="noopener noreferrer" style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.accent2,textDecoration:"none",display:"flex",gap:6,alignItems:"center",letterSpacing:1}}>
+            <span>↗</span><span>{place.url.replace(/^https?:\/\//,"").slice(0,50)}</span>
+          </a>}
+          {place.visitedDate&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:8}}>VISITED {place.visitedDate}</div>}
+        </div>
+      )}
     </div>
     </>
   );
@@ -2785,6 +2797,26 @@ export default function App(){
                 );
               })()}
 
+              {/* Completed Tasks */}
+              {(()=>{
+                const doneTasks=(tasks||[]).filter(t=>t.done&&t.doneDate).sort((a,b)=>b.doneDate.localeCompare(a.doneDate)).slice(0,20);
+                if(!doneTasks.length) return null;
+                return(
+                  <div style={{marginBottom:20}}>
+                    <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,color:t.text,marginBottom:8,letterSpacing:4}}>☑ COMPLETED TASKS</div>
+                    {doneTasks.map(t=>(
+                      <div key={t.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:5,background:t.bgCard,border:`1.5px solid ${t.border}`,padding:"9px 12px",boxShadow:`1px 1px 0 ${t.border}`}}>
+                        <span style={{fontSize:14,color:t.accent}}>☑</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,color:t.textSub,letterSpacing:1,textDecoration:"line-through",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{t.label}</div>
+                          {t.note&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:1}}>{t.note}</div>}
+                        </div>
+                        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,flexShrink:0}}>{t.doneDate}</div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
               {/* Streaks */}
               <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,color:t.text,marginBottom:8,letterSpacing:4}}>🔥 STREAKS</div>
               <div style={{marginBottom:20}}>
