@@ -57,18 +57,27 @@ const MILESTONES=[3,7,14,21,30,60,100];
 // Schedule: null=every day, [0,1,2,3,4,5,6] where 0=Sun,1=Mon...6=Sat
 const HABIT_COLORS=["#e74c3c","#e67e22","#f1c40f","#2ecc71","#1abc9c","#3498db","#9b59b6","#e91e63","#ff5722","#607d8b","#8B4513","#2a6600","#cc0044","#4400cc","#6c5ce7","#00b894","#fd79a8","#fdcb6e","#e17055","#74b9ff"];
 const SCHEDULE_PRESETS = {
-  daily:    {label:"EVERY DAY", days:null},
-  weekdays: {label:"MON–FRI",   days:[1,2,3,4,5]},
-  weekends: {label:"SAT–SUN",   days:[0,6]},
-  custom:   {label:"CUSTOM",    days:[]},
+  daily:    {label:"EVERY DAY",   days:null},
+  weekdays: {label:"MON–FRI",     days:[1,2,3,4,5]},
+  weekends: {label:"SAT–SUN",     days:[0,6]},
+  custom:   {label:"CUSTOM",      days:[]},
+};
+// Every-other-day stored as special marker in schedule
+const isEveryOtherDay=(schedule)=>schedule&&schedule.length===1&&schedule[0]==="EOD";
+const isScheduledFor=(habit,dateStr)=>{
+  if(!habit.schedule||habit.schedule.length===0) return true;
+  if(isEveryOtherDay(habit.schedule)){
+    // Count days from app epoch (2025-01-01)
+    const epoch=new Date("2025-01-01T12:00:00");
+    const d=new Date(dateStr+"T12:00:00");
+    const daysDiff=Math.round((d-epoch)/(1000*60*60*24));
+    return daysDiff%2===0;
+  }
+  const dow=new Date(dateStr+"T12:00:00").getDay();
+  return habit.schedule.includes(dow);
 };
 const DAY_NAMES=["SUN","MON","TUE","WED","THU","FRI","SAT"];
-// Is this habit scheduled for a given date string?
-function isScheduledFor(habit, dateStr) {
-  if(!habit.schedule||habit.schedule.length===0) return true; // daily
-  const dow = new Date(dateStr+"T12:00:00").getDay();
-  return habit.schedule.includes(dow);
-}
+
 const TODAY=()=>{
   const d=new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
@@ -172,49 +181,88 @@ function RepeatDrawer({habit,todayStr,count,onIncrement,onDecrement,onRename,onC
 }
 
 // ─── HABIT ROW ────────────────────────────────────────────────────────────────
+
+// ─── EDIT HABIT MODAL ─────────────────────────────────────────────────────────
+function EditHabitModal({habit, onSave, onDelete, onClose, theme}) {
+  const t=THEMES[theme]||THEMES.hawt;
+  const [label,setLabel]=useState(habit.label);
+  const [timeOfDay,setTimeOfDay]=useState(habit.timeOfDay||null); // null|"AM"|"PM"|"EVE"
+  const commit=()=>{
+    if(!label.trim())return;
+    onSave(habit.id, label.trim().toUpperCase(), timeOfDay);
+    onClose();
+  };
+  const inp={width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"11px 13px",color:t.text,fontSize:14,fontFamily:"'Black Han Sans',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:10};
+  const lbl={fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:6};
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
+      <div style={{background:t.bg,width:"100%",maxWidth:480,border:`3px solid ${t.border}`,borderBottom:"none",boxShadow:`-6px -6px 0 ${t.border}`,padding:24}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:20,color:t.text,letterSpacing:4,marginBottom:16,display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:24}}>{habit.emoji}</span> EDIT HABIT
+        </div>
+        <div style={lbl}>NAME</div>
+        <input style={inp} value={label} onChange={e=>setLabel(e.target.value.toUpperCase())} onKeyDown={e=>e.key==="Enter"&&commit()} autoFocus/>
+        <div style={lbl}>TIME OF DAY</div>
+        <div style={{display:"flex",gap:6,marginBottom:16}}>
+          {[[null,"ANY TIME","⏰"],[" AM","MORNING","🌅"],["PM","AFTERNOON","☀️"],["EVE","EVENING","🌙"]].map(([val,lbl2,emoji])=>(
+            <button key={String(val)} onClick={()=>setTimeOfDay(val)} style={{flex:1,padding:"10px 4px",border:`2px solid ${timeOfDay===val?t.accent:t.border}`,background:timeOfDay===val?t.accent:"transparent",color:timeOfDay===val?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:9,cursor:"pointer",letterSpacing:1,textAlign:"center",boxShadow:timeOfDay===val?`2px 2px 0 ${t.border}`:"none"}}>
+              <div style={{fontSize:16,marginBottom:3}}>{emoji}</div>{lbl2}
+            </button>
+          ))}
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          {!habit.isDefault&&<button onClick={()=>{onClose();setTimeout(()=>onDelete(habit.id),50);}} style={{flex:1,padding:"12px",border:`2px solid ${t.accent2}`,background:"transparent",color:t.accent2,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:2}}>🗑 DELETE</button>}
+          <button onClick={onClose} style={{flex:1,padding:"12px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:2}}>CANCEL</button>
+          <button onClick={commit} style={{flex:2,padding:"12px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,cursor:"pointer",letterSpacing:3,boxShadow:`2px 2px 0 ${t.border}`}}>SAVE</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function HabitRow({habit,onComplete,onUndoOne,onDelete,onRename,todayStr,theme,onOpenDrawer}){
   const t=THEMES[theme]||THEMES.hawt;
   const count=getCount(habit,todayStr),done=isDone(habit,todayStr),isRep=habit.repeat>1;
-  const [editing,setEditing]=useState(false);
-  const [editVal,setEditVal]=useState(habit.label);
+  const [showEdit,setShowEdit]=useState(false);
   const [bounce,setBounce]=useState(false);
-  const inputRef=useRef(null);
-  const handleTap=()=>{ if(editing)return; if(isRep){onOpenDrawer(habit.id);return;} if(done)return; setBounce(true);setTimeout(()=>setBounce(false),300);onComplete(habit.id); };
-  const startEdit=e=>{e.stopPropagation();setEditVal(habit.label);setEditing(true);setTimeout(()=>inputRef.current?.focus(),50);};
-  const commit=()=>{if(editVal.trim())onRename(habit.id,editVal.trim().toUpperCase());setEditing(false);};
+  const handleTap=()=>{ if(isRep){onOpenDrawer(habit.id);return;} if(done)return; setBounce(true);setTimeout(()=>setBounce(false),300);onComplete(habit.id); };
   const pct=isRep?count/habit.repeat:(done?1:0);
+  const timeTag=habit.timeOfDay?{" AM":"🌅"," PM":"☀️","EVE":"🌙","AM":"🌅","PM":"☀️"}[habit.timeOfDay]:null;
   return(
+    <>
+    {showEdit&&<EditHabitModal habit={habit} theme={theme}
+      onSave={(id,label,timeOfDay)=>{onRename(id,label);onRename(id,label,timeOfDay);}}
+      onDelete={(id)=>{setShowEdit(false);onDelete(id);}}
+      onClose={()=>setShowEdit(false)}/>}
     <div style={{display:"flex",alignItems:"stretch",border:`1.5px solid ${t.border}`,marginBottom:6,background:done?habit.color:t.bg,transition:"all 0.2s cubic-bezier(.34,1.56,.64,1)",transform:bounce?"scale(1.03)":"scale(1)",boxShadow:done?`3px 3px 0 ${t.border}`:`2px 2px 0 ${t.border}`,cursor:"pointer",position:"relative",overflow:"hidden"}}
       onClick={handleTap}>
-      {/* partial fill bg */}
       {isRep&&!done&&pct>0&&<div style={{position:"absolute",top:0,left:0,bottom:0,width:`${pct*100}%`,background:`${habit.color}22`,borderRight:`1.5px solid ${habit.color}55`,pointerEvents:"none",transition:"width 0.4s ease"}}/>}
-      {/* color pip */}
       <div style={{width:4,background:done?"rgba(255,255,255,0.4)":isRep&&count>0?habit.color:t.border,flexShrink:0,transition:"background 0.3s"}}/>
       <div style={{padding:"11px 12px",display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0,position:"relative"}}>
         <span style={{fontSize:22,flexShrink:0}}>{habit.emoji}</span>
         <div style={{flex:1,minWidth:0}}>
-          {editing
-            ?<input ref={inputRef} value={editVal} onChange={e=>setEditVal(e.target.value.toUpperCase())} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter")commit();if(e.key==="Escape")setEditing(false);}} onClick={e=>e.stopPropagation()} style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,letterSpacing:2,color:done?"#fff":t.accent,background:"transparent",border:"none",borderBottom:`1.5px solid ${done?"rgba(255,255,255,0.5)":t.accent}`,outline:"none",width:"100%"}}/>
-            :<div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:done?"#fff":t.text,letterSpacing:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{habit.label}</div>}
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:done?"rgba(255,255,255,0.65)":t.textSub,letterSpacing:1,display:"flex",gap:6,alignItems:"center",marginTop:2}}>
+          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:done?"#fff":t.text,letterSpacing:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{habit.label}</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:done?"rgba(255,255,255,0.65)":t.textSub,letterSpacing:1,display:"flex",gap:6,alignItems:"center",marginTop:2,flexWrap:"wrap"}}>
             <span>🔥{habit.streak}</span>
-            {habit.schedule&&habit.schedule.length>0&&<span style={{fontSize:9,background:done?"rgba(255,255,255,0.2)":`${t.accent}22`,color:done?"rgba(255,255,255,0.8)":t.accent,padding:"1px 5px",border:`1px solid ${done?"rgba(255,255,255,0.3)":t.accent}`,letterSpacing:1}}>{habit.schedule.map(d=>DAY_NAMES[d]).join(" ")}</span>}
+            {timeTag&&<span style={{fontSize:10}}>{timeTag}</span>}
+            {habit.schedule&&habit.schedule.length>0&&<span style={{fontSize:9,background:done?"rgba(255,255,255,0.2)":`${t.accent}22`,color:done?"rgba(255,255,255,0.8)":t.accent,padding:"1px 5px",border:`1px solid ${done?"rgba(255,255,255,0.3)":t.accent}`,letterSpacing:1}}>{isEveryOtherDay(habit.schedule)?"EVERY OTHER":habit.schedule.map(d=>DAY_NAMES[d]).join(" ")}</span>}
             {isRep&&<span style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:done?"rgba(255,255,255,0.9)":count>0?habit.color:t.textSub,background:done?"rgba(255,255,255,0.2)":count>0?`${habit.color}22`:"transparent",padding:"0 6px",border:`1px solid ${done?"rgba(255,255,255,0.3)":count>0?habit.color:t.border}`}}>{count}/{habit.repeat}</span>}
             {!isRep&&<span>+{habit.xp}XP</span>}
           </div>
         </div>
       </div>
-      <div style={{display:"flex",alignItems:"center",borderLeft:`1.5px solid ${done?"rgba(255,255,255,0.2)":t.border}`,flexShrink:0,position:"relative"}}>
+      <div style={{display:"flex",alignItems:"center",borderLeft:`1.5px solid ${done?"rgba(255,255,255,0.2)":t.border}`,flexShrink:0}}>
         {done
-          ?<div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"8px 12px",gap:3}}><span style={{fontSize:18}}>✅</span><button onClick={e=>{e.stopPropagation();onUndoOne(habit.id);}} style={{fontSize:9,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,background:"rgba(0,0,0,0.2)",color:"#fff",border:"none",padding:"1px 6px",cursor:"pointer"}}>UNDO</button></div>
-          :<div style={{display:"flex",flexDirection:"column",height:"100%"}}>
-            <button onClick={e=>{e.stopPropagation();startEdit(e);}} style={{background:"transparent",border:"none",borderBottom:`1px solid ${t.border}`,color:t.textSub,cursor:"pointer",fontSize:10,padding:"8px 10px",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,flex:1}}>EDIT</button>
-            {!habit.isDefault
-              ?<button onClick={e=>{e.stopPropagation();onDelete(habit.id);}} style={{background:"transparent",border:"none",color:t.textSub,cursor:"pointer",fontSize:10,padding:"8px 10px",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,flex:1}}>DEL</button>
-              :<div style={{padding:"8px 10px",fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.accent,letterSpacing:1,flex:1,display:"flex",alignItems:"center",justifyContent:"center"}}>{isRep?"→":"YES"}</div>}
-          </div>}
+          ?<div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"8px 12px",gap:3}}>
+            <span style={{fontSize:18}}>✅</span>
+            <button onClick={e=>{e.stopPropagation();onUndoOne(habit.id);}} style={{fontSize:9,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,background:"rgba(0,0,0,0.2)",color:"#fff",border:"none",padding:"1px 6px",cursor:"pointer"}}>UNDO</button>
+          </div>
+          :<button onClick={e=>{e.stopPropagation();setShowEdit(true);}} style={{background:"transparent",border:"none",color:t.textSub,cursor:"pointer",fontSize:10,padding:"10px 12px",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,height:"100%",display:"flex",alignItems:"center"}}>
+            {isRep?"→":"EDIT"}
+          </button>}
       </div>
     </div>
+    </>
   );
 }
 
@@ -253,7 +301,7 @@ function SubcatBlock({subcat,habits,todayStr,theme,onComplete,onUndoOne,onDelete
 }
 
 // ─── CATEGORY BLOCK ──────────────────────────────────────────────────────────
-function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,onDeleteHabit,onRenameHabit,onOpenDrawer,onDeleteCat,onRenameCat,onColorCat,onAddSubcat,onDeleteSubcat,onRenameSubcat,onAddHabit}){
+function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,onDeleteHabit,onRenameHabit,onOpenDrawer,onDeleteCat,onRenameCat,onColorCat,onAddSubcat,onDeleteSubcat,onRenameSubcat,onAddHabit,onReorderCat,onReorderHabit}){
   const t=THEMES[theme]||THEMES.hawt;
   const [collapsed,setCollapsed]=useState(cat.collapsed||false);
   const [editing,setEditing]=useState(false);
@@ -282,7 +330,12 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
   };
 
   return(
-    <div style={{marginBottom:14,border:`2px solid ${t.border}`,boxShadow:`3px 3px 0 ${t.border}`,overflow:"hidden"}}>
+    <div
+      draggable
+      onDragStart={e=>{e.dataTransfer.setData("catId",cat.id);e.dataTransfer.effectAllowed="move";}}
+      onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";}}
+      onDrop={e=>{e.preventDefault();const fromId=e.dataTransfer.getData("catId");if(fromId)onReorderCat(fromId,cat.id);}}
+      style={{marginBottom:14,border:`2px solid ${t.border}`,boxShadow:`3px 3px 0 ${t.border}`,overflow:"hidden"}}>
       {/* Color picker dropdown */}
       {pickingColor&&(
         <div style={{background:t.bgCard,borderBottom:`2px solid ${t.border}`,padding:"10px 12px"}}>
@@ -300,6 +353,8 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
       <div style={{background:t.bgCard,display:"flex",alignItems:"center",borderBottom:collapsed?`none`:`2px solid ${t.border}`}}>
         {/* Color accent bar */}
         <div style={{width:6,alignSelf:"stretch",background:catColor,flexShrink:0}}/>
+        {/* Drag handle */}
+        <div className="drag-handle" style={{padding:"12px 8px",cursor:"grab",color:t.textSub,fontSize:14,userSelect:"none",borderRight:`2px solid ${t.border}`,display:"flex",alignItems:"center"}}>⠿</div>
         <button onClick={()=>setCollapsed(c=>!c)} style={{background:"transparent",border:"none",borderRight:`2px solid ${t.border}`,padding:"12px 10px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.textSub}}>{collapsed?"▶":"▼"}</button>
         {editing
           ?<input ref={inputRef} value={editVal} onChange={e=>setEditVal(e.target.value.toUpperCase())} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter")commit();if(e.key==="Escape")setEditing(false);}} style={{flex:1,fontFamily:"'Black Han Sans',sans-serif",fontSize:18,letterSpacing:4,color:t.accent,background:"transparent",border:"none",borderBottom:`2px solid ${t.accent}`,outline:"none",padding:"12px 14px"}} autoFocus/>
@@ -327,8 +382,15 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
               onDeleteSubcat={onDeleteSubcat} onRenameSubcat={onRenameSubcat}/>;
           })}
 
-          {/* Direct habits — inherit category color */}
-          {directHabits.map(withCatColor).map(h=><HabitRow key={h.id} habit={h} onComplete={onComplete} onUndoOne={onUndoOne} onDelete={onDeleteHabit} onRename={onRenameHabit} todayStr={todayStr} theme={theme} onOpenDrawer={onOpenDrawer}/>)}
+          {/* Direct habits — inherit category color, draggable to reorder */}
+          {directHabits.map(withCatColor).map(h=>(
+            <div key={h.id} draggable
+              onDragStart={e=>{e.dataTransfer.setData("habitId",h.id);e.dataTransfer.effectAllowed="move";e.stopPropagation();}}
+              onDragOver={e=>{e.preventDefault();e.stopPropagation();}}
+              onDrop={e=>{e.preventDefault();e.stopPropagation();const fromId=e.dataTransfer.getData("habitId");if(fromId&&fromId!==h.id)onReorderHabit(fromId,h.id);}}>
+              <HabitRow habit={h} onComplete={onComplete} onUndoOne={onUndoOne} onDelete={onDeleteHabit} onRename={onRenameHabit} todayStr={todayStr} theme={theme} onOpenDrawer={onOpenDrawer}/>
+            </div>
+          ))}
 
           {/* Action buttons */}
           <div style={{display:"flex",gap:6,marginTop:6,marginBottom:4}}>
@@ -372,6 +434,7 @@ function AddHabitModal({catId,subId,cats,subcats,onAdd,onClose,theme}){
     if(schedulePreset==="daily") return null;
     if(schedulePreset==="weekdays") return [1,2,3,4,5];
     if(schedulePreset==="weekends") return [0,6];
+    if(schedulePreset==="eod") return ["EOD"];
     return customDays.length>0?customDays:null;
   };
 
@@ -384,6 +447,7 @@ function AddHabitModal({catId,subId,cats,subcats,onAdd,onClose,theme}){
   const scheduleLabel = schedulePreset==="daily"?"EVERY DAY"
     :schedulePreset==="weekdays"?"MON–FRI"
     :schedulePreset==="weekends"?"SAT & SUN"
+    :schedulePreset==="eod"?"EVERY OTHER DAY"
     :customDays.length>0?customDays.map(d=>DAY_NAMES[d]).join(", "):"PICK DAYS";
 
   return(
@@ -410,9 +474,9 @@ function AddHabitModal({catId,subId,cats,subcats,onAdd,onClose,theme}){
         </div>
         {/* Schedule */}
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:6}}>SCHEDULE: <strong style={{color:t.accent}}>{scheduleLabel}</strong></div>
-        <div style={{display:"flex",gap:5,marginBottom:schedulePreset==="custom"?8:12}}>
-          {Object.entries(SCHEDULE_PRESETS).map(([key,p])=>(
-            <button key={key} onClick={()=>setSchedulePreset(key)} style={{flex:1,padding:"9px 0",border:`2px solid ${t.border}`,background:schedulePreset===key?t.accent:t.bgCard,color:schedulePreset===key?t.textInv:t.text,fontFamily:"'Black Han Sans',sans-serif",fontSize:10,cursor:"pointer",letterSpacing:1,boxShadow:schedulePreset===key?`2px 2px 0 ${t.border}`:"none"}}>{p.label}</button>
+        <div style={{display:"flex",gap:5,marginBottom:schedulePreset==="custom"?8:12,flexWrap:"wrap"}}>
+          {[...Object.entries(SCHEDULE_PRESETS),["eod",{label:"EVERY OTHER"}]].map(([key,p])=>(
+            <button key={key} onClick={()=>setSchedulePreset(key)} style={{padding:"9px 12px",border:`2px solid ${t.border}`,background:schedulePreset===key?t.accent:t.bgCard,color:schedulePreset===key?t.textInv:t.text,fontFamily:"'Black Han Sans',sans-serif",fontSize:10,cursor:"pointer",letterSpacing:1,boxShadow:schedulePreset===key?`2px 2px 0 ${t.border}`:"none"}}>{p.label}</button>
           ))}
         </div>
         {schedulePreset==="custom"&&<div style={{display:"flex",gap:4,marginBottom:12}}>
@@ -2236,6 +2300,24 @@ export default function App(){
     scheduleDelete(cat?.label||"category",()=>{setCats(p=>p.filter(c=>c.id!==id));setSubcats(p=>p.filter(s=>s.catId!==id));setHabits(p=>p.filter(h=>h.catId!==id));});
   };
   const renameCat=(id,label)=>setCats(p=>p.map(c=>c.id===id?{...c,label}:c));
+  const reorderCats=(fromId,toId)=>{
+    if(fromId===toId)return;
+    setCats(prev=>{
+      const arr=[...prev];
+      const fi=arr.findIndex(c=>c.id===fromId),ti=arr.findIndex(c=>c.id===toId);
+      if(fi<0||ti<0)return prev;
+      const [item]=arr.splice(fi,1);arr.splice(ti,0,item);return arr;
+    });
+  };
+  const reorderHabits=(fromId,toId)=>{
+    if(fromId===toId)return;
+    setHabits(prev=>{
+      const arr=[...prev];
+      const fi=arr.findIndex(h=>h.id===fromId),ti=arr.findIndex(h=>h.id===toId);
+      if(fi<0||ti<0)return prev;
+      const [item]=arr.splice(fi,1);arr.splice(ti,0,item);return arr;
+    });
+  };
   const colorCat=(id,color)=>setCats(p=>p.map(c=>c.id===id?{...c,color}:c));
   const addSubcat=(sub)=>setSubcats(prev=>[...prev,sub]);
   const deleteSubcat=(id)=>{
@@ -2280,7 +2362,7 @@ export default function App(){
     if(data.theme) setTheme(data.theme);
     showToast("RESTORED FROM DRIVE","☁️");
   };
-  const renameHabit=(id,label)=>setHabits(p=>p.map(h=>h.id===id?{...h,label}:h));
+  const renameHabit=(id,label,timeOfDay)=>setHabits(p=>p.map(h=>h.id===id?{...h,label,timeOfDay:timeOfDay!==undefined?timeOfDay:h.timeOfDay}:h));
 
   // List CRUD
   const toggleList=(type,id)=>{if(type==="movie")setMovies(p=>p.map(m=>m.id===id?{...m,done:!m.done}:m));else setBooks(p=>p.map(b=>b.id===id?{...b,done:!b.done}:b));};
@@ -2396,7 +2478,8 @@ export default function App(){
                   onOpenDrawer={isToday?setOpenDrawer:()=>{}}
                   onDeleteCat={isToday?deleteCat:()=>{}} onRenameCat={isToday?renameCat:()=>{}} onColorCat={colorCat}
                   onAddSubcat={isToday?addSubcat:()=>{}} onDeleteSubcat={isToday?deleteSubcat:()=>{}} onRenameSubcat={isToday?renameSubcat:()=>{}}
-                  onAddHabit={isToday?(catId,subId)=>setAddHabitCtx({catId,subId}):()=>{}}/>
+                  onAddHabit={isToday?(catId,subId)=>setAddHabitCtx({catId,subId}):()=>{}}
+                  onReorderCat={reorderCats} onReorderHabit={reorderHabits}/>
               ))}
 
               {/* Add category */}
