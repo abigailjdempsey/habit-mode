@@ -2433,12 +2433,288 @@ Use emojis that match the insight tone. Titles should be punchy (3-5 words max).
   );
 }
 
+
+// ─── EVENTS TAB ───────────────────────────────────────────────────────────────
+const EVENT_CATS = ["🎵 Concert/Show","🍽️ Food/Pop-up","🎨 Art/Gallery","🎭 Theater/Comedy","🏃 Fitness/Wellness","🎉 Party/Social","📚 Talk/Workshop","📦 Other"];
+
+async function fetchEventMeta(url) {
+  try {
+    const r = await fetch("/api/claude", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({mode:"fetch-url", url})
+    });
+    const pageData = await r.json();
+    return claudeJSON(`Extract event details from this webpage.
+Final URL: ${pageData.finalUrl||url}
+Title: ${pageData.ogTitle||pageData.title||""}
+Description: ${pageData.ogDesc||""}
+Text: ${pageData.bodySnippet||""}
+Return JSON: {"title":string,"date":string (YYYY-MM-DD format),"time":string (12hr e.g. "8:00 PM"),"venue":string,"neighborhood":string,"city":string,"category":string (one of the types like Concert/Show),"notes":string}
+Extract as much as possible. Title is required.`);
+  } catch { return null; }
+}
+
+function AddEventModal({onAdd, onClose, theme, t}) {
+  const [mode,setMode]=useState("url");
+  const [urlVal,setUrlVal]=useState("");
+  const [status,setStatus]=useState("idle");
+  const [preview,setPreview]=useState(null);
+  const [form,setForm]=useState({title:"",date:"",time:"",venue:"",neighborhood:"",city:"",category:EVENT_CATS[0],notes:"",url:""});
+  const fld=(k,v)=>setForm(p=>({...p,[k]:v}));
+  const inp={width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"10px 12px",color:t.text,fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:8};
+  const lbl={fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:4};
+
+  const doImport=async()=>{
+    if(!urlVal.trim())return;
+    setStatus("loading");
+    const meta=await fetchEventMeta(urlVal.trim());
+    if(meta?.title){
+      setPreview({...meta,url:urlVal.trim()});
+      setStatus("preview");
+    } else setStatus("error");
+  };
+
+  const addEvent=(e)=>{
+    onAdd({id:uid(),title:e.title||"Event",date:e.date||"",time:e.time||"",venue:e.venue||"",neighborhood:e.neighborhood||"",city:e.city||"",category:e.category||EVENT_CATS[0],notes:e.notes||"",url:e.url||urlVal||"",going:false,interested:true,addedDate:TODAY()});
+    onClose();
+  };
+
+  const tabBtn=(id,lbl2)=>(
+    <button onClick={()=>{setMode(id);setStatus("idle");setPreview(null);}} style={{flex:1,padding:"9px",border:`2px solid ${mode===id?t.accent:t.border}`,background:mode===id?t.accent:"transparent",color:mode===id?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,boxShadow:mode===id?`2px 2px 0 ${t.border}`:"none"}}>{lbl2}</button>
+  );
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
+      <div style={{background:t.bg,width:"100%",maxWidth:500,border:`3px solid ${t.border}`,borderBottom:"none",boxShadow:`-6px -6px 0 ${t.border}`,maxHeight:"92vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
+        <div style={{padding:"18px 18px 12px",borderBottom:`2px solid ${t.border}`,flexShrink:0}}>
+          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:20,color:t.text,letterSpacing:4,marginBottom:12}}>📅 ADD EVENT</div>
+          <div style={{display:"flex",gap:6}}>{tabBtn("url","PASTE LINK")}{tabBtn("manual","MANUAL")}</div>
+        </div>
+        <div style={{padding:"14px 18px",overflowY:"auto",flex:1}}>
+          {mode==="url"&&<>
+            <div style={lbl}>EVENT URL (RA, EVENTBRITE, INSTAGRAM, ETC)</div>
+            <div style={{display:"flex",gap:6,marginBottom:10}}>
+              <input style={{...inp,flex:1,marginBottom:0}} placeholder="https://..." value={urlVal} onChange={e=>setUrlVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doImport()} autoFocus/>
+              <button onClick={doImport} disabled={!urlVal.trim()||status==="loading"} style={{padding:"10px 14px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:1,opacity:!urlVal.trim()?0.4:1,boxShadow:`2px 2px 0 ${t.border}`,flexShrink:0}}>{status==="loading"?"...":"IMPORT"}</button>
+            </div>
+            {status==="loading"&&<div style={{textAlign:"center",padding:"20px",border:`2px dashed ${t.border}`}}><div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.accent,letterSpacing:3}}>EXTRACTING EVENT INFO...</div></div>}
+            {status==="error"&&<div style={{padding:"12px",border:`2px solid ${t.accent2}`,background:`${t.accent2}11`,marginBottom:8}}><div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.accent2,letterSpacing:2}}>COULDN'T READ IT — TRY MANUAL.</div></div>}
+            {status==="preview"&&preview&&(
+              <div style={{border:`2px solid ${t.accent}`,boxShadow:`3px 3px 0 ${t.accent}`}}>
+                <div style={{background:`${t.accent}18`,borderBottom:`2px solid ${t.accent}`,padding:"7px 12px"}}><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.accent,letterSpacing:2}}>✓ FOUND IT — REVIEW & CONFIRM</span></div>
+                <div style={{padding:"14px"}}>
+                  <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:15,color:t.text,letterSpacing:2,marginBottom:6}}>{preview.title}</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                    {preview.date&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.textSub,letterSpacing:1}}>📅 {new Date(preview.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"})}{preview.time?" · "+preview.time:""}</div>}
+                    {preview.venue&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.textSub,letterSpacing:1}}>📍 {preview.venue}{preview.neighborhood?" · "+preview.neighborhood:""}{preview.city?" · "+preview.city:""}</div>}
+                    {preview.category&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.accent,letterSpacing:1}}>{preview.category}</div>}
+                    {preview.notes&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginTop:4,lineHeight:1.5}}>{preview.notes}</div>}
+                  </div>
+                </div>
+                <button onClick={()=>addEvent(preview)} style={{width:"100%",padding:"12px",border:"none",borderTop:`2px solid ${t.accent}`,background:t.accent,color:t.textInv,fontFamily:"'Black Han Sans',sans-serif",fontSize:14,cursor:"pointer",letterSpacing:4}}>+ ADD TO CALENDAR</button>
+              </div>
+            )}
+          </>}
+          {mode==="manual"&&<>
+            <input style={{...inp,fontFamily:"'Black Han Sans',sans-serif",fontSize:14}} placeholder="EVENT TITLE" value={form.title} onChange={e=>fld("title",e.target.value)} autoFocus/>
+            <div style={{display:"flex",gap:8}}>
+              <div style={{flex:2}}>
+                <div style={lbl}>DATE</div>
+                <input type="date" style={{...inp,colorScheme:"dark"}} value={form.date} onChange={e=>fld("date",e.target.value)}/>
+              </div>
+              <div style={{flex:1}}>
+                <div style={lbl}>TIME</div>
+                <select style={{...inp,appearance:"none"}} value={form.time} onChange={e=>fld("time",e.target.value)}>
+                  <option value="">TBD</option>
+                  {["12:00 AM","1:00 AM","2:00 AM","3:00 AM","4:00 AM","5:00 AM","6:00 AM","7:00 AM","8:00 AM","9:00 AM","10:00 AM","11:00 AM","12:00 PM","1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM","6:00 PM","7:00 PM","8:00 PM","9:00 PM","10:00 PM","11:00 PM"].map(t2=><option key={t2} value={t2}>{t2}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={lbl}>CATEGORY</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:10}}>
+              {EVENT_CATS.map(c=>{
+                const on=form.category===c;
+                return <button key={c} onClick={()=>fld("category",c)} style={{padding:"5px 10px",border:`1.5px solid ${on?t.accent:t.border}`,background:on?t.accent:"transparent",color:on?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:9,cursor:"pointer",letterSpacing:1,boxShadow:on?`1px 1px 0 ${t.border}`:"none"}}>{c}</button>;
+              })}
+            </div>
+            <input style={inp} placeholder="VENUE NAME" value={form.venue} onChange={e=>fld("venue",e.target.value)}/>
+            <div style={{display:"flex",gap:8}}>
+              <input style={{...inp,flex:1}} placeholder="NEIGHBORHOOD" value={form.neighborhood} onChange={e=>fld("neighborhood",e.target.value)}/>
+              <input style={{...inp,flex:1}} placeholder="CITY" value={form.city} onChange={e=>fld("city",e.target.value)}/>
+            </div>
+            <input style={inp} placeholder="NOTES (OPTIONAL)" value={form.notes} onChange={e=>fld("notes",e.target.value)}/>
+            <input style={{...inp,marginBottom:0}} placeholder="LINK (OPTIONAL)" value={form.url} onChange={e=>fld("url",e.target.value)}/>
+          </>}
+        </div>
+        <div style={{padding:"12px 18px 18px",flexShrink:0,borderTop:`2px solid ${t.border}`}}>
+          {mode==="manual"&&<button onClick={()=>form.title.trim()&&addEvent(form)} disabled={!form.title.trim()} style={{width:"100%",padding:"13px",border:`2px solid ${t.border}`,background:form.title.trim()?t.addBtn:"transparent",color:form.title.trim()?t.addBtnText:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,cursor:form.title.trim()?"pointer":"default",letterSpacing:3,boxShadow:form.title.trim()?`3px 3px 0 ${t.border}`:"none",opacity:form.title.trim()?1:0.4,marginBottom:8}}>ADD EVENT</button>}
+          <button onClick={onClose} style={{width:"100%",padding:"11px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:3}}>CANCEL</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EventCard({event, onUpdate, onDelete, theme, t}) {
+  const [expanded,setExpanded]=useState(false);
+  const today=TODAY();
+  const isPast=event.date&&event.date<today;
+  const catEmoji=event.category?.split(" ")[0]||"📅";
+
+  return(
+    <div style={{border:`2px solid ${event.going?t.accent:t.border}`,marginBottom:8,boxShadow:`2px 2px 0 ${event.going?t.accent:t.border}`,overflow:"hidden",opacity:isPast?0.6:1}}>
+      <div style={{background:event.going?`${t.accent}11`:t.bg,display:"flex",alignItems:"stretch",cursor:"pointer"}} onClick={()=>setExpanded(e=>!e)}>
+        {/* Date block */}
+        <div style={{width:52,flexShrink:0,background:event.going?t.accent:t.bgCard,borderRight:`2px solid ${t.border}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"8px 4px"}}>
+          {event.date
+            ?<>
+              <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:18,color:event.going?t.textInv:t.text,lineHeight:1}}>{new Date(event.date+"T12:00:00").getDate()}</div>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:event.going?t.textInv:t.textSub,letterSpacing:1}}>{new Date(event.date+"T12:00:00").toLocaleDateString("en-US",{month:"short"}).toUpperCase()}</div>
+            </>
+            :<div style={{fontSize:20}}>{catEmoji}</div>
+          }
+        </div>
+        {/* Info */}
+        <div style={{flex:1,padding:"9px 12px",minWidth:0}}>
+          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.text,letterSpacing:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{event.title}</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,marginTop:2,display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+            {event.time&&<span>🕐 {event.time}</span>}
+            {event.venue&&<span>📍 {event.venue}{event.neighborhood?" · "+event.neighborhood:""}</span>}
+            {event.category&&<span style={{background:`${t.accent}18`,padding:"0 4px",border:`1px solid ${t.border}`,fontSize:9}}>{event.category}</span>}
+          </div>
+        </div>
+        {/* Actions */}
+        <div style={{display:"flex",flexDirection:"column",borderLeft:`2px solid ${t.border}`,flexShrink:0}}>
+          <button onClick={e=>{e.stopPropagation();onUpdate({...event,going:!event.going,interested:true});}} style={{flex:1,width:44,background:event.going?t.accent:"transparent",border:"none",borderBottom:`1px solid ${t.border}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:event.going?11:14,color:event.going?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",letterSpacing:0}} title="Going">
+            {event.going?"GOING":"✓"}
+          </button>
+          <button onClick={e=>{e.stopPropagation();onUpdate({...event,interested:!event.interested});}} style={{flex:1,width:44,background:event.interested&&!event.going?`${t.accent}22`:"transparent",border:"none",borderBottom:`1px solid ${t.border}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:event.interested?t.accent:t.textSub}} title="Interested">
+            ★
+          </button>
+          <button onClick={e=>{e.stopPropagation();if(window.confirm("Delete this event?"))onDelete(event.id);}} style={{flex:1,width:44,background:"none",border:"none",color:t.textSub,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+        </div>
+      </div>
+      {/* Expanded panel */}
+      {expanded&&(
+        <div style={{borderTop:`2px solid ${t.border}`,background:t.bgCard,padding:"12px 14px"}}>
+          {event.date&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.text,letterSpacing:1,marginBottom:6}}>📅 {new Date(event.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"})}{event.time?" · "+event.time:""}</div>}
+          {event.venue&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.textSub,letterSpacing:1,marginBottom:4}}>📍 {[event.venue,event.neighborhood,event.city].filter(Boolean).join(" · ")}</div>}
+          {event.notes&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.textSub,letterSpacing:1,marginBottom:4,lineHeight:1.5}}>{event.notes}</div>}
+          {event.url&&<a href={event.url} target="_blank" rel="noopener noreferrer" style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.accent2,textDecoration:"none",letterSpacing:1,display:"block"}}>↗ {event.url.replace(/^https?:\/\//,"").slice(0,50)}</a>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EventsTab({events, setEvents, theme, t}) {
+  const [showAdd,setShowAdd]=useState(false);
+  const [view,setView]=useState("upcoming"); // upcoming | calendar | past
+  const [calOffset,setCalOffset]=useState(0);
+  const [filterCat,setFilterCat]=useState("ALL");
+  const today=TODAY();
+
+  const addEvent=(e)=>setEvents(prev=>[...prev,e]);
+  const updateEvent=(e)=>setEvents(prev=>prev.map(ev=>ev.id===e.id?e:ev));
+  const deleteEvent=(id)=>setEvents(prev=>prev.filter(ev=>ev.id!==id));
+
+  const upcoming=events.filter(e=>!e.date||e.date>=today).sort((a,b)=>a.date?.localeCompare(b.date)||0);
+  const past=events.filter(e=>e.date&&e.date<today).sort((a,b)=>b.date.localeCompare(a.date));
+  const cats=["ALL",...[...new Set(events.map(e=>e.category).filter(Boolean))].sort()];
+
+  const filtered=(view==="past"?past:upcoming).filter(e=>filterCat==="ALL"||e.category===filterCat);
+
+  // Calendar setup
+  const refDate=new Date(); refDate.setDate(1); refDate.setMonth(refDate.getMonth()+calOffset);
+  const year=refDate.getFullYear(), month=refDate.getMonth();
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  const firstDow=new Date(year,month,1).getDay();
+  const monthLabel=refDate.toLocaleDateString("en-US",{month:"long",year:"numeric"}).toUpperCase();
+  const toStr=(d)=>`${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+  const [calDay,setCalDay]=useState(null);
+  const calDayEvents=calDay?events.filter(e=>e.date===toStr(calDay)):[];
+
+  return(
+    <div>
+      {showAdd&&<AddEventModal onAdd={addEvent} onClose={()=>setShowAdd(false)} theme={theme} t={t}/>}
+
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,borderBottom:`2px solid ${t.border}`,paddingBottom:10}}>
+        <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4}}>📅 EVENTS</div>
+        <button onClick={()=>setShowAdd(true)} style={{background:t.addBtn,border:`2px solid ${t.border}`,padding:"8px 14px",fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.addBtnText,cursor:"pointer",letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`}}>+ ADD</button>
+      </div>
+
+      {/* View switcher */}
+      <div style={{display:"flex",gap:0,marginBottom:12,border:`2px solid ${t.border}`,boxShadow:`2px 2px 0 ${t.border}`}}>
+        {[["upcoming","📋 UPCOMING"],["calendar","📅 CALENDAR"],["past","🕐 PAST"]].map(([id,lbl],i)=>(
+          <button key={id} onClick={()=>setView(id)} style={{flex:1,padding:"9px",border:"none",borderRight:i<2?`2px solid ${t.border}`:"none",background:view===id?t.accent:"transparent",color:view===id?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:10,cursor:"pointer",letterSpacing:1}}>{lbl}</button>
+        ))}
+      </div>
+
+      {/* Category filter */}
+      {cats.length>1&&<div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:10}}>
+        {cats.map(c=>(
+          <button key={c} onClick={()=>setFilterCat(c)} style={{padding:"4px 10px",border:`1.5px solid ${filterCat===c?t.accent:t.border}`,background:filterCat===c?t.accent:"transparent",color:filterCat===c?t.textInv:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,cursor:"pointer",letterSpacing:1,boxShadow:filterCat===c?`1px 1px 0 ${t.border}`:"none"}}>{c==="ALL"?"ALL":c.split(" ").slice(1).join(" ")||c}</button>
+        ))}
+      </div>}
+
+      {/* CALENDAR VIEW */}
+      {view==="calendar"&&<>
+        <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:10,border:`2px solid ${t.border}`,boxShadow:`2px 2px 0 ${t.border}`}}>
+          <button onClick={()=>{setCalOffset(o=>o-1);setCalDay(null);}} style={{background:"transparent",border:"none",borderRight:`2px solid ${t.border}`,padding:"9px 13px",cursor:"pointer",fontSize:14,color:t.textSub}}>◀</button>
+          <div style={{flex:1,textAlign:"center",fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.text,letterSpacing:3}}>{monthLabel}</div>
+          <button onClick={()=>{setCalOffset(o=>o+1);setCalDay(null);}} style={{background:"transparent",border:"none",borderLeft:`2px solid ${t.border}`,padding:"9px 13px",cursor:"pointer",fontSize:14,color:t.textSub}}>▶</button>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:4}}>
+          {["S","M","T","W","T","F","S"].map((d,i)=><div key={i} style={{textAlign:"center",fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:t.textSub,padding:"3px 0"}}>{d}</div>)}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:12}}>
+          {Array.from({length:firstDow},(_,i)=><div key={`e${i}`}/>)}
+          {Array.from({length:daysInMonth},(_,i)=>{
+            const day=i+1, dateStr=toStr(day);
+            const dayEvents=events.filter(e=>e.date===dateStr);
+            const isToday2=dateStr===today;
+            const isSel=calDay===day;
+            return(
+              <div key={day} onClick={()=>setCalDay(isSel?null:day)} style={{aspectRatio:"1",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1,border:`${isToday2||isSel?"2px":"1px"} solid ${isSel?t.accent2:isToday2?t.accent:t.border}`,background:isSel?`${t.accent2}18`:isToday2?`${t.accent}18`:t.bg,cursor:"pointer",position:"relative",transition:"all 0.1s"}}>
+                <span style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:11,color:isSel?t.accent2:isToday2?t.accent:t.text}}>{day}</span>
+                {dayEvents.length>0&&<div style={{display:"flex",gap:1,justifyContent:"center",flexWrap:"wrap"}}>
+                  {dayEvents.slice(0,3).map((e,i)=><div key={i} style={{width:5,height:5,borderRadius:"50%",background:e.going?t.accent:t.accent+"88"}}/>)}
+                </div>}
+              </div>
+            );
+          })}
+        </div>
+        {/* Selected day events */}
+        {calDay&&calDayEvents.length>0&&calDayEvents.map(e=>(
+          <EventCard key={e.id} event={e} theme={theme} t={t} onUpdate={updateEvent} onDelete={deleteEvent}/>
+        ))}
+        {calDay&&calDayEvents.length===0&&<div style={{textAlign:"center",padding:"16px",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:2}}>NO EVENTS THIS DAY</div>}
+      </>}
+
+      {/* LIST VIEW (upcoming + past) */}
+      {view!=="calendar"&&<>
+        {filtered.length===0
+          ?<div style={{textAlign:"center",padding:"44px 20px",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:2,border:`2px dashed ${t.border}`}}>
+            <div style={{fontSize:36,marginBottom:10}}>📅</div>
+            {view==="past"?"NO PAST EVENTS YET":"NO UPCOMING EVENTS — ADD ONE!"}
+          </div>
+          :filtered.map(e=>(
+            <EventCard key={e.id} event={e} theme={theme} t={t} onUpdate={updateEvent} onDelete={deleteEvent}/>
+          ))
+        }
+      </>}
+    </div>
+  );
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App(){
   const [cats,setCats]=useState(DEFAULT_DATA.categories);
   const [subcats,setSubcats]=useState(DEFAULT_DATA.subcategories);
   const [habits,setHabits]=useState(DEFAULT_DATA.habits);
   const [tasks,setTasks]=useState([]); // one-time tasks
+  const [events,setEvents]=useState([]);
   const [movies,setMovies]=useState([]);
   const [books,setBooks]=useState([]);
   const [tvshows,setTvshows]=useState([]);
@@ -2477,22 +2753,22 @@ export default function App(){
   })();
   const isToday=viewOffset===0;
   const isPast=viewOffset<0;
-  const viewDateLabel=isToday?"TODAY":viewOffset===-1?"YESTERDAY":viewOffset===1?"TOMORROW":new Date(viewDate+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"}).toUpperCase();
+  const viewDateLabel=isToday?"TODAY":viewOffset===-1?"YESTERDAY":viewOffset===1?"TOMORROW":new Date(viewDate+"T12:00:00").toLocaleDateString("en-US",{weekday:"long"}).toUpperCase();
   const t=THEMES[theme]||THEMES.hawt;
   const newCatRef=useRef(null);
   const importRef=useRef(null);
 
-  useEffect(()=>{load().then(saved=>{if(saved){setCats(saved.cats||DEFAULT_DATA.categories);setSubcats(saved.subcats||DEFAULT_DATA.subcategories);setHabits(saved.habits||DEFAULT_DATA.habits);setTasks(saved.tasks||[]);setMovies(saved.movies||[]);setBooks(saved.books||[]);setTvshows(saved.tvshows||[]);setPlaces(saved.places||[]);setCityList(saved.cityList||STARTER_CITIES.map(c=>c.name));setCityEmojis(saved.cityEmojis||{});setTotalXP(saved.totalXP||0);setTheme(saved.theme||"hawt");}setLoaded(true);});},[]);
+  useEffect(()=>{load().then(saved=>{if(saved){setCats(saved.cats||DEFAULT_DATA.categories);setSubcats(saved.subcats||DEFAULT_DATA.subcategories);setHabits(saved.habits||DEFAULT_DATA.habits);setTasks(saved.tasks||[]);setEvents(saved.events||[]);setMovies(saved.movies||[]);setBooks(saved.books||[]);setTvshows(saved.tvshows||[]);setPlaces(saved.places||[]);setCityList(saved.cityList||STARTER_CITIES.map(c=>c.name));setCityEmojis(saved.cityEmojis||{});setTotalXP(saved.totalXP||0);setTheme(saved.theme||"hawt");}setLoaded(true);});},[]);
   useEffect(()=>{
     if(!loaded)return;
-    const state={cats,subcats,habits,tasks,movies,books,tvshows,places,cityList,cityEmojis,totalXP,theme};
+    const state={cats,subcats,habits,tasks,events,movies,books,tvshows,places,cityList,cityEmojis,totalXP,theme};
     save(state);
     // Auto-backup to Google Drive (debounced — only after 3s of no changes)
     if(gdriveStatus==="connected"){
       clearTimeout(window._gdriveBackupTimer);
       window._gdriveBackupTimer=setTimeout(()=>pushGdriveBackup(state,setGdriveStatus),3000);
     }
-  },[cats,subcats,habits,tasks,movies,books,places,cityList,cityEmojis,totalXP,theme,loaded]);
+  },[cats,subcats,habits,tasks,events,movies,books,places,cityList,cityEmojis,totalXP,theme,loaded]);
 
   const showToast=(msg,emoji)=>{setToast({show:true,msg,emoji});setTimeout(()=>setToast(s=>({...s,show:false})),2200);};
 
@@ -2584,7 +2860,7 @@ export default function App(){
     scheduleDelete(h?.label||"habit",()=>setHabits(p=>p.filter(x=>x.id!==id)));
   };
 
-  const handleExport=()=>exportData({cats,subcats,habits,tasks,movies,books,tvshows,places,cityList,cityEmojis,totalXP,theme});
+  const handleExport=()=>exportData({cats,subcats,habits,tasks,events,movies,books,tvshows,places,cityList,cityEmojis,totalXP,theme});
   const handleImport=(file)=>{
     importData(file, (data)=>{
       if(data.cats) setCats(data.cats);
@@ -2602,6 +2878,7 @@ export default function App(){
     if(data.subcats) setSubcats(data.subcats);
     if(data.habits) setHabits(data.habits);
     if(data.tasks) setTasks(data.tasks);
+    if(data.events) setEvents(data.events);
     if(data.movies) setMovies(data.movies);
     if(data.books) setBooks(data.books);
     if(data.tvshows) setTvshows(data.tvshows);
@@ -2626,7 +2903,7 @@ export default function App(){
   const scheduledTasks=(tasks||[]).filter(t=>t.scheduledFor<=viewDate&&(!t.done||t.doneDate===viewDate));
   const drawerHabit=habits.find(h=>h.id===openDrawer);
 
-  const navItems=[{id:"today",emoji:"☀️",label:"TODAY"},{id:"watchread",emoji:"🎬",label:"MEDIA"},{id:"try",emoji:"📍",label:"TRY"},{id:"log",emoji:"📊",label:"LOG"},{id:"settings",emoji:"⚙️",label:"SETTINGS"}];
+  const navItems=[{id:"today",emoji:"☀️",label:"TODAY"},{id:"watchread",emoji:"🎬",label:"MEDIA"},{id:"try",emoji:"📍",label:"TRY"},{id:"events",emoji:"📅",label:"EVENTS"},{id:"log",emoji:"📊",label:"LOG"}];
 
   if(!loaded) return <div style={{background:"#0a0a0a",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:28,color:"#e8ff00",letterSpacing:6}}>LOADING...</div></div>;
 
@@ -2670,7 +2947,7 @@ export default function App(){
             <div>
               <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:32,color:t.text,letterSpacing:5,lineHeight:1}}>HABIT MODE</div>
             </div>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,padding:"7px 0"}}>{t.emoji} {t.name}</div>
+            {tab!=="log"&&<button onClick={()=>setTab("log")} style={{background:"transparent",border:`1.5px solid ${t.border}`,padding:"6px 10px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.textSub,letterSpacing:1}}>⚙️</button>}
           </div>
           {/* Day navigation — only shown on Today tab */}
           {tab==="today"&&(
@@ -2678,7 +2955,7 @@ export default function App(){
               <button onClick={()=>setViewOffset(o=>o-1)} style={{background:"transparent",border:`2px solid ${t.border}`,borderRight:"none",padding:"7px 12px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:t.text,boxShadow:`2px 2px 0 ${t.border}`}}>◀</button>
               <div style={{flex:1,textAlign:"center",border:`2px solid ${t.border}`,borderRight:"none",padding:"7px 12px",background:isToday?t.accent:t.bgCard,boxShadow:`2px 2px 0 ${t.border}`}}>
                 <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:isToday?t.textInv:t.text,letterSpacing:3}}>{viewDateLabel}</div>
-                {!isToday&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:isToday?t.textInv:t.textSub,letterSpacing:2,marginTop:1}}>{new Date(viewDate+"T12:00:00").toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</div>}
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:isToday?t.textInv:t.textSub,letterSpacing:2,marginTop:1}}>{new Date(viewDate+"T12:00:00").toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</div>
               </div>
               <button onClick={()=>setViewOffset(o=>o+1)} disabled={false} style={{background:"transparent",border:`2px solid ${t.border}`,padding:"7px 12px",cursor:isToday?"default":"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:isToday?t.textSub:t.text,opacity:isToday?0.3:1,boxShadow:`2px 2px 0 ${t.border}`}}>▶</button>
               {!isToday&&<button onClick={()=>setViewOffset(0)} style={{background:t.accent,border:`2px solid ${t.border}`,borderLeft:"none",padding:"7px 10px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:10,color:t.textInv,letterSpacing:1,boxShadow:`2px 2px 0 ${t.border}`,whiteSpace:"nowrap"}}>TODAY</button>}
@@ -2776,6 +3053,10 @@ export default function App(){
 
           {tab==="try"&&(
             <TryTab places={places} setPlaces={setPlaces} cityList={cityList} setCityList={setCityList} cityEmojis={cityEmojis} setCityEmojis={setCityEmojis} theme={theme} t={t} uid={uid}/>
+          )}
+
+          {tab==="events"&&(
+            <EventsTab events={events} setEvents={setEvents} theme={theme} t={t}/>
           )}
 
           {tab==="log"&&(
@@ -2883,6 +3164,30 @@ export default function App(){
               </div>
               {/* History log */}
               <CalendarView habits={habits} theme={theme}/>
+
+              {/* Settings section */}
+              <div style={{marginTop:24,paddingTop:16,borderTop:`2px solid ${t.border}`}}>
+                <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,color:t.text,letterSpacing:4,marginBottom:12}}>⚙️ SETTINGS</div>
+                <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:3,marginBottom:8}}>🎨 THEME</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:16}}>
+                  {Object.entries(THEMES).map(([key,th])=>(
+                    <button key={key} onClick={()=>setTheme(key)} style={{background:th.bg,border:`3px solid ${theme===key?th.accent:th.border}`,padding:"12px 6px",cursor:"pointer",textAlign:"center",boxShadow:theme===key?`3px 3px 0 ${th.accent}`:`2px 2px 0 ${th.border}`,transition:"all 0.15s"}}>
+                      <div style={{fontSize:20}}>{th.emoji}</div>
+                      <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:10,color:th.text,marginTop:4,letterSpacing:1}}>{th.name}</div>
+                    </button>
+                  ))}
+                </div>
+                <BackupPanel
+                  theme={theme}
+                  state={{cats,subcats,habits,tasks,movies,books,tvshows,places,cityList,cityEmojis,totalXP,theme}}
+                  gdriveStatus={gdriveStatus}
+                  setGdriveStatus={setGdriveStatus}
+                  onRestoreGdrive={handleRestoreGdrive}
+                  onExport={handleExport}
+                  onImport={handleImport}
+                  importRef={importRef}
+                />
+              </div>
             </>
           )}
 
