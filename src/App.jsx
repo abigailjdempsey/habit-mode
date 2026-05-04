@@ -363,7 +363,7 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
   };
 
   return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:2000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
       <div style={{background:t.bg,padding:24,width:"100%",maxWidth:480,border:`3px solid ${t.accent}`,borderBottom:"none",boxShadow:`-6px -6px 0 ${t.accent}`,maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
         <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,marginBottom:4,letterSpacing:4}}>NEW TASK</div>
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:16}}>ONE-TIME · WON'T REPEAT</div>
@@ -414,6 +414,7 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
 
   const catColor=cat.color||t.accent;
   const directHabits=habits.filter(h=>h.catId===cat.id&&!h.subId);
+  if(tasks&&tasks.length>0)console.log('TASKS IN CATBLOCK:',cat.id,JSON.stringify(tasks.map(t=>({id:t.id,catId:t.catId,scheduledFor:t.scheduledFor,todayStr}))));
   const catTasks=(tasks||[]).filter(t=>{
     if(t.catId!==cat.id) return false;
     if(t.subId) return false;
@@ -2514,7 +2515,7 @@ export default function App(){
 
   // Habit CRUD
   const addHabit=(h)=>{setHabits(prev=>[...prev,h]);showToast("HABIT ADDED",h.emoji);};
-  const addTask=(task)=>setTasks(prev=>[...prev,task]);
+  const addTask=(task)=>{console.log('ADDING TASK:',JSON.stringify(task));setTasks(prev=>{const updated=[...prev,task];console.log('TASKS NOW:',JSON.stringify(updated));return updated;});}
   const completeTask=(id)=>setTasks(prev=>prev.map(t=>t.id===id?{...t,done:true,doneDate:TODAY()}:t));
   const uncompleteTask=(id)=>setTasks(prev=>prev.map(t=>t.id===id?{...t,done:false,doneDate:null}:t));
   const deleteTask=(id)=>setTasks(prev=>prev.filter(t=>t.id!==id));
