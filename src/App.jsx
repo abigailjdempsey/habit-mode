@@ -341,6 +341,7 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
   const [label,setLabel]=useState("");
   const [note,setNote]=useState("");
   const [dueDate,setDueDate]=useState("");
+  const [repeatUntilDue,setRepeatUntilDue]=useState(false);
   const [selectedCat,setSelectedCat]=useState(catId||cats[0]?.id||"");
   const [selectedSub,setSelectedSub]=useState(subId||"none");
   const availSubs=subcats.filter(s=>s.catId===selectedCat);
@@ -354,6 +355,7 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
       catId:selectedCat, subId:selectedSub==="none"?null:selectedSub,
       scheduledFor:defaultDate||TODAY(),
       dueDate:dueDate||null,
+      repeatUntilDue:repeatUntilDue&&!!dueDate,
       done:false, doneDate:null,
       createdDate:TODAY(), isTask:true
     });
@@ -379,7 +381,16 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
           </select>
         </>}
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:4}}>DUE DATE (OPTIONAL):</div>
-        <input type="date" style={{...inp,marginBottom:16,colorScheme:"dark"}} value={dueDate} onChange={e=>setDueDate(e.target.value)}/>
+        <input type="date" style={{...inp,marginBottom:dueDate?8:16,colorScheme:"dark"}} value={dueDate} onChange={e=>{setDueDate(e.target.value);if(!e.target.value)setRepeatUntilDue(false);}}/>
+        {dueDate&&<div style={{marginBottom:16}}>
+          <button onClick={()=>setRepeatUntilDue(v=>!v)} style={{width:"100%",padding:"10px 14px",border:`2px solid ${repeatUntilDue?t.accent:t.border}`,background:repeatUntilDue?`${t.accent}18`:"transparent",color:repeatUntilDue?t.accent:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
+            <div style={{width:18,height:18,border:`2px solid ${repeatUntilDue?t.accent:t.border}`,background:repeatUntilDue?t.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:t.textInv,flexShrink:0}}>{repeatUntilDue?"✓":""}</div>
+            <div>
+              <div>SHOW DAILY UNTIL DUE DATE</div>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:2,fontWeight:400}}>Appears every day until done or due date passes</div>
+            </div>
+          </button>
+        </div>}
         <div style={{display:"flex",gap:8}}>
           <button onClick={onClose} style={{flex:1,padding:13,border:`2px solid ${t.border}`,background:"transparent",color:t.text,fontFamily:"'Black Han Sans',sans-serif",fontSize:14,cursor:"pointer",letterSpacing:3}}>CANCEL</button>
           <button onClick={submit} style={{flex:2,padding:13,border:`2px solid ${t.accent}`,background:t.accent,color:t.textInv,fontFamily:"'Black Han Sans',sans-serif",fontSize:14,cursor:"pointer",letterSpacing:3,boxShadow:`3px 3px 0 ${t.border}`}}>ADD TASK</button>
@@ -403,7 +414,15 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
 
   const catColor=cat.color||t.accent;
   const directHabits=habits.filter(h=>h.catId===cat.id&&!h.subId);
-  const catTasks=(tasks||[]).filter(t=>t.catId===cat.id&&!t.subId&&t.scheduledFor<=todayStr);
+  const catTasks=(tasks||[]).filter(t=>{
+    if(t.catId!==cat.id||t.subId) return false;
+    // Repeating task: show every day from scheduledFor until dueDate (if not done)
+    if(t.repeatUntilDue&&t.dueDate){
+      return t.scheduledFor<=todayStr&&todayStr<=t.dueDate&&!t.done;
+    }
+    // One-time task: show on its scheduled day (and after if not done)
+    return t.scheduledFor<=todayStr&&!t.done||t.doneDate===todayStr;
+  });
   const catSubcats=subcats.filter(s=>s.catId===cat.id);
   const allHabits=habits.filter(h=>h.catId===cat.id);
   const doneCount=allHabits.filter(h=>isDone(h,todayStr)).length;
