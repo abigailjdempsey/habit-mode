@@ -520,8 +520,9 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
                 <button onClick={()=>{setAddingSubcat(false);setNewSubcatVal("");}} style={{padding:"8px 12px",border:`1.5px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>✕</button>
               </div>
               :<>
-                <button onClick={()=>{setAddingSubcat(true);setTimeout(()=>newSubcatRef.current?.focus(),50);}} style={{flex:1,padding:"8px",border:`1.5px dashed ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>+ SUBCATEGORY</button>
                 <button onClick={()=>onAddHabit(cat.id,null)} style={{flex:1,padding:"8px",border:`1.5px dashed ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>+ HABIT</button>
+                <button onClick={()=>onAddTask(cat.id,null)} style={{flex:1,padding:"8px",border:`1.5px dashed ${t.accent}66`,background:"transparent",color:t.accent,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>+ TASK</button>
+                <button onClick={()=>{setAddingSubcat(true);setTimeout(()=>newSubcatRef.current?.focus(),50);}} style={{flex:1,padding:"8px",border:`1.5px dashed ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>+ SUBCAT</button>
               </>}
           </div>
         </div>
@@ -2648,7 +2649,7 @@ export default function App(){
                   onDeleteCat={!isPast?deleteCat:()=>{}} onRenameCat={!isPast?renameCat:()=>{}} onColorCat={colorCat} onHideDays={hideDaysCat}
                   onAddSubcat={!isPast?addSubcat:()=>{}} onDeleteSubcat={!isPast?deleteSubcat:()=>{}} onRenameSubcat={!isPast?renameSubcat:()=>{}}
                   onAddHabit={!isPast?(catId,subId)=>setAddHabitCtx({catId,subId}):()=>{}}
-                  onAddTask={!isPast?(catId,subId)=>setAddTaskCtx({catId,subId}):()=>{}}
+                  onAddTask={(catId,subId)=>setAddTaskCtx({catId,subId})}
                   tasks={tasks||[]}
                   onCompleteTask={!isPast?completeTask:()=>{}} onUncompleteTask={!isPast?uncompleteTask:()=>{}}
                   onDeleteTask={deleteTask} onRenameTask={renameTask}
