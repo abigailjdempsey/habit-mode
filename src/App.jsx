@@ -301,8 +301,96 @@ function SubcatBlock({subcat,habits,todayStr,theme,onComplete,onUndoOne,onDelete
   );
 }
 
+
+// ─── TASK ROW ─────────────────────────────────────────────────────────────────
+// Tasks are one-time items — checkbox style, disappear when done (or stay visible)
+function TaskRow({task, onComplete, onUncomplete, onDelete, onRename, theme}) {
+  const t=THEMES[theme]||THEMES.hawt;
+  const [editing,setEditing]=useState(false);
+  const [editVal,setEditVal]=useState(task.label);
+  const ref=useRef(null);
+  const commit=()=>{if(editVal.trim())onRename(task.id,editVal.trim());setEditing(false);};
+
+  return(
+    <div style={{display:"flex",alignItems:"center",gap:0,border:`1.5px solid ${task.done?t.border:t.accent+"66"}`,marginBottom:5,background:task.done?t.bgCard:t.bg,opacity:task.done?0.6:1,transition:"all 0.2s",boxShadow:task.done?"none":`1px 1px 0 ${t.border}`}}>
+      {/* Checkbox */}
+      <button onClick={()=>task.done?onUncomplete(task.id):onComplete(task.id)} style={{width:40,alignSelf:"stretch",background:"transparent",border:"none",borderRight:`1.5px solid ${task.done?t.border:t.accent+"66"}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,color:task.done?t.accent:t.textSub,flexShrink:0}}>
+        {task.done?"☑":"☐"}
+      </button>
+      {/* Label */}
+      <div style={{flex:1,padding:"9px 10px",minWidth:0}}>
+        {editing
+          ?<input ref={ref} value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter")commit();if(e.key==="Escape")setEditing(false);}} onClick={e=>e.stopPropagation()} style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,letterSpacing:1,color:t.text,background:"transparent",border:"none",borderBottom:`1.5px solid ${t.accent}`,outline:"none",width:"100%"}} autoFocus/>
+          :<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,color:task.done?t.textSub:t.text,letterSpacing:1,textDecoration:task.done?"line-through":"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{task.label}</div>
+        }
+        {task.note&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:1}}>{task.note}</div>}
+        {task.dueDate&&task.dueDate!==task.scheduledFor&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:t.accent2,letterSpacing:1,marginTop:1}}>DUE {task.dueDate}</div>}
+      </div>
+      {/* Edit/delete */}
+      <div style={{display:"flex",flexDirection:"column",borderLeft:`1.5px solid ${t.border}`,flexShrink:0}}>
+        <button onClick={e=>{e.stopPropagation();setEditVal(task.label);setEditing(true);setTimeout(()=>ref.current?.focus(),50);}} style={{background:"transparent",border:"none",borderBottom:`1px solid ${t.border}`,color:t.textSub,cursor:"pointer",fontSize:10,padding:"7px 10px",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>EDT</button>
+        <button onClick={e=>{e.stopPropagation();onDelete(task.id);}} style={{background:"transparent",border:"none",color:t.textSub,cursor:"pointer",fontSize:13,padding:"7px 10px",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── ADD TASK MODAL ───────────────────────────────────────────────────────────
+function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defaultDate}) {
+  const t=THEMES[theme]||THEMES.hawt;
+  const [label,setLabel]=useState("");
+  const [note,setNote]=useState("");
+  const [dueDate,setDueDate]=useState("");
+  const [selectedCat,setSelectedCat]=useState(catId||cats[0]?.id||"");
+  const [selectedSub,setSelectedSub]=useState(subId||"none");
+  const availSubs=subcats.filter(s=>s.catId===selectedCat);
+  const inp={width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"11px 13px",color:t.text,fontSize:14,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:10};
+  const sel={...inp,appearance:"none",cursor:"pointer"};
+
+  const submit=()=>{
+    if(!label.trim()||!selectedCat)return;
+    onAdd({
+      id:uid(), label:label.trim(), note:note.trim(),
+      catId:selectedCat, subId:selectedSub==="none"?null:selectedSub,
+      scheduledFor:defaultDate||TODAY(),
+      dueDate:dueDate||null,
+      done:false, doneDate:null,
+      createdDate:TODAY(), isTask:true
+    });
+    onClose();
+  };
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
+      <div style={{background:t.bg,padding:24,width:"100%",maxWidth:480,border:`3px solid ${t.accent}`,borderBottom:"none",boxShadow:`-6px -6px 0 ${t.accent}`,maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,marginBottom:4,letterSpacing:4}}>NEW TASK</div>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:16}}>ONE-TIME · WON'T REPEAT</div>
+        <input style={inp} placeholder="TASK NAME" value={label} onChange={e=>setLabel(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} autoFocus/>
+        <input style={inp} placeholder="NOTES (OPTIONAL)" value={note} onChange={e=>setNote(e.target.value)}/>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:4}}>CATEGORY:</div>
+        <select style={sel} value={selectedCat} onChange={e=>{setSelectedCat(e.target.value);setSelectedSub("none");}}>
+          {cats.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
+        </select>
+        {availSubs.length>0&&<>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:4}}>SUBCATEGORY:</div>
+          <select style={sel} value={selectedSub} onChange={e=>setSelectedSub(e.target.value)}>
+            <option value="none">NONE</option>
+            {availSubs.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
+          </select>
+        </>}
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:4}}>DUE DATE (OPTIONAL):</div>
+        <input type="date" style={{...inp,marginBottom:16,colorScheme:"dark"}} value={dueDate} onChange={e=>setDueDate(e.target.value)}/>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={onClose} style={{flex:1,padding:13,border:`2px solid ${t.border}`,background:"transparent",color:t.text,fontFamily:"'Black Han Sans',sans-serif",fontSize:14,cursor:"pointer",letterSpacing:3}}>CANCEL</button>
+          <button onClick={submit} style={{flex:2,padding:13,border:`2px solid ${t.accent}`,background:t.accent,color:t.textInv,fontFamily:"'Black Han Sans',sans-serif",fontSize:14,cursor:"pointer",letterSpacing:3,boxShadow:`3px 3px 0 ${t.border}`}}>ADD TASK</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── CATEGORY BLOCK ──────────────────────────────────────────────────────────
-function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,onDeleteHabit,onRenameHabit,onOpenDrawer,onDeleteCat,onRenameCat,onColorCat,onHideDays,onAddSubcat,onDeleteSubcat,onRenameSubcat,onAddHabit,onReorderCat,onReorderHabit,onReorderSubcat}){
+function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,onDeleteHabit,onRenameHabit,onOpenDrawer,onDeleteCat,onRenameCat,onColorCat,onHideDays,onAddSubcat,onDeleteSubcat,onRenameSubcat,onAddHabit,onAddTask,tasks,onCompleteTask,onUncompleteTask,onDeleteTask,onRenameTask,onReorderCat,onReorderHabit,onReorderSubcat}){
   const t=THEMES[theme]||THEMES.hawt;
   const [collapsed,setCollapsed]=useState(cat.collapsed||false);
   const [editing,setEditing]=useState(false);
@@ -315,6 +403,7 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
 
   const catColor=cat.color||t.accent;
   const directHabits=habits.filter(h=>h.catId===cat.id&&!h.subId);
+  const catTasks=(tasks||[]).filter(t=>t.catId===cat.id&&!t.subId);
   const catSubcats=subcats.filter(s=>s.catId===cat.id);
   const allHabits=habits.filter(h=>h.catId===cat.id);
   const doneCount=allHabits.filter(h=>isDone(h,todayStr)).length;
@@ -410,6 +499,13 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
               onDrop={e=>{e.preventDefault();e.stopPropagation();const fromId=e.dataTransfer.getData("habitId");if(fromId&&fromId!==h.id)onReorderHabit(fromId,h.id);}}>
               <HabitRow habit={h} onComplete={onComplete} onUndoOne={onUndoOne} onDelete={onDeleteHabit} onRename={onRenameHabit} todayStr={todayStr} theme={theme} onOpenDrawer={onOpenDrawer}/>
             </div>
+          ))}
+
+          {/* Tasks for this category */}
+          {catTasks.map(task=>(
+            <TaskRow key={task.id} task={task} theme={theme}
+              onComplete={onCompleteTask} onUncomplete={onUncompleteTask}
+              onDelete={onDeleteTask} onRename={onRenameTask}/>
           ))}
 
           {/* Action buttons */}
@@ -2260,6 +2356,7 @@ export default function App(){
   const [cats,setCats]=useState(DEFAULT_DATA.categories);
   const [subcats,setSubcats]=useState(DEFAULT_DATA.subcategories);
   const [habits,setHabits]=useState(DEFAULT_DATA.habits);
+  const [tasks,setTasks]=useState([]); // one-time tasks
   const [movies,setMovies]=useState([]);
   const [books,setBooks]=useState([]);
   const [tvshows,setTvshows]=useState([]);
@@ -2276,6 +2373,7 @@ export default function App(){
   const [milestone,setMilestone]=useState({show:false,streak:0});
   const [addModal,setAddModal]=useState(null);
   const [addHabitCtx,setAddHabitCtx]=useState(null); // {catId,subId}
+  const [addTaskCtx,setAddTaskCtx]=useState(null); // {catId,subId}
   const [showTheme,setShowTheme]=useState(false);
   const [openDrawer,setOpenDrawer]=useState(null);
   const [addingCat,setAddingCat]=useState(false);
@@ -2302,17 +2400,17 @@ export default function App(){
   const newCatRef=useRef(null);
   const importRef=useRef(null);
 
-  useEffect(()=>{load().then(saved=>{if(saved){setCats(saved.cats||DEFAULT_DATA.categories);setSubcats(saved.subcats||DEFAULT_DATA.subcategories);setHabits(saved.habits||DEFAULT_DATA.habits);setMovies(saved.movies||[]);setBooks(saved.books||[]);setTvshows(saved.tvshows||[]);setPlaces(saved.places||[]);setCityList(saved.cityList||STARTER_CITIES.map(c=>c.name));setCityEmojis(saved.cityEmojis||{});setTotalXP(saved.totalXP||0);setTheme(saved.theme||"hawt");}setLoaded(true);});},[]);
+  useEffect(()=>{load().then(saved=>{if(saved){setCats(saved.cats||DEFAULT_DATA.categories);setSubcats(saved.subcats||DEFAULT_DATA.subcategories);setHabits(saved.habits||DEFAULT_DATA.habits);setTasks(saved.tasks||[]);setMovies(saved.movies||[]);setBooks(saved.books||[]);setTvshows(saved.tvshows||[]);setPlaces(saved.places||[]);setCityList(saved.cityList||STARTER_CITIES.map(c=>c.name));setCityEmojis(saved.cityEmojis||{});setTotalXP(saved.totalXP||0);setTheme(saved.theme||"hawt");}setLoaded(true);});},[]);
   useEffect(()=>{
     if(!loaded)return;
-    const state={cats,subcats,habits,movies,books,tvshows,places,cityList,cityEmojis,totalXP,theme};
+    const state={cats,subcats,habits,tasks,movies,books,tvshows,places,cityList,cityEmojis,totalXP,theme};
     save(state);
     // Auto-backup to Google Drive (debounced — only after 3s of no changes)
     if(gdriveStatus==="connected"){
       clearTimeout(window._gdriveBackupTimer);
       window._gdriveBackupTimer=setTimeout(()=>pushGdriveBackup(state,setGdriveStatus),3000);
     }
-  },[cats,subcats,habits,movies,books,places,cityList,cityEmojis,totalXP,theme,loaded]);
+  },[cats,subcats,habits,tasks,movies,books,places,cityList,cityEmojis,totalXP,theme,loaded]);
 
   const showToast=(msg,emoji)=>{setToast({show:true,msg,emoji});setTimeout(()=>setToast(s=>({...s,show:false})),2200);};
 
@@ -2398,7 +2496,7 @@ export default function App(){
     scheduleDelete(h?.label||"habit",()=>setHabits(p=>p.filter(x=>x.id!==id)));
   };
 
-  const handleExport=()=>exportData({cats,subcats,habits,movies,books,tvshows,places,cityList,cityEmojis,totalXP,theme});
+  const handleExport=()=>exportData({cats,subcats,habits,tasks,movies,books,tvshows,places,cityList,cityEmojis,totalXP,theme});
   const handleImport=(file)=>{
     importData(file, (data)=>{
       if(data.cats) setCats(data.cats);
@@ -2433,9 +2531,10 @@ export default function App(){
   const addList=(type,item)=>{if(type==="movie")setMovies(p=>[...p,item]);else setBooks(p=>[...p,item]);};
   const renameList=(type,id,title)=>{if(type==="movie")setMovies(p=>p.map(m=>m.id===id?{...m,title}:m));else setBooks(p=>p.map(b=>b.id===id?{...b,title}:b));};
 
-  const doneCount=habits.filter(h=>isDone(h,viewDate)).length;
+  const doneCount=habits.filter(h=>isDone(h,viewDate)).length+tasks.filter(t=>t.done&&(t.scheduledFor===viewDate||t.doneDate===viewDate)).length;
   // Habits scheduled for the viewed date
   const scheduledHabits=habits.filter(h=>isScheduledFor(h,viewDate)&&(!h.createdDate||h.createdDate<=viewDate));
+  const scheduledTasks=tasks.filter(t=>t.scheduledFor<=viewDate&&(!t.done||t.doneDate===viewDate));
   const drawerHabit=habits.find(h=>h.id===openDrawer);
 
   const navItems=[{id:"today",emoji:"☀️",label:"TODAY"},{id:"watchread",emoji:"🎬",label:"MEDIA"},{id:"try",emoji:"📍",label:"TRY"},{id:"log",emoji:"📊",label:"LOG"},{id:"settings",emoji:"⚙️",label:"SETTINGS"}];
@@ -2469,6 +2568,7 @@ export default function App(){
       <Toast msg={toast.msg} emoji={toast.emoji} show={toast.show} theme={theme}/>
       <MilestoneBanner show={milestone.show} streak={milestone.streak} onDone={()=>setMilestone({show:false,streak:0})} theme={theme}/>
       {addModal&&<AddModal type={addModal} onAdd={item=>addList(addModal,item)} onClose={()=>setAddModal(null)} theme={theme}/>}
+      {addTaskCtx&&<AddTaskModal catId={addTaskCtx.catId} subId={addTaskCtx.subId} cats={cats} subcats={subcats} onAdd={addTask} onClose={()=>setAddTaskCtx(null)} theme={theme} defaultDate={viewDate}/>}
       {addHabitCtx&&<AddHabitModal catId={addHabitCtx.catId} subId={addHabitCtx.subId} cats={cats} subcats={subcats} onAdd={addHabit} onClose={()=>setAddHabitCtx(null)} theme={theme}/>}
       {showTheme&&<ThemePicker current={theme} onChange={setTheme} onClose={()=>setShowTheme(false)}/>}
       {showWeekly&&<WeeklySummary habits={habits} totalXP={totalXP} onClose={()=>setShowWeekly(false)} theme={theme} t={t}/>}
@@ -2542,6 +2642,10 @@ export default function App(){
                   onDeleteCat={!isPast?deleteCat:()=>{}} onRenameCat={!isPast?renameCat:()=>{}} onColorCat={colorCat} onHideDays={hideDaysCat}
                   onAddSubcat={!isPast?addSubcat:()=>{}} onDeleteSubcat={!isPast?deleteSubcat:()=>{}} onRenameSubcat={!isPast?renameSubcat:()=>{}}
                   onAddHabit={!isPast?(catId,subId)=>setAddHabitCtx({catId,subId}):()=>{}}
+                  onAddTask={!isPast?(catId,subId)=>setAddTaskCtx({catId,subId}):()=>{}}
+                  tasks={tasks.filter(task=>task.scheduledFor<=viewDate||(task.scheduledFor===viewDate))}
+                  onCompleteTask={!isPast?completeTask:()=>{}} onUncompleteTask={!isPast?uncompleteTask:()=>{}}
+                  onDeleteTask={deleteTask} onRenameTask={renameTask}
                   onReorderCat={reorderCats} onReorderHabit={reorderHabits} onReorderSubcat={reorderSubcats}/>
               ))}
 
