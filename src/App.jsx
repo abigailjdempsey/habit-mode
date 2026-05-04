@@ -2490,6 +2490,11 @@ export default function App(){
 
   // Habit CRUD
   const addHabit=(h)=>{setHabits(prev=>[...prev,h]);showToast("HABIT ADDED",h.emoji);};
+  const addTask=(task)=>setTasks(prev=>[...prev,task]);
+  const completeTask=(id)=>setTasks(prev=>prev.map(t=>t.id===id?{...t,done:true,doneDate:TODAY()}:t));
+  const uncompleteTask=(id)=>setTasks(prev=>prev.map(t=>t.id===id?{...t,done:false,doneDate:null}:t));
+  const deleteTask=(id)=>setTasks(prev=>prev.filter(t=>t.id!==id));
+  const renameTask=(id,label)=>setTasks(prev=>prev.map(t=>t.id===id?{...t,label}:t));
   const deleteHabit=(id)=>{
     const h=habits.find(x=>x.id===id);
     if(!window.confirm(`Delete "${h?.label}"? All streak and completion data will be lost.`)) return;
