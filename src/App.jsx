@@ -403,7 +403,7 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
 
   const catColor=cat.color||t.accent;
   const directHabits=habits.filter(h=>h.catId===cat.id&&!h.subId);
-  const catTasks=(tasks||[]).filter(t=>t.catId===cat.id&&!t.subId);
+  const catTasks=(tasks||[]).filter(t=>t.catId===cat.id&&!t.subId&&t.scheduledFor<=todayStr);
   const catSubcats=subcats.filter(s=>s.catId===cat.id);
   const allHabits=habits.filter(h=>h.catId===cat.id);
   const doneCount=allHabits.filter(h=>isDone(h,todayStr)).length;
@@ -2513,6 +2513,7 @@ export default function App(){
     if(data.cats) setCats(data.cats);
     if(data.subcats) setSubcats(data.subcats);
     if(data.habits) setHabits(data.habits);
+    if(data.tasks) setTasks(data.tasks);
     if(data.movies) setMovies(data.movies);
     if(data.books) setBooks(data.books);
     if(data.tvshows) setTvshows(data.tvshows);
@@ -2531,10 +2532,10 @@ export default function App(){
   const addList=(type,item)=>{if(type==="movie")setMovies(p=>[...p,item]);else setBooks(p=>[...p,item]);};
   const renameList=(type,id,title)=>{if(type==="movie")setMovies(p=>p.map(m=>m.id===id?{...m,title}:m));else setBooks(p=>p.map(b=>b.id===id?{...b,title}:b));};
 
-  const doneCount=habits.filter(h=>isDone(h,viewDate)).length+tasks.filter(t=>t.done&&(t.scheduledFor===viewDate||t.doneDate===viewDate)).length;
+  const doneCount=habits.filter(h=>isDone(h,viewDate)).length+(tasks||[]).filter(t=>t.done&&(t.scheduledFor===viewDate||t.doneDate===viewDate)).length;
   // Habits scheduled for the viewed date
   const scheduledHabits=habits.filter(h=>isScheduledFor(h,viewDate)&&(!h.createdDate||h.createdDate<=viewDate));
-  const scheduledTasks=tasks.filter(t=>t.scheduledFor<=viewDate&&(!t.done||t.doneDate===viewDate));
+  const scheduledTasks=(tasks||[]).filter(t=>t.scheduledFor<=viewDate&&(!t.done||t.doneDate===viewDate));
   const drawerHabit=habits.find(h=>h.id===openDrawer);
 
   const navItems=[{id:"today",emoji:"☀️",label:"TODAY"},{id:"watchread",emoji:"🎬",label:"MEDIA"},{id:"try",emoji:"📍",label:"TRY"},{id:"log",emoji:"📊",label:"LOG"},{id:"settings",emoji:"⚙️",label:"SETTINGS"}];
@@ -2643,7 +2644,7 @@ export default function App(){
                   onAddSubcat={!isPast?addSubcat:()=>{}} onDeleteSubcat={!isPast?deleteSubcat:()=>{}} onRenameSubcat={!isPast?renameSubcat:()=>{}}
                   onAddHabit={!isPast?(catId,subId)=>setAddHabitCtx({catId,subId}):()=>{}}
                   onAddTask={!isPast?(catId,subId)=>setAddTaskCtx({catId,subId}):()=>{}}
-                  tasks={tasks.filter(task=>task.scheduledFor<=viewDate||(task.scheduledFor===viewDate))}
+                  tasks={tasks||[]}
                   onCompleteTask={!isPast?completeTask:()=>{}} onUncompleteTask={!isPast?uncompleteTask:()=>{}}
                   onDeleteTask={deleteTask} onRenameTask={renameTask}
                   onReorderCat={reorderCats} onReorderHabit={reorderHabits} onReorderSubcat={reorderSubcats}/>
