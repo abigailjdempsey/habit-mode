@@ -404,7 +404,7 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
 
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:2000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
-      <div style={{background:t.bg,padding:24,width:"100%",maxWidth:480,border:`3px solid ${t.accent}`,borderBottom:"none",boxShadow:`-6px -6px 0 ${t.accent}`,maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+      <div style={{background:t.bg,padding:24,width:"100%",maxWidth:480,border:`3px solid ${t.accent}`,borderBottom:"none",boxShadow:`-6px -6px 0 ${t.accent}`,maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()} onMouseDown={e=>e.stopPropagation()} onDragStart={e=>e.preventDefault()}>
         <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,marginBottom:4,letterSpacing:4}}>NEW TASK</div>
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:16}}>ONE-TIME · WON'T REPEAT</div>
         <input style={inp} placeholder="TASK NAME" value={label} onChange={e=>setLabel(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} autoFocus/>
@@ -422,8 +422,8 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
         </>}
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:4}}>DUE DATE & TIME (OPTIONAL):</div>
         <div style={{display:"flex",gap:6,marginBottom:dueDate?8:16}}>
-          <input type="date" style={{...inp,flex:2,marginBottom:0,colorScheme:"dark"}} value={dueDate} onChange={e=>{setDueDate(e.target.value);if(!e.target.value){setRepeatUntilDue(false);setDueTime("");}}}/>
-          <input type="time" style={{...inp,flex:1,marginBottom:0,colorScheme:"dark"}} value={dueTime} onChange={e=>setDueTime(e.target.value)} disabled={!dueDate} placeholder="TIME"/>
+          <input type="date" style={{...inp,flex:2,marginBottom:0,colorScheme:"dark"}} value={dueDate} onMouseDown={e=>e.stopPropagation()} onChange={e=>{setDueDate(e.target.value);if(!e.target.value){setRepeatUntilDue(false);setDueTime("");}}}/>
+          <input type="time" style={{...inp,flex:1,marginBottom:0,colorScheme:"dark"}} value={dueTime} onMouseDown={e=>e.stopPropagation()} onChange={e=>setDueTime(e.target.value)} disabled={!dueDate} placeholder="TIME"/>
         </div>
         {dueDate&&<div style={{marginBottom:16}}>
           <button onClick={()=>setRepeatUntilDue(v=>!v)} style={{width:"100%",padding:"10px 14px",border:`2px solid ${repeatUntilDue?t.accent:t.border}`,background:repeatUntilDue?`${t.accent}18`:"transparent",color:repeatUntilDue?t.accent:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
