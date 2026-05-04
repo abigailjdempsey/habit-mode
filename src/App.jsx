@@ -302,7 +302,7 @@ function SubcatBlock({subcat,habits,todayStr,theme,onComplete,onUndoOne,onDelete
 }
 
 // ─── CATEGORY BLOCK ──────────────────────────────────────────────────────────
-function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,onDeleteHabit,onRenameHabit,onOpenDrawer,onDeleteCat,onRenameCat,onColorCat,onAddSubcat,onDeleteSubcat,onRenameSubcat,onAddHabit,onReorderCat,onReorderHabit,onReorderSubcat}){
+function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,onDeleteHabit,onRenameHabit,onOpenDrawer,onDeleteCat,onRenameCat,onColorCat,onHideDays,onAddSubcat,onDeleteSubcat,onRenameSubcat,onAddHabit,onReorderCat,onReorderHabit,onReorderSubcat}){
   const t=THEMES[theme]||THEMES.hawt;
   const [collapsed,setCollapsed]=useState(cat.collapsed||false);
   const [editing,setEditing]=useState(false);
@@ -341,13 +341,25 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
       {pickingColor&&(
         <div style={{background:t.bgCard,borderBottom:`2px solid ${t.border}`,padding:"10px 12px"}}>
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:8}}>CATEGORY COLOR</div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
             {HABIT_COLORS.map(c=>(
-              <button key={c} onClick={()=>{onColorCat(cat.id,c);setPickingColor(false);}} style={{width:28,height:28,background:c,border:`3px solid ${catColor===c?t.text:"transparent"}`,cursor:"pointer",transition:"all 0.1s",boxShadow:catColor===c?`0 0 0 1px ${t.border}`:"none"}}/>
+              <button key={c} onClick={()=>{onColorCat(cat.id,c);}} style={{width:28,height:28,background:c,border:`3px solid ${catColor===c?t.text:"transparent"}`,cursor:"pointer",transition:"all 0.1s",boxShadow:catColor===c?`0 0 0 1px ${t.border}`:"none"}}/>
             ))}
-            {/* Reset to theme default */}
-            <button onClick={()=>{onColorCat(cat.id,null);setPickingColor(false);}} style={{width:28,height:28,background:t.bgCard,border:`2px dashed ${t.border}`,cursor:"pointer",fontSize:10,color:t.textSub,display:"flex",alignItems:"center",justifyContent:"center"}} title="Reset">↺</button>
+            <button onClick={()=>{onColorCat(cat.id,null);}} style={{width:28,height:28,background:t.bgCard,border:`2px dashed ${t.border}`,cursor:"pointer",fontSize:10,color:t.textSub,display:"flex",alignItems:"center",justifyContent:"center"}} title="Reset">↺</button>
           </div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:6}}>HIDE ON DAYS</div>
+          <div style={{display:"flex",gap:4,marginBottom:8}}>
+            {["SUN","MON","TUE","WED","THU","FRI","SAT"].map((day,i)=>{
+              const hidden=(cat.hideDays||[]).includes(i);
+              return <button key={i} onClick={()=>{
+                const cur=cat.hideDays||[];
+                onHideDays(cat.id,hidden?cur.filter(d=>d!==i):[...cur,i].sort());
+              }} style={{flex:1,padding:"6px 0",border:`2px solid ${hidden?t.accent2:t.border}`,background:hidden?t.accent2:t.bgCard,color:hidden?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:9,cursor:"pointer",letterSpacing:0}}>{day}</button>;
+            })}
+          </div>
+          {(cat.hideDays||[]).length>0&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.accent2,letterSpacing:1,marginBottom:4}}>
+            HIDDEN ON: {(cat.hideDays||[]).map(d=>["SUN","MON","TUE","WED","THU","FRI","SAT"][d]).join(", ")}
+          </div>}
         </div>
       )}
       {/* Category header */}
@@ -2284,7 +2296,8 @@ export default function App(){
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   })();
   const isToday=viewOffset===0;
-  const viewDateLabel=isToday?"TODAY":viewOffset===-1?"YESTERDAY":new Date(viewDate+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"}).toUpperCase();
+  const isPast=viewOffset<0;
+  const viewDateLabel=isToday?"TODAY":viewOffset===-1?"YESTERDAY":viewOffset===1?"TOMORROW":new Date(viewDate+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"}).toUpperCase();
   const t=THEMES[theme]||THEMES.hawt;
   const newCatRef=useRef(null);
   const importRef=useRef(null);
@@ -2368,6 +2381,7 @@ export default function App(){
     });
   };
   const colorCat=(id,color)=>setCats(p=>p.map(c=>c.id===id?{...c,color}:c));
+  const hideDaysCat=(id,hideDays)=>setCats(p=>p.map(c=>c.id===id?{...c,hideDays}:c));
   const addSubcat=(sub)=>setSubcats(prev=>[...prev,sub]);
   const deleteSubcat=(id)=>{
     const sub=subcats.find(s=>s.id===id);
@@ -2421,7 +2435,7 @@ export default function App(){
 
   const doneCount=habits.filter(h=>isDone(h,viewDate)).length;
   // Habits scheduled for the viewed date
-  const scheduledHabits=habits.filter(h=>isScheduledFor(h,viewDate));
+  const scheduledHabits=habits.filter(h=>isScheduledFor(h,viewDate)&&(!h.createdDate||h.createdDate<=viewDate));
   const drawerHabit=habits.find(h=>h.id===openDrawer);
 
   const navItems=[{id:"today",emoji:"☀️",label:"TODAY"},{id:"watchread",emoji:"🎬",label:"MEDIA"},{id:"try",emoji:"📍",label:"TRY"},{id:"log",emoji:"📊",label:"LOG"},{id:"settings",emoji:"⚙️",label:"SETTINGS"}];
@@ -2458,7 +2472,7 @@ export default function App(){
       {addHabitCtx&&<AddHabitModal catId={addHabitCtx.catId} subId={addHabitCtx.subId} cats={cats} subcats={subcats} onAdd={addHabit} onClose={()=>setAddHabitCtx(null)} theme={theme}/>}
       {showTheme&&<ThemePicker current={theme} onChange={setTheme} onClose={()=>setShowTheme(false)}/>}
       {showWeekly&&<WeeklySummary habits={habits} totalXP={totalXP} onClose={()=>setShowWeekly(false)} theme={theme} t={t}/>}
-      {drawerHabit&&<RepeatDrawer habit={drawerHabit} todayStr={viewDate} count={getCount(drawerHabit,viewDate)} onIncrement={isToday?completeHabit:()=>{}} onDecrement={isToday?undoOne:()=>{}} onRename={isToday?renameHabit:()=>{}} onClose={()=>setOpenDrawer(null)} theme={theme}/>}
+      {drawerHabit&&<RepeatDrawer habit={drawerHabit} todayStr={viewDate} count={getCount(drawerHabit,viewDate)} onIncrement={!isPast?completeHabit:()=>{}} onDecrement={!isPast?undoOne:()=>{}} onRename={!isPast?renameHabit:()=>{}} onClose={()=>setOpenDrawer(null)} theme={theme}/>}
 
       <div style={{background:t.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:90}}>
         {/* Header */}
@@ -2477,7 +2491,7 @@ export default function App(){
                 <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:isToday?t.textInv:t.text,letterSpacing:3}}>{viewDateLabel}</div>
                 {!isToday&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:isToday?t.textInv:t.textSub,letterSpacing:2,marginTop:1}}>{new Date(viewDate+"T12:00:00").toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</div>}
               </div>
-              <button onClick={()=>setViewOffset(o=>Math.min(0,o+1))} disabled={isToday} style={{background:"transparent",border:`2px solid ${t.border}`,padding:"7px 12px",cursor:isToday?"default":"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:isToday?t.textSub:t.text,opacity:isToday?0.3:1,boxShadow:`2px 2px 0 ${t.border}`}}>▶</button>
+              <button onClick={()=>setViewOffset(o=>o+1)} disabled={false} style={{background:"transparent",border:`2px solid ${t.border}`,padding:"7px 12px",cursor:isToday?"default":"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:isToday?t.textSub:t.text,opacity:isToday?0.3:1,boxShadow:`2px 2px 0 ${t.border}`}}>▶</button>
               {!isToday&&<button onClick={()=>setViewOffset(0)} style={{background:t.accent,border:`2px solid ${t.border}`,borderLeft:"none",padding:"7px 10px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:10,color:t.textInv,letterSpacing:1,boxShadow:`2px 2px 0 ${t.border}`,whiteSpace:"nowrap"}}>TODAY</button>}
             </div>
           )}
@@ -2500,7 +2514,7 @@ export default function App(){
               </div>
 
               {/* Reset day button — only shown on today */}
-              {isToday&&doneCount>0&&<div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}>
+              {!isPast&&doneCount>0&&<div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}>
                 <button onClick={()=>{
                   if(!window.confirm("Reset all habits for today? This can't be undone.")) return;
                   setHabits(prev=>prev.map(h=>{
@@ -2516,18 +2530,18 @@ export default function App(){
                 }} style={{background:"transparent",border:`1.5px solid ${t.accent2}`,padding:"5px 12px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.accent2,letterSpacing:2}}>↺ RESET DAY</button>
               </div>}
               {/* Past day banner */}
-              {!isToday&&<div style={{background:`${t.accent2}18`,border:`2px solid ${t.accent2}`,padding:"10px 14px",marginBottom:12,boxShadow:`2px 2px 0 ${t.border}`}}>
+              {isPast&&<div style={{background:`${t.accent2}18`,border:`2px solid ${t.accent2}`,padding:"10px 14px",marginBottom:12,boxShadow:`2px 2px 0 ${t.border}`}}>
                 <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:t.accent2,letterSpacing:2}}>VIEWING PAST DAY — READ ONLY</div>
               </div>}
               {/* Categories */}
-              {cats.map(cat=>(
+              {cats.filter(cat=>!cat.hideDays||cat.hideDays.length===0||!cat.hideDays.includes(new Date(viewDate+"T12:00:00").getDay())).map(cat=>(
                 <CategoryBlock key={cat.id} cat={cat} subcats={subcats} habits={scheduledHabits} todayStr={viewDate} theme={theme}
-                  onComplete={isToday?completeHabit:()=>{}} onUndoOne={isToday?undoOne:()=>{}}
-                  onDeleteHabit={isToday?deleteHabit:()=>{}} onRenameHabit={isToday?renameHabit:()=>{}}
-                  onOpenDrawer={isToday?setOpenDrawer:()=>{}}
-                  onDeleteCat={isToday?deleteCat:()=>{}} onRenameCat={isToday?renameCat:()=>{}} onColorCat={colorCat}
-                  onAddSubcat={isToday?addSubcat:()=>{}} onDeleteSubcat={isToday?deleteSubcat:()=>{}} onRenameSubcat={isToday?renameSubcat:()=>{}}
-                  onAddHabit={isToday?(catId,subId)=>setAddHabitCtx({catId,subId}):()=>{}}
+                  onComplete={!isPast?completeHabit:()=>{}} onUndoOne={!isPast?undoOne:()=>{}}
+                  onDeleteHabit={!isPast?deleteHabit:()=>{}} onRenameHabit={!isPast?renameHabit:()=>{}}
+                  onOpenDrawer={!isPast?setOpenDrawer:()=>{}}
+                  onDeleteCat={!isPast?deleteCat:()=>{}} onRenameCat={!isPast?renameCat:()=>{}} onColorCat={colorCat} onHideDays={hideDaysCat}
+                  onAddSubcat={!isPast?addSubcat:()=>{}} onDeleteSubcat={!isPast?deleteSubcat:()=>{}} onRenameSubcat={!isPast?renameSubcat:()=>{}}
+                  onAddHabit={!isPast?(catId,subId)=>setAddHabitCtx({catId,subId}):()=>{}}
                   onReorderCat={reorderCats} onReorderHabit={reorderHabits} onReorderSubcat={reorderSubcats}/>
               ))}
 
