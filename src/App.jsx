@@ -342,7 +342,9 @@ function TaskRow({task, onComplete, onUncomplete, onDelete, onRename, onUpdate, 
         <div style={{flex:1,padding:"9px 10px",minWidth:0}}>
           {editing
             ?<input ref={ref} value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter")commit();if(e.key==="Escape")setEditing(false);}} onClick={e=>e.stopPropagation()} style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,letterSpacing:1,color:t.text,background:"transparent",border:"none",borderBottom:`1.5px solid ${t.accent}`,outline:"none",width:"100%"}} autoFocus/>
-            :<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,color:task.done?t.textSub:t.text,letterSpacing:1,textDecoration:task.done?"line-through":"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{task.label}</div>
+            :<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,color:task.done?t.textSub:t.text,letterSpacing:1,textDecoration:task.done?"line-through":"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",display:"flex",alignItems:"center",gap:5}}>
+              {task.priority&&<span style={{fontSize:12,flexShrink:0}}>⭐</span>}{task.label}
+            </div>
           }
           {task.note&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:1}}>{task.note}</div>}
           <div style={{display:"flex",gap:6,alignItems:"center",marginTop:1,flexWrap:"wrap"}}>
@@ -382,6 +384,7 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
   const [dueDate,setDueDate]=useState("");
   const [repeatUntilDue,setRepeatUntilDue]=useState(false);
   const [dueTime,setDueTime]=useState("");
+  const [priority,setPriority]=useState(false);
   const [selectedCat,setSelectedCat]=useState(catId||cats[0]?.id||"");
   const [selectedSub,setSelectedSub]=useState(subId||"none");
   const availSubs=subcats.filter(s=>s.catId===selectedCat);
@@ -396,6 +399,7 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
       scheduledFor:defaultDate||TODAY(),
       dueDate:dueDate||null,
       dueTime:dueTime||null,
+      priority:priority,
       repeatUntilDue:repeatUntilDue&&!!dueDate,
       done:false, doneDate:null,
       createdDate:TODAY(), isTask:true
@@ -438,6 +442,9 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
             </div>
           </button>
         </div>}
+        <button onClick={()=>setPriority(v=>!v)} style={{width:"100%",padding:"10px",border:`2px solid ${priority?"#f1c40f":t.border}`,background:priority?"#f1c40f22":"transparent",color:priority?"#f1c40f":t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,marginBottom:10,display:"flex",alignItems:"center",gap:8,justifyContent:"center"}}>
+          <span style={{fontSize:16}}>⭐</span>{priority?"MARKED AS IMPORTANT":"MARK AS IMPORTANT"}
+        </button>
         <div style={{display:"flex",gap:8}}>
           <button onClick={onClose} style={{flex:1,padding:13,border:`2px solid ${t.border}`,background:"transparent",color:t.text,fontFamily:"'Black Han Sans',sans-serif",fontSize:14,cursor:"pointer",letterSpacing:3}}>CANCEL</button>
           <button onClick={submit} style={{flex:2,padding:13,border:`2px solid ${t.accent}`,background:t.accent,color:t.textInv,fontFamily:"'Black Han Sans',sans-serif",fontSize:14,cursor:"pointer",letterSpacing:3,boxShadow:`3px 3px 0 ${t.border}`}}>ADD TASK</button>
@@ -2755,6 +2762,44 @@ function EventsTab({events, setEvents, theme, t}) {
   );
 }
 
+
+// ─── ONBOARDING TOUR ──────────────────────────────────────────────────────────
+function OnboardingTour({onDone, theme}) {
+  const t=THEMES[theme]||THEMES.hawt;
+  const [step,setStep]=useState(0);
+  const steps=[
+    {emoji:"👋",title:"WELCOME TO HABIT MODE",body:"Your personal dashboard for habits, tasks, places, media, and events — all in one app.",cta:"LET'S GO →"},
+    {emoji:"☀️",title:"TODAY TAB",body:"Check off daily habits, add one-time tasks, and scroll through past or future days with the arrows.",cta:"GOT IT →"},
+    {emoji:"📍",title:"TRY TAB",body:"Build your personal city guide. Add restaurants, cafes, bars and stores — organized by city and neighborhood.",cta:"NICE →"},
+    {emoji:"🎬",title:"MEDIA TAB",body:"Track films, TV shows and books. Import from Letterboxd or Goodreads with a link, or add manually.",cta:"COOL →"},
+    {emoji:"📅",title:"EVENTS TAB",body:"Save concerts, pop-ups and events. Paste a link to auto-import details, or add manually.",cta:"AWESOME →"},
+    {emoji:"📊",title:"LOG TAB",body:"See your stats, streaks, and habit history. Settings and themes live here too.",cta:"START TRACKING 🔥"},
+  ];
+  const s=steps[step];
+  const isLast=step===steps.length-1;
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 24px"}}>
+      <div style={{background:t.bg,width:"100%",maxWidth:400,border:`3px solid ${t.border}`,boxShadow:`8px 8px 0 ${t.border}`,overflow:"hidden"}}>
+        {/* Progress bar */}
+        <div style={{height:4,background:t.bgCard}}>
+          <div style={{height:"100%",background:t.accent,width:`${((step+1)/steps.length)*100}%`,transition:"width 0.3s ease"}}/>
+        </div>
+        <div style={{padding:"32px 28px"}}>
+          <div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>{s.emoji}</div>
+          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4,marginBottom:12,whiteSpace:"pre-line",textAlign:"center",lineHeight:1.2}}>{s.title}</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,color:t.textSub,letterSpacing:1,lineHeight:1.7,textAlign:"center",marginBottom:28}}>{s.body}</div>
+          {/* Step dots */}
+          <div style={{display:"flex",justifyContent:"center",gap:6,marginBottom:24}}>
+            {steps.map((_,i)=><div key={i} style={{width:i===step?20:6,height:6,background:i===step?t.accent:t.border,transition:"all 0.3s",borderRadius:3}}/>)}
+          </div>
+          <button onClick={()=>isLast?onDone():setStep(s=>s+1)} style={{width:"100%",padding:"14px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:14,cursor:"pointer",letterSpacing:4,boxShadow:`3px 3px 0 ${t.border}`}}>{s.cta}</button>
+          {!isLast&&<button onClick={onDone} style={{width:"100%",padding:"10px",border:"none",background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,marginTop:8}}>SKIP TOUR</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App(){
   const [cats,setCats]=useState(DEFAULT_DATA.categories);
@@ -2784,6 +2829,7 @@ export default function App(){
   const [addingCat,setAddingCat]=useState(false);
   const [newCatVal,setNewCatVal]=useState("");
   const [loaded,setLoaded]=useState(false);
+  const [showOnboarding,setShowOnboarding]=useState(false);
   const [gdriveStatus,setGdriveStatus]=useState("idle"); // idle|connecting|connected|error
   const [showBackup,setShowBackup]=useState(false);
   const [pendingDelete,setPendingDelete]=useState(null);
@@ -2805,7 +2851,7 @@ export default function App(){
   const newCatRef=useRef(null);
   const importRef=useRef(null);
 
-  useEffect(()=>{load().then(saved=>{if(saved){setCats(saved.cats||DEFAULT_DATA.categories);setSubcats(saved.subcats||DEFAULT_DATA.subcategories);setHabits(saved.habits||DEFAULT_DATA.habits);setTasks(saved.tasks||[]);setEvents(saved.events||[]);setMovies(saved.movies||[]);setBooks(saved.books||[]);setTvshows(saved.tvshows||[]);setPlaces(saved.places||[]);setCityList(saved.cityList||STARTER_CITIES.map(c=>c.name));setCityEmojis(saved.cityEmojis||{});setTotalXP(saved.totalXP||0);setTheme(saved.theme||"hawt");}setLoaded(true);});},[]);
+  useEffect(()=>{load().then(saved=>{if(saved){setCats(saved.cats||DEFAULT_DATA.categories);setSubcats(saved.subcats||DEFAULT_DATA.subcategories);setHabits(saved.habits||DEFAULT_DATA.habits);setTasks(saved.tasks||DEFAULT_DATA.tasks||[]);setEvents(saved.events||[]);setMovies(saved.movies||[]);setBooks(saved.books||[]);setTvshows(saved.tvshows||[]);setPlaces(saved.places||[]);setCityList(saved.cityList||STARTER_CITIES.map(c=>c.name));setCityEmojis(saved.cityEmojis||{});setTotalXP(saved.totalXP||0);setTheme(saved.theme||"hawt");}else{setShowOnboarding(true);}setLoaded(true);});},[]);
   useEffect(()=>{
     if(!loaded)return;
     const state={cats,subcats,habits,tasks,events,movies,books,tvshows,places,cityList,cityEmojis,totalXP,theme};
@@ -2970,6 +3016,7 @@ export default function App(){
       `}</style>
 
       <div className="grain"/>
+      {showOnboarding&&<OnboardingTour theme={theme} onDone={()=>setShowOnboarding(false)}/>}
       {pendingDelete&&(
         <div style={{position:"fixed",bottom:90,left:"50%",transform:"translateX(-50%)",zIndex:10001,display:"flex",alignItems:"center",border:`2px solid ${t.border}`,boxShadow:`3px 3px 0 ${t.border}`,whiteSpace:"nowrap",overflow:"hidden"}}>
           <div style={{padding:"10px 14px",fontFamily:"'Black Han Sans',sans-serif",fontSize:11,letterSpacing:2,background:t.accent2,color:"#fff"}}>🗑 "{pendingDelete.label}" DELETED</div>
