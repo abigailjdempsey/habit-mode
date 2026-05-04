@@ -67,8 +67,9 @@ const isEveryOtherDay=(schedule)=>schedule&&schedule.length===1&&schedule[0]==="
 const isScheduledFor=(habit,dateStr)=>{
   if(!habit.schedule||habit.schedule.length===0) return true;
   if(isEveryOtherDay(habit.schedule)){
-    // Count days from app epoch (2025-01-01)
-    const epoch=new Date("2025-01-01T12:00:00");
+    // Count days from the habit's creation date (or epoch fallback)
+    const anchor=habit.createdDate||"2025-01-01";
+    const epoch=new Date(anchor+"T12:00:00");
     const d=new Date(dateStr+"T12:00:00");
     const daysDiff=Math.round((d-epoch)/(1000*60*60*24));
     return daysDiff%2===0;
@@ -301,7 +302,7 @@ function SubcatBlock({subcat,habits,todayStr,theme,onComplete,onUndoOne,onDelete
 }
 
 // ─── CATEGORY BLOCK ──────────────────────────────────────────────────────────
-function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,onDeleteHabit,onRenameHabit,onOpenDrawer,onDeleteCat,onRenameCat,onColorCat,onAddSubcat,onDeleteSubcat,onRenameSubcat,onAddHabit,onReorderCat,onReorderHabit}){
+function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,onDeleteHabit,onRenameHabit,onOpenDrawer,onDeleteCat,onRenameCat,onColorCat,onAddSubcat,onDeleteSubcat,onRenameSubcat,onAddHabit,onReorderCat,onReorderHabit,onReorderSubcat}){
   const t=THEMES[theme]||THEMES.hawt;
   const [collapsed,setCollapsed]=useState(cat.collapsed||false);
   const [editing,setEditing]=useState(false);
@@ -377,9 +378,16 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
           {/* Subcategories */}
           {catSubcats.map(sub=>{
             const subHabits=habits.filter(h=>h.subId===sub.id).map(withCatColor);
-            return <SubcatBlock key={sub.id} subcat={sub} habits={subHabits} todayStr={todayStr} theme={theme}
-              onComplete={onComplete} onUndoOne={onUndoOne} onDelete={onDeleteHabit} onRename={onRenameHabit} onOpenDrawer={onOpenDrawer}
-              onDeleteSubcat={onDeleteSubcat} onRenameSubcat={onRenameSubcat}/>;
+            return(
+              <div key={sub.id} draggable
+                onDragStart={e=>{e.dataTransfer.setData("subcatId",sub.id);e.dataTransfer.effectAllowed="move";e.stopPropagation();}}
+                onDragOver={e=>{e.preventDefault();e.stopPropagation();}}
+                onDrop={e=>{e.preventDefault();e.stopPropagation();const fromId=e.dataTransfer.getData("subcatId");if(fromId&&fromId!==sub.id)onReorderSubcat(fromId,sub.id);}}>
+                <SubcatBlock subcat={sub} habits={subHabits} todayStr={todayStr} theme={theme}
+                  onComplete={onComplete} onUndoOne={onUndoOne} onDelete={onDeleteHabit} onRename={onRenameHabit} onOpenDrawer={onOpenDrawer}
+                  onDeleteSubcat={onDeleteSubcat} onRenameSubcat={onRenameSubcat}/>
+              </div>
+            );
           })}
 
           {/* Direct habits — inherit category color, draggable to reorder */}
@@ -440,7 +448,7 @@ function AddHabitModal({catId,subId,cats,subcats,onAdd,onClose,theme}){
 
   const submit=()=>{
     if(!label.trim()||!selectedCat)return;
-    onAdd({id:uid(),emoji,label:label.trim().toUpperCase(),catId:selectedCat,subId:selectedSub==="none"?null:selectedSub,color:null,special:null,xp,streak:0,repeat,schedule:getSchedule(),completedDates:[],isDefault:false});
+    onAdd({id:uid(),emoji,label:label.trim().toUpperCase(),catId:selectedCat,subId:selectedSub==="none"?null:selectedSub,color:null,special:null,xp,streak:0,repeat,schedule:getSchedule(),createdDate:TODAY(),completedDates:[],isDefault:false});
     onClose();
   };
 
@@ -1231,12 +1239,14 @@ Extract as much as possible. Name is required.`);
   } catch { return null; }
 }
 
-function EditPlaceModal({place, onSave, onClose, theme, t, uid, existingCities, existingNeighborhoods}) {
+function EditPlaceModal({place, onSave, onDelete, onClose, theme, t, uid, existingCities, existingNeighborhoods}) {
   const [form,setForm]=useState({
     name:place.name||"",category:place.category||PLACE_CATS[0],
+    vibes:place.vibes||[],
     city:place.city||"",neighborhood:place.neighborhood||"",
     address:place.address||"",description:place.description||"",url:place.url||""
   });
+  const [newVibe,setNewVibe]=useState("");
   const fld=(k,v)=>setForm(p=>({...p,[k]:v}));
   const inp={width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"11px 13px",color:t.text,fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:8};
   const lbl={fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:4};
@@ -1293,6 +1303,7 @@ function EditPlaceModal({place, onSave, onClose, theme, t, uid, existingCities, 
           <input style={{...inp,marginBottom:0}} placeholder="yelp.com/... maps.google.com/..." value={form.url} onChange={e=>fld("url",e.target.value)}/>
         </div>
         <div style={{padding:"12px 18px 18px",flexShrink:0,borderTop:`2px solid ${t.border}`}}>
+          {onDelete&&<button onClick={()=>{if(window.confirm(`Delete "${place.name}"?`)){onDelete(place.id);onClose();}}} style={{width:"100%",padding:"10px",border:`2px solid ${t.accent2}`,background:"transparent",color:t.accent2,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,marginBottom:8}}>🗑 DELETE PLACE</button>}
           <div style={{display:"flex",gap:8}}>
             <button onClick={onClose} style={{flex:1,padding:"12px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:2}}>CANCEL</button>
             <button onClick={()=>canSave&&onSave({...place,...form,name:form.name.trim(),city:form.city.trim(),neighborhood:form.neighborhood.trim()})} disabled={!canSave} style={{flex:2,padding:"12px",border:`2px solid ${t.border}`,background:canSave?t.addBtn:"transparent",color:canSave?t.addBtnText:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,cursor:canSave?"pointer":"default",letterSpacing:3,boxShadow:canSave?`3px 3px 0 ${t.border}`:"none",opacity:canSave?1:0.4}}>SAVE</button>
@@ -1387,6 +1398,7 @@ function PlaceCard({place, onToggle, onDelete, onEdit, onUpdate, theme, t, exist
     {editing&&<EditPlaceModal
       place={place}
       onSave={updated=>{onEdit(updated);setEditing(false);}}
+      onDelete={(id)=>{onDelete(id);setEditing(false);}}
       onClose={()=>setEditing(false)}
       theme={theme} t={t} uid={()=>place.id}
       existingCities={existingCities||[]}
@@ -1415,10 +1427,9 @@ function PlaceCard({place, onToggle, onDelete, onEdit, onUpdate, theme, t, exist
         {place.url&&<a href={place.url} target="_blank" rel="noopener noreferrer" style={{fontSize:9,color:t.accent2,fontFamily:"'Barlow Condensed',sans-serif",textDecoration:"none",display:"block",marginTop:2,letterSpacing:1}}>↗ {place.url.replace(/^https?:\/\//,"").slice(0,36)}</a>}
       </div>
       <div style={{display:"flex",flexDirection:"column",borderLeft:`2px solid ${t.border}`,flexShrink:0}}>
-        <button onClick={handleToggle} style={{flex:1,width:38,background:place.visited?t.accent:"transparent",border:"none",borderBottom:`1px solid ${t.border}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:place.visited?t.textInv:t.textSub}}>✓</button>
-        <button onClick={()=>onUpdate({...place,listType:place.listType==="favorite"?"wishlist":"favorite"})} style={{flex:1,width:38,background:"none",border:"none",borderBottom:`1px solid ${t.border}`,color:place.listType==="favorite"?t.accent2:t.textSub,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>❤</button>
-        <button onClick={()=>setEditing(true)} style={{flex:1,width:38,background:"none",border:"none",borderBottom:`1px solid ${t.border}`,color:t.textSub,cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center"}}>✏️</button>
-        <button onClick={()=>onDelete(place.id)} style={{flex:1,width:38,background:"none",border:"none",color:t.textSub,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+        <button onClick={handleToggle} style={{flex:1,width:44,background:place.visited?t.accent:"transparent",border:"none",borderBottom:`1px solid ${t.border}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,color:place.visited?t.textInv:t.textSub}}>✓</button>
+        <button onClick={()=>onUpdate({...place,listType:place.listType==="favorite"?"wishlist":"favorite"})} style={{flex:1,width:44,background:"none",border:"none",borderBottom:`1px solid ${t.border}`,color:place.listType==="favorite"?t.accent2:t.textSub,cursor:"pointer",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center"}}>❤</button>
+        <button onClick={()=>setEditing(true)} style={{flex:1,width:44,background:"none",border:"none",color:t.textSub,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,letterSpacing:1,display:"flex",alignItems:"center",justifyContent:"center"}}>EDIT</button>
       </div>
     </div>
     </>
@@ -2300,6 +2311,15 @@ export default function App(){
     scheduleDelete(cat?.label||"category",()=>{setCats(p=>p.filter(c=>c.id!==id));setSubcats(p=>p.filter(s=>s.catId!==id));setHabits(p=>p.filter(h=>h.catId!==id));});
   };
   const renameCat=(id,label)=>setCats(p=>p.map(c=>c.id===id?{...c,label}:c));
+  const reorderSubcats=(fromId,toId)=>{
+    if(fromId===toId)return;
+    setSubcats(prev=>{
+      const arr=[...prev];
+      const fi=arr.findIndex(s=>s.id===fromId),ti=arr.findIndex(s=>s.id===toId);
+      if(fi<0||ti<0)return prev;
+      const [item]=arr.splice(fi,1);arr.splice(ti,0,item);return arr;
+    });
+  };
   const reorderCats=(fromId,toId)=>{
     if(fromId===toId)return;
     setCats(prev=>{
@@ -2479,7 +2499,7 @@ export default function App(){
                   onDeleteCat={isToday?deleteCat:()=>{}} onRenameCat={isToday?renameCat:()=>{}} onColorCat={colorCat}
                   onAddSubcat={isToday?addSubcat:()=>{}} onDeleteSubcat={isToday?deleteSubcat:()=>{}} onRenameSubcat={isToday?renameSubcat:()=>{}}
                   onAddHabit={isToday?(catId,subId)=>setAddHabitCtx({catId,subId}):()=>{}}
-                  onReorderCat={reorderCats} onReorderHabit={reorderHabits}/>
+                  onReorderCat={reorderCats} onReorderHabit={reorderHabits} onReorderSubcat={reorderSubcats}/>
               ))}
 
               {/* Add category */}
