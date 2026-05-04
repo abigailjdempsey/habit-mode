@@ -79,6 +79,8 @@ const isScheduledFor=(habit,dateStr)=>{
 };
 const DAY_NAMES=["SUN","MON","TUE","WED","THU","FRI","SAT"];
 
+const haptic=(pattern=50)=>{try{navigator.vibrate&&navigator.vibrate(pattern);}catch{}};
+
 const TODAY=()=>{
   const d=new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
@@ -186,6 +188,41 @@ function RepeatDrawer({habit,todayStr,count,onIncrement,onDecrement,onRename,onC
 
 // ─── HABIT ROW ────────────────────────────────────────────────────────────────
 
+
+// ─── SWIPE HOOK ───────────────────────────────────────────────────────────────
+function useSwipe(onSwipeRight, onSwipeLeft, threshold=60) {
+  const startX = useRef(null);
+  const startY = useRef(null);
+  const el = useRef(null);
+  const [offset, setOffset] = useState(0);
+  const [swiping, setSwiping] = useState(false);
+
+  const onTouchStart = (e) => {
+    startX.current = e.touches[0].clientX;
+    startY.current = e.touches[0].clientY;
+    setSwiping(true);
+  };
+
+  const onTouchMove = (e) => {
+    if(startX.current === null) return;
+    const dx = e.touches[0].clientX - startX.current;
+    const dy = e.touches[0].clientY - startY.current;
+    if(Math.abs(dy) > Math.abs(dx)) { setSwiping(false); return; } // vertical scroll
+    e.stopPropagation();
+    setOffset(Math.max(-threshold*1.5, Math.min(threshold*1.5, dx)));
+  };
+
+  const onTouchEnd = () => {
+    if(offset > threshold) { haptic(30); onSwipeRight && onSwipeRight(); }
+    else if(offset < -threshold) { haptic([30,20,30]); onSwipeLeft && onSwipeLeft(); }
+    setOffset(0);
+    setSwiping(false);
+    startX.current = null;
+  };
+
+  return { ref: el, offset, swiping, onTouchStart, onTouchMove, onTouchEnd };
+}
+
 // ─── EDIT HABIT MODAL ─────────────────────────────────────────────────────────
 function EditHabitModal({habit, onSave, onDelete, onClose, theme}) {
   const t=THEMES[theme]||THEMES.hawt;
@@ -232,14 +269,28 @@ function HabitRow({habit,onComplete,onUndoOne,onDelete,onRename,todayStr,theme,o
   const handleTap=()=>{ if(isRep){onOpenDrawer(habit.id);return;} if(done)return; setBounce(true);setTimeout(()=>setBounce(false),300);onComplete(habit.id); };
   const pct=isRep?count/habit.repeat:(done?1:0);
   const timeTag=habit.timeOfDay?{" AM":"🌅"," PM":"☀️","EVE":"🌙","AM":"🌅","PM":"☀️"}[habit.timeOfDay]:null;
+  const swipe=useSwipe(
+    done?null:()=>{ setBounce(true);setTimeout(()=>setBounce(false),300);onComplete(habit.id); },
+    ()=>onDelete(habit.id)
+  );
+  const swipeColor=swipe.offset>20?"#2ecc71":swipe.offset<-20?t.accent2:"transparent";
   return(
     <>
     {showEdit&&<EditHabitModal habit={habit} theme={theme}
       onSave={(id,label,timeOfDay)=>{onRename(id,label);onRename(id,label,timeOfDay);}}
       onDelete={(id)=>{setShowEdit(false);onDelete(id);}}
       onClose={()=>setShowEdit(false)}/>}
-    <div style={{display:"flex",alignItems:"stretch",border:`1.5px solid ${t.border}`,marginBottom:6,background:done?habit.color:t.bg,transition:"all 0.2s cubic-bezier(.34,1.56,.64,1)",transform:bounce?"scale(1.03)":"scale(1)",boxShadow:done?`3px 3px 0 ${t.border}`:`2px 2px 0 ${t.border}`,cursor:"pointer",position:"relative",overflow:"hidden"}}
-      onClick={handleTap}>
+    <div style={{position:"relative",marginBottom:6,overflow:"hidden",borderRadius:0}}>
+      {/* Swipe bg indicators */}
+      <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 16px",background:swipeColor,transition:swipe.swiping?"none":"background 0.2s",pointerEvents:"none"}}>
+        <span style={{fontSize:18,opacity:swipe.offset>20?1:0,transition:"opacity 0.15s"}}>✅</span>
+        <span style={{fontSize:18,opacity:swipe.offset<-20?1:0,transition:"opacity 0.15s"}}>🗑️</span>
+      </div>
+    <div style={{display:"flex",alignItems:"stretch",border:`1.5px solid ${t.border}`,background:done?habit.color:t.bg,transition:swipe.swiping?"none":"all 0.2s cubic-bezier(.34,1.56,.64,1)",transform:swipe.swiping?`translateX(${swipe.offset}px)`:(bounce?"scale(1.03)":"translateX(0)"),boxShadow:done?`3px 3px 0 ${t.border}`:`2px 2px 0 ${t.border}`,cursor:"pointer",position:"relative",overflow:"hidden",willChange:"transform"}}
+      onClick={handleTap}
+      onTouchStart={swipe.onTouchStart}
+      onTouchMove={swipe.onTouchMove}
+      onTouchEnd={swipe.onTouchEnd}>
       {isRep&&!done&&pct>0&&<div style={{position:"absolute",top:0,left:0,bottom:0,width:`${pct*100}%`,background:`${habit.color}22`,borderRight:`1.5px solid ${habit.color}55`,pointerEvents:"none",transition:"width 0.4s ease"}}/>}
       <div style={{width:4,background:done?"rgba(255,255,255,0.4)":isRep&&count>0?habit.color:t.border,flexShrink:0,transition:"background 0.3s"}}/>
       <div style={{padding:"11px 12px",display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0,position:"relative"}}>
@@ -265,6 +316,7 @@ function HabitRow({habit,onComplete,onUndoOne,onDelete,onRename,todayStr,theme,o
             {isRep?"→":"EDIT"}
           </button>}
       </div>
+    </div>
     </div>
     </>
   );
@@ -336,8 +388,19 @@ function TaskRow({task, onComplete, onUncomplete, onDelete, onRename, onUpdate, 
 
   const inp={background:t.bg,border:`1.5px solid ${t.border}`,padding:"6px 8px",color:t.text,fontSize:12,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,outline:"none",colorScheme:"dark"};
 
+  const swipe=useSwipe(
+    task.done?null:()=>onComplete(task.id),
+    ()=>onDelete(task.id)
+  );
+  const swipeColor=swipe.offset>20?"#2ecc71":swipe.offset<-20?t.accent2:"transparent";
   return(
-    <div style={{border:`1.5px solid ${isOverdue?t.accent2:task.done?t.border:t.accent+"66"}`,marginBottom:5,background:task.done?t.bgCard:t.bg,transition:"all 0.2s",boxShadow:task.done?"none":`1px 1px 0 ${t.border}`}}>
+    <div style={{position:"relative",marginBottom:5,overflow:"hidden"}}>
+      <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 14px",background:swipeColor,pointerEvents:"none"}}>
+        <span style={{fontSize:16,opacity:swipe.offset>20?1:0}}>✅</span>
+        <span style={{fontSize:16,opacity:swipe.offset<-20?1:0}}>🗑️</span>
+      </div>
+    <div style={{border:`1.5px solid ${isOverdue?t.accent2:task.done?t.border:t.accent+"66"}`,background:task.done?t.bgCard:t.bg,transition:swipe.swiping?"none":"all 0.2s",boxShadow:task.done?"none":`1px 1px 0 ${t.border}`,transform:swipe.swiping?`translateX(${swipe.offset}px)`:"translateX(0)",willChange:"transform"}}
+      onTouchStart={swipe.onTouchStart} onTouchMove={swipe.onTouchMove} onTouchEnd={swipe.onTouchEnd}>
       <div style={{display:"flex",alignItems:"center",gap:0}}>
         <button onClick={()=>task.done?onUncomplete(task.id):onComplete(task.id)} style={{width:40,alignSelf:"stretch",background:"transparent",border:"none",borderRight:`1.5px solid ${task.done?t.border:t.accent+"66"}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,color:task.done?t.accent:t.textSub,flexShrink:0}}>
           {task.done?"☑":"☐"}
@@ -375,6 +438,7 @@ function TaskRow({task, onComplete, onUncomplete, onDelete, onRename, onUpdate, 
           <button onClick={()=>setExtending(false)} style={{padding:"6px 10px",border:`1.5px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,cursor:"pointer"}}>✕</button>
         </div>
       )}
+    </div>
     </div>
   );
 }
@@ -1197,6 +1261,63 @@ function WeeklySummary({habits, totalXP, onClose, theme, t}) {
           <button onClick={onClose} style={{width:"100%",padding:"11px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:3}}>CLOSE</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+
+// ─── QUICK ADD BAR ────────────────────────────────────────────────────────────
+function QuickAddBar({cats, viewDate, onAdd, theme, t}) {
+  const [val,setVal]=useState("");
+  const [catId,setCatId]=useState(null); // null = first cat
+  const [showCats,setShowCats]=useState(false);
+  const ref=useRef(null);
+
+  const targetCat=cats.find(c=>c.id===catId)||cats[0];
+
+  const submit=()=>{
+    if(!val.trim()||!targetCat)return;
+    haptic(40);
+    onAdd({
+      id:uid(), label:val.trim(), note:"",
+      catId:targetCat.id, subId:null,
+      scheduledFor:viewDate, dueDate:null, dueTime:null,
+      priority:false, repeatUntilDue:false,
+      done:false, doneDate:null, createdDate:TODAY(), isTask:true
+    });
+    setVal("");
+    ref.current?.focus();
+  };
+
+  return(
+    <div style={{marginBottom:14,border:`2px solid ${t.accent}`,boxShadow:`2px 2px 0 ${t.accent}`,background:t.bgCard,position:"relative"}}>
+      <div style={{display:"flex",alignItems:"center"}}>
+        {/* Category picker */}
+        <button onClick={()=>setShowCats(v=>!v)} style={{background:"transparent",border:"none",borderRight:`2px solid ${t.accent}`,padding:"10px 12px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:10,color:t.accent,letterSpacing:1,whiteSpace:"nowrap",flexShrink:0}}>
+          {targetCat?.label||"CAT"} ▾
+        </button>
+        <input
+          ref={ref}
+          value={val}
+          onChange={e=>setVal(e.target.value)}
+          onKeyDown={e=>{if(e.key==="Enter")submit();if(e.key==="Escape")setVal("");}}
+          placeholder="QUICK ADD TASK..."
+          style={{flex:1,background:"transparent",border:"none",padding:"10px 12px",color:t.text,fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,letterSpacing:2,outline:"none"}}
+        />
+        <button onClick={submit} disabled={!val.trim()} style={{background:val.trim()?t.accent:"transparent",border:"none",borderLeft:`2px solid ${t.accent}`,padding:"10px 14px",cursor:val.trim()?"pointer":"default",fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:val.trim()?t.textInv:t.accent,flexShrink:0,opacity:val.trim()?1:0.4}}>+</button>
+      </div>
+      {/* Cat dropdown */}
+      {showCats&&cats.length>1&&(
+        <div style={{position:"absolute",top:"100%",left:0,right:0,background:t.bg,border:`2px solid ${t.accent}`,borderTop:"none",zIndex:100,boxShadow:`2px 4px 0 ${t.border}`}}>
+          {cats.map(c=>(
+            <div key={c.id} onClick={()=>{setCatId(c.id);setShowCats(false);ref.current?.focus();}} style={{padding:"9px 12px",fontFamily:"'Black Han Sans',sans-serif",fontSize:11,color:c.id===targetCat?.id?t.accent:t.text,letterSpacing:2,cursor:"pointer",borderBottom:`1px solid ${t.border}`,background:"transparent"}}
+              onMouseEnter={e=>e.currentTarget.style.background=`${t.accent}11`}
+              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              {c.label}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -2884,7 +3005,7 @@ export default function App(){
 
   const showToast=(msg,emoji)=>{setToast({show:true,msg,emoji});setTimeout(()=>setToast(s=>({...s,show:false})),2200);};
 
-  const completeHabit=(id)=>{
+  const completeHabit=(id)=>{ haptic(40);
     const h=habits.find(x=>x.id===id);
     if(!h||isDone(h,todayStr))return;
     const cnt=getCount(h,todayStr)+1,nowDone=cnt>=h.repeat,newStreak=nowDone?h.streak+1:h.streak,isMilestone=nowDone&&MILESTONES.includes(newStreak);
@@ -2961,7 +3082,7 @@ export default function App(){
   // Habit CRUD
   const addHabit=(h)=>{setHabits(prev=>[...prev,h]);showToast("HABIT ADDED",h.emoji);};
   const addTask=(task)=>setTasks(prev=>[...prev,task]);
-  const completeTask=(id)=>setTasks(prev=>prev.map(t=>t.id===id?{...t,done:true,doneDate:TODAY()}:t));
+  const completeTask=(id)=>{haptic(40);setTasks(prev=>prev.map(t=>t.id===id?{...t,done:true,doneDate:TODAY()}:t));};
   const uncompleteTask=(id)=>setTasks(prev=>prev.map(t=>t.id===id?{...t,done:false,doneDate:null}:t));
   const deleteTask=(id)=>setTasks(prev=>prev.filter(t=>t.id!==id));
   const renameTask=(id,label)=>setTasks(prev=>prev.map(t=>t.id===id?{...t,label}:t));
