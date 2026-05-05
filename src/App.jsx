@@ -225,8 +225,9 @@ function useSwipe(onSwipeRight, onSwipeLeft, threshold=60) {
 
 
 // ─── LIMIT HABIT ROW ──────────────────────────────────────────────────────────
-function LimitHabitRow({habit, onIncrement, onDecrement, todayStr, theme}) {
+function LimitHabitRow({habit, onIncrement, onDecrement, onDelete, onRename, todayStr, theme}) {
   const t=THEMES[theme]||THEMES.hawt;
+  const [showEdit,setShowEdit]=useState(false);
   const count=getCount(habit,todayStr);
   const limit=habit.limit||5;
   const pct=Math.min(count/limit,1);
@@ -237,6 +238,11 @@ function LimitHabitRow({habit, onIncrement, onDecrement, todayStr, theme}) {
   const statusText=over?`${count-limit} OVER LIMIT`:atLimit?"AT LIMIT":`${limit-count} LEFT`;
 
   return(
+    <>
+    {showEdit&&<EditHabitModal habit={habit} theme={theme}
+      onSave={(id,label,timeOfDay,limit)=>{onRename(id,label,timeOfDay,limit);setShowEdit(false);}}
+      onDelete={(id)=>{setShowEdit(false);onDelete(id);}}
+      onClose={()=>setShowEdit(false)}/>}
     <div style={{border:`1.5px solid ${over?t.accent2:t.border}`,marginBottom:6,background:t.bg,boxShadow:`2px 2px 0 ${t.border}`,overflow:"hidden"}}>
       {/* Progress bar */}
       <div style={{height:3,background:t.bgCard}}>
@@ -260,8 +266,12 @@ function LimitHabitRow({habit, onIncrement, onDecrement, todayStr, theme}) {
           <div style={{width:36,textAlign:"center",fontFamily:"'Black Han Sans',sans-serif",fontSize:18,color:over?t.accent2:t.text,padding:"0 4px"}}>{count}</div>
           <button onClick={()=>{haptic(30);onIncrement(habit.id);}} style={{width:36,alignSelf:"stretch",background:over?t.accent2:"transparent",border:"none",borderLeft:`1px solid ${t.border}`,cursor:"pointer",fontSize:18,color:over?"#fff":t.text,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
         </div>
+        <div style={{display:"flex",flexDirection:"column",borderLeft:`1.5px solid ${t.border}`,flexShrink:0}}>
+          <button onClick={e=>{e.stopPropagation();setShowEdit(true);}} style={{background:"transparent",border:"none",color:t.textSub,cursor:"pointer",fontSize:10,padding:"10px 10px",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,height:"100%",display:"flex",alignItems:"center"}}>EDIT</button>
+        </div>
       </div>
     </div>
+    </>
   );
 }
 
@@ -725,7 +735,9 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
               {h.habitType==="limit"
                 ?<LimitHabitRow habit={h} todayStr={todayStr} theme={theme}
                     onIncrement={(id)=>onComplete(id)}
-                    onDecrement={(id)=>onUndoOne(id)}/>
+                    onDecrement={(id)=>onUndoOne(id)}
+                    onDelete={onDeleteHabit}
+                    onRename={onRenameHabit}/>
                 :<HabitRow habit={h} onComplete={onComplete} onUndoOne={onUndoOne} onDelete={onDeleteHabit} onRename={onRenameHabit} todayStr={todayStr} theme={theme} onOpenDrawer={onOpenDrawer}/>}
             </div>
           ))}
@@ -3122,12 +3134,14 @@ export default function App(){
     const h=habits.find(x=>x.id===id);
     if(!h) return;
     if(h.habitType==="limit"){
-      // Limit habit: increment count, award small XP if still under limit
-      const today2=TODAY();
-      const curCount=getCount(h,today2);
-      setHabits(prev=>prev.map(x=>x.id===id?{...x,completedDates:addCount(x.completedDates,today2,999)}:x));
-      if(curCount<(h.limit||5)) setTotalXP(x=>x+Math.max(1,Math.floor(h.xp/(h.limit||5))));
-      showToast(`${curCount+1}/${h.limit||5} TODAY`,h.emoji);
+      // Limit habit: increment count. Use todayStr (viewDate) not TODAY()
+      const curCount=getCount(h,todayStr);
+      const lim=h.limit||5;
+      setHabits(prev=>prev.map(x=>x.id===id?{...x,completedDates:addCount(x.completedDates,todayStr,9999)}:x));
+      if(curCount<lim) setTotalXP(x=>x+Math.max(1,Math.floor(h.xp/lim)));
+      const next=curCount+1;
+      if(next>lim) showToast(`${next-lim} OVER LIMIT`,h.emoji);
+      else showToast(`${next}/${lim} TODAY`,h.emoji);
     } else {
       if(isDone(h,todayStr)) return;
       const cnt=getCount(h,todayStr)+1,nowDone=cnt>=h.repeat,newStreak=nowDone?h.streak+1:h.streak,isMilestone=nowDone&&MILESTONES.includes(newStreak);
