@@ -809,6 +809,23 @@ function AddHabitModal({catId,subId,cats,subcats,onAdd,onClose,theme}){
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
       <div style={{background:t.bg,padding:24,width:"100%",maxWidth:480,border:`3px solid ${t.border}`,borderBottom:"none",boxShadow:`-6px -6px 0 ${t.border}`,maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
         <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,marginBottom:16,letterSpacing:4}}>NEW HABIT</div>
+        {/* Habit type */}
+        <div style={{display:"flex",gap:6,marginBottom:12}}>
+          <button onClick={()=>setHabitType("good")} style={{flex:1,padding:"10px 8px",border:`2px solid ${habitType==="good"?t.accent:t.border}`,background:habitType==="good"?t.accent:"transparent",color:habitType==="good"?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:10,cursor:"pointer",letterSpacing:2,textAlign:"center",boxShadow:habitType==="good"?`2px 2px 0 ${t.border}`:"none"}}>
+            ✅ GOOD HABIT<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,marginTop:3,letterSpacing:1,fontWeight:400,color:habitType==="good"?t.textInv:t.textSub}}>Do more of this</div>
+          </button>
+          <button onClick={()=>setHabitType("limit")} style={{flex:1,padding:"10px 8px",border:`2px solid ${habitType==="limit"?t.accent2:t.border}`,background:habitType==="limit"?t.accent2:"transparent",color:habitType==="limit"?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:10,cursor:"pointer",letterSpacing:2,textAlign:"center",boxShadow:habitType==="limit"?`2px 2px 0 ${t.border}`:"none"}}>
+            🚫 BAD HABIT<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,marginTop:3,letterSpacing:1,fontWeight:400,color:habitType==="limit"?t.textInv:t.textSub}}>Do less of this</div>
+          </button>
+        </div>
+        {habitType==="limit"&&<>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:6}}>DAILY LIMIT (earn XP for staying under):</div>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,border:`2px solid ${t.border}`,padding:"8px 12px"}}>
+            <button onClick={()=>setLimit(l=>Math.max(1,l-1))} style={{width:36,height:36,border:`2px solid ${t.border}`,background:"transparent",color:t.text,fontFamily:"'Black Han Sans',sans-serif",fontSize:18,cursor:"pointer"}}>−</button>
+            <div style={{flex:1,textAlign:"center",fontFamily:"'Black Han Sans',sans-serif",fontSize:24,color:t.accent2,letterSpacing:2}}>{limit}×</div>
+            <button onClick={()=>setLimit(l=>l+1)} style={{width:36,height:36,border:`2px solid ${t.border}`,background:"transparent",color:t.text,fontFamily:"'Black Han Sans',sans-serif",fontSize:18,cursor:"pointer"}}>+</button>
+          </div>
+        </>}
         <input style={inp} placeholder="HABIT NAME" value={label} onChange={e=>setLabel(e.target.value)} autoFocus/>
         {/* Category */}
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:4}}>CATEGORY:</div>
@@ -3175,8 +3192,21 @@ export default function App(){
     });
   };
   const colorCat=(id,color)=>setCats(p=>p.map(c=>c.id===id?{...c,color}:c));
-  const collapseCat=(id,val)=>setCats(p=>p.map(c=>c.id===id?{...c,collapsed:val}:c));
-  const collapseSubcat=(id,val)=>setSubcats(p=>p.map(s=>s.id===id?{...s,collapsed:val}:s));
+  const collapseCat=(id,val)=>{
+    setCats(p=>{
+      const next=p.map(c=>c.id===id?{...c,collapsed:val}:c);
+      // Save immediately to localStorage so it persists even before debounced save
+      try{const s=JSON.parse(localStorage.getItem("habittracker_v5")||"{}");s.cats=next;localStorage.setItem("habittracker_v5",JSON.stringify(s));}catch{}
+      return next;
+    });
+  };
+  const collapseSubcat=(id,val)=>{
+    setSubcats(p=>{
+      const next=p.map(s=>s.id===id?{...s,collapsed:val}:s);
+      try{const s=JSON.parse(localStorage.getItem("habittracker_v5")||"{}");s.subcats=next;localStorage.setItem("habittracker_v5",JSON.stringify(s));}catch{}
+      return next;
+    });
+  };
   const toggleShoppingList=(id)=>setCats(p=>p.map(c=>c.id===id?{...c,isShoppingList:!c.isShoppingList}:c));
   const hideDaysCat=(id,hideDays)=>setCats(p=>p.map(c=>c.id===id?{...c,hideDays}:c));
   const addSubcat=(sub)=>setSubcats(prev=>[...prev,sub]);
