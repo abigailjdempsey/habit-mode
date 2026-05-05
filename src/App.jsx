@@ -383,7 +383,19 @@ function TaskRow({task, onComplete, onUncomplete, onDelete, onRename, onUpdate, 
   const [newTime,setNewTime]=useState("");
   const ref=useRef(null);
   const today=TODAY();
-  const isOverdue=!task.done&&task.dueDate&&task.dueDate<=today;
+  const isOverdue=!task.done&&task.dueDate&&(()=>{
+    if(task.dueDate<today) return true; // past day = always overdue
+    if(task.dueDate>today) return false; // future day = not overdue
+    // Same day — check time if set
+    if(!task.dueTime) return false; // no time set, not overdue until end of day
+    const now=new Date();
+    const [timePart,ampm]=task.dueTime.split(" ");
+    const [h,m]=timePart.split(":").map(Number);
+    const hour24=(ampm==="PM"&&h!==12)?h+12:(ampm==="AM"&&h===12)?0:h;
+    const dueMinutes=hour24*60+m;
+    const nowMinutes=now.getHours()*60+now.getMinutes();
+    return nowMinutes>dueMinutes;
+  })();
   const commit=()=>{if(editVal.trim())onRename(task.id,editVal.trim());setEditing(false);};
 
   const extend=()=>{
