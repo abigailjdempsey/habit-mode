@@ -262,9 +262,9 @@ function LimitHabitRow({habit, onIncrement, onDecrement, onDelete, onRename, tod
         </div>
         {/* Counter */}
         <div style={{display:"flex",alignItems:"center",borderLeft:`1.5px solid ${t.border}`,flexShrink:0}}>
-          <button onClick={()=>onDecrement(habit.id)} disabled={count===0} style={{width:36,alignSelf:"stretch",background:"transparent",border:"none",borderRight:`1px solid ${t.border}`,cursor:count>0?"pointer":"default",fontSize:18,color:count>0?t.text:t.border,display:"flex",alignItems:"center",justifyContent:"center",opacity:count>0?1:0.3}}>−</button>
+          <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onDecrement(habit.id);}} disabled={count===0} style={{width:36,alignSelf:"stretch",background:"transparent",border:"none",borderRight:`1px solid ${t.border}`,cursor:count>0?"pointer":"default",fontSize:18,color:count>0?t.text:t.border,display:"flex",alignItems:"center",justifyContent:"center",opacity:count>0?1:0.3}}>−</button>
           <div style={{width:36,textAlign:"center",fontFamily:"'Black Han Sans',sans-serif",fontSize:18,color:over?t.accent2:t.text,padding:"0 4px"}}>{count}</div>
-          <button onClick={()=>{haptic(30);onIncrement(habit.id);}} style={{width:36,alignSelf:"stretch",background:over?t.accent2:"transparent",border:"none",borderLeft:`1px solid ${t.border}`,cursor:"pointer",fontSize:18,color:over?"#fff":t.text,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+          <button onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();haptic(30);onIncrement(habit.id);}} style={{width:36,alignSelf:"stretch",background:over?t.accent2:"transparent",border:"none",borderLeft:`1px solid ${t.border}`,cursor:"pointer",fontSize:18,color:over?"#fff":t.text,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
         </div>
         <div style={{display:"flex",flexDirection:"column",borderLeft:`1.5px solid ${t.border}`,flexShrink:0}}>
           <button onClick={e=>{e.stopPropagation();setShowEdit(true);}} style={{background:"transparent",border:"none",color:t.textSub,cursor:"pointer",fontSize:10,padding:"10px 10px",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,height:"100%",display:"flex",alignItems:"center"}}>EDIT</button>
