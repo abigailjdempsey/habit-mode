@@ -51,7 +51,7 @@ function MilestoneBanner({show,streak,onDone,theme}){
 const getCount=(h,d)=>{ if(h.habitType==="limit"||h.repeat>1){ const e=h.completedDates.find(x=>typeof x==="object"&&x.date===d);return e?e.count:0; } return h.completedDates.includes(d)?1:0; };
 const isDone=(h,d)=>getCount(h,d)>=h.repeat;
 const addCount=(arr,d,rep)=>{ if(rep<=1&&rep!==9999)return[...arr,d]; const e=arr.find(x=>typeof x==="object"&&x.date===d);if(e)return arr.map(x=>(typeof x==="object"&&x.date===d)?{...x,count:x.count+1}:x);return[...arr,{date:d,count:1}]; };
-const subCount=(arr,d,rep)=>{ if(rep<=1)return arr.filter(x=>x!==d); return arr.map(x=>(typeof x==="object"&&x.date===d)?{...x,count:Math.max(0,x.count-1)}:x).filter(x=>typeof x!=="object"||x.count>0); };
+const subCount=(arr,d,rep,isLimit)=>{ if(rep<=1&&!isLimit)return arr.filter(x=>x!==d); return arr.map(x=>(typeof x==="object"&&x.date===d)?{...x,count:Math.max(0,x.count-1)}:x).filter(x=>typeof x!=="object"||x.count>0); };
 const totalCompletions=(h)=>{ if(h.repeat<=1)return h.completedDates.length; return h.completedDates.reduce((s,e)=>s+(typeof e==="object"?e.count:1),0); };
 const MILESTONES=[3,7,14,21,30,60,100];
 // Schedule: null=every day, [0,1,2,3,4,5,6] where 0=Sun,1=Mon...6=Sat
@@ -3157,7 +3157,7 @@ export default function App(){
     const h=habits.find(x=>x.id===id);if(!h)return;
     const wasDone=isDone(h,todayStr),cnt=getCount(h,todayStr);if(cnt===0)return;
     sounds.playUndo();
-    setHabits(prev=>prev.map(x=>x.id===id?{...x,completedDates:subCount(x.completedDates,todayStr,x.repeat),streak:wasDone?Math.max(0,x.streak-1):x.streak}:x));
+    setHabits(prev=>prev.map(x=>x.id===id?{...x,completedDates:subCount(x.completedDates,todayStr,x.repeat,x.habitType==="limit"),streak:wasDone&&x.habitType!=="limit"?Math.max(0,x.streak-1):x.streak}:x));
     setTotalXP(prev=>Math.max(0,prev-(wasDone?h.xp:Math.floor(h.xp/h.repeat))));
     showToast("UNDONE","↩️");
   };
