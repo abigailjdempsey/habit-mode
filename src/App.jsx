@@ -48,9 +48,9 @@ function MilestoneBanner({show,streak,onDone,theme}){
 }
 
 // ─── DATA HELPERS ─────────────────────────────────────────────────────────────
-const getCount=(h,d)=>{ if(h.repeat<=1)return h.completedDates.includes(d)?1:0; const e=h.completedDates.find(x=>typeof x==="object"&&x.date===d);return e?e.count:0; };
+const getCount=(h,d)=>{ if(h.habitType==="limit"||h.repeat>1){ const e=h.completedDates.find(x=>typeof x==="object"&&x.date===d);return e?e.count:0; } return h.completedDates.includes(d)?1:0; };
 const isDone=(h,d)=>getCount(h,d)>=h.repeat;
-const addCount=(arr,d,rep)=>{ if(rep<=1)return[...arr,d]; const e=arr.find(x=>typeof x==="object"&&x.date===d);if(e)return arr.map(x=>(typeof x==="object"&&x.date===d)?{...x,count:Math.min(x.count+1,rep)}:x);return[...arr,{date:d,count:1}]; };
+const addCount=(arr,d,rep)=>{ if(rep<=1&&rep!==9999)return[...arr,d]; const e=arr.find(x=>typeof x==="object"&&x.date===d);if(e)return arr.map(x=>(typeof x==="object"&&x.date===d)?{...x,count:x.count+1}:x);return[...arr,{date:d,count:1}]; };
 const subCount=(arr,d,rep)=>{ if(rep<=1)return arr.filter(x=>x!==d); return arr.map(x=>(typeof x==="object"&&x.date===d)?{...x,count:Math.max(0,x.count-1)}:x).filter(x=>typeof x!=="object"||x.count>0); };
 const totalCompletions=(h)=>{ if(h.repeat<=1)return h.completedDates.length; return h.completedDates.reduce((s,e)=>s+(typeof e==="object"?e.count:1),0); };
 const MILESTONES=[3,7,14,21,30,60,100];
