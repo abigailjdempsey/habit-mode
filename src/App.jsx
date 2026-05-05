@@ -223,14 +223,57 @@ function useSwipe(onSwipeRight, onSwipeLeft, threshold=60) {
   return { ref: el, offset, swiping, onTouchStart, onTouchMove, onTouchEnd };
 }
 
+
+// ─── LIMIT HABIT ROW ──────────────────────────────────────────────────────────
+function LimitHabitRow({habit, onIncrement, onDecrement, todayStr, theme}) {
+  const t=THEMES[theme]||THEMES.hawt;
+  const count=getCount(habit,todayStr);
+  const limit=habit.limit||5;
+  const pct=Math.min(count/limit,1);
+  const under=count<limit;
+  const atLimit=count===limit;
+  const over=count>limit;
+  const statusColor=over?"#e74c3c":atLimit?"#f39c12":"#2ecc71";
+  const statusText=over?`${count-limit} OVER LIMIT`:atLimit?"AT LIMIT":`${limit-count} LEFT`;
+
+  return(
+    <div style={{border:`1.5px solid ${over?t.accent2:t.border}`,marginBottom:6,background:t.bg,boxShadow:`2px 2px 0 ${t.border}`,overflow:"hidden"}}>
+      {/* Progress bar */}
+      <div style={{height:3,background:t.bgCard}}>
+        <div style={{height:"100%",width:`${pct*100}%`,background:statusColor,transition:"width 0.3s ease"}}/>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:0}}>
+        {/* Color pip */}
+        <div style={{width:4,background:over?t.accent2:`${t.accent}44`,flexShrink:0,alignSelf:"stretch"}}/>
+        <span style={{fontSize:22,padding:"10px 10px 10px 8px",flexShrink:0}}>{habit.emoji}</span>
+        <div style={{flex:1,minWidth:0,padding:"8px 4px"}}>
+          <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.text,letterSpacing:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{habit.label}</div>
+          <div style={{display:"flex",gap:8,alignItems:"center",marginTop:2}}>
+            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1}}>🔥{habit.streak}</span>
+            <span style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:10,color:statusColor,letterSpacing:1,padding:"1px 6px",border:`1px solid ${statusColor}44`,background:`${statusColor}11`}}>{statusText}</span>
+            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1}}>LIMIT: {limit}</span>
+          </div>
+        </div>
+        {/* Counter */}
+        <div style={{display:"flex",alignItems:"center",borderLeft:`1.5px solid ${t.border}`,flexShrink:0}}>
+          <button onClick={()=>onDecrement(habit.id)} disabled={count===0} style={{width:36,alignSelf:"stretch",background:"transparent",border:"none",borderRight:`1px solid ${t.border}`,cursor:count>0?"pointer":"default",fontSize:18,color:count>0?t.text:t.border,display:"flex",alignItems:"center",justifyContent:"center",opacity:count>0?1:0.3}}>−</button>
+          <div style={{width:36,textAlign:"center",fontFamily:"'Black Han Sans',sans-serif",fontSize:18,color:over?t.accent2:t.text,padding:"0 4px"}}>{count}</div>
+          <button onClick={()=>{haptic(30);onIncrement(habit.id);}} style={{width:36,alignSelf:"stretch",background:over?t.accent2:"transparent",border:"none",borderLeft:`1px solid ${t.border}`,cursor:"pointer",fontSize:18,color:over?"#fff":t.text,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── EDIT HABIT MODAL ─────────────────────────────────────────────────────────
 function EditHabitModal({habit, onSave, onDelete, onClose, theme}) {
   const t=THEMES[theme]||THEMES.hawt;
   const [label,setLabel]=useState(habit.label);
-  const [timeOfDay,setTimeOfDay]=useState(habit.timeOfDay||null); // null|"AM"|"PM"|"EVE"
+  const [timeOfDay,setTimeOfDay]=useState(habit.timeOfDay||null);
+  const [limit,setLimit]=useState(habit.limit||5);
   const commit=()=>{
     if(!label.trim())return;
-    onSave(habit.id, label.trim().toUpperCase(), timeOfDay);
+    onSave(habit.id, label.trim().toUpperCase(), timeOfDay, limit);
     onClose();
   };
   const inp={width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"11px 13px",color:t.text,fontSize:14,fontFamily:"'Black Han Sans',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:10};
@@ -243,6 +286,14 @@ function EditHabitModal({habit, onSave, onDelete, onClose, theme}) {
         </div>
         <div style={lbl}>NAME</div>
         <input style={inp} value={label} onChange={e=>setLabel(e.target.value.toUpperCase())} onKeyDown={e=>e.key==="Enter"&&commit()} autoFocus/>
+        {habit.habitType==="limit"&&<>
+          <div style={lbl}>DAILY LIMIT</div>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+            <button onClick={()=>setLimit(l=>Math.max(1,l-1))} style={{width:36,height:36,border:`2px solid ${t.border}`,background:"transparent",color:t.text,fontFamily:"'Black Han Sans',sans-serif",fontSize:18,cursor:"pointer"}}>-</button>
+            <div style={{flex:1,textAlign:"center",fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.accent2,letterSpacing:2}}>{limit}x</div>
+            <button onClick={()=>setLimit(l=>l+1)} style={{width:36,height:36,border:`2px solid ${t.border}`,background:"transparent",color:t.text,fontFamily:"'Black Han Sans',sans-serif",fontSize:18,cursor:"pointer"}}>+</button>
+          </div>
+        </>}
         <div style={lbl}>TIME OF DAY</div>
         <div style={{display:"flex",gap:6,marginBottom:16}}>
           {[[null,"ANY TIME","⏰"],[" AM","MORNING","🌅"],["PM","AFTERNOON","☀️"],["EVE","EVENING","🌙"]].map(([val,lbl2,emoji])=>(
@@ -277,7 +328,7 @@ function HabitRow({habit,onComplete,onUndoOne,onDelete,onRename,todayStr,theme,o
   return(
     <>
     {showEdit&&<EditHabitModal habit={habit} theme={theme}
-      onSave={(id,label,timeOfDay)=>{onRename(id,label);onRename(id,label,timeOfDay);}}
+      onSave={(id,label,timeOfDay,limit)=>{onRename(id,label,timeOfDay);if(limit!==undefined)onRename(id,label,timeOfDay,limit);}}
       onDelete={(id)=>{setShowEdit(false);onDelete(id);}}
       onClose={()=>setShowEdit(false)}/>}
     <div style={{position:"relative",marginBottom:6,overflow:"hidden",borderRadius:0}}>
@@ -323,9 +374,10 @@ function HabitRow({habit,onComplete,onUndoOne,onDelete,onRename,todayStr,theme,o
 }
 
 // ─── SUBCATEGORY BLOCK ────────────────────────────────────────────────────────
-function SubcatBlock({subcat,habits,tasks,todayStr,theme,onComplete,onUndoOne,onDelete,onRename,onOpenDrawer,onDeleteSubcat,onRenameSubcat,onAddTask,onCompleteTask,onUncompleteTask,onDeleteTask,onRenameTask,onUpdateTask}){
+function SubcatBlock({subcat,habits,tasks,todayStr,theme,onComplete,onUndoOne,onDelete,onRename,onOpenDrawer,onDeleteSubcat,onRenameSubcat,onCollapseSubcat,onAddTask,onCompleteTask,onUncompleteTask,onDeleteTask,onRenameTask,onUpdateTask}){
   const t=THEMES[theme]||THEMES.hawt;
-  const [collapsed,setCollapsed]=useState(subcat.collapsed||false);
+  const collapsed=subcat.collapsed||false;
+  const setCollapsed=(fn)=>onCollapseSubcat(subcat.id,typeof fn==="function"?fn(collapsed):fn);
   const [editing,setEditing]=useState(false);
   const [editVal,setEditVal]=useState(subcat.label);
   const inputRef=useRef(null);
@@ -540,9 +592,10 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
 }
 
 // ─── CATEGORY BLOCK ──────────────────────────────────────────────────────────
-function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,onDeleteHabit,onRenameHabit,onOpenDrawer,onDeleteCat,onRenameCat,onColorCat,onHideDays,onToggleShopping,onAddSubcat,onDeleteSubcat,onRenameSubcat,onAddHabit,onAddTask,tasks,onCompleteTask,onUncompleteTask,onDeleteTask,onRenameTask,onUpdateTask,onReorderCat,onReorderHabit,onReorderSubcat}){
+function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,onDeleteHabit,onRenameHabit,onOpenDrawer,onDeleteCat,onRenameCat,onColorCat,onHideDays,onToggleShopping,onCollapseCat,onCollapseSubcat,onAddSubcat,onDeleteSubcat,onRenameSubcat,onAddHabit,onAddTask,tasks,onCompleteTask,onUncompleteTask,onDeleteTask,onRenameTask,onUpdateTask,onReorderCat,onReorderHabit,onReorderSubcat}){
   const t=THEMES[theme]||THEMES.hawt;
-  const [collapsed,setCollapsed]=useState(cat.collapsed||false);
+  const collapsed=cat.collapsed||false;
+  const setCollapsed=(fn)=>onCollapseCat(cat.id,typeof fn==="function"?fn(collapsed):fn);
   const [editing,setEditing]=useState(false);
   const [editVal,setEditVal]=useState(cat.label);
   const [pickingColor,setPickingColor]=useState(false);
@@ -552,7 +605,7 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
   const newSubcatRef=useRef(null);
 
   const catColor=cat.color||t.accent;
-  const directHabits=habits.filter(h=>h.catId===cat.id&&!h.subId).sort((a,b)=>{const ad=isDone(a,todayStr),bd=isDone(b,todayStr);return ad===bd?0:ad?1:-1;});
+  const directHabits=habits.filter(h=>h.catId===cat.id&&!h.subId).sort((a,b)=>{const ad=a.habitType==="limit"?false:isDone(a,todayStr),bd=b.habitType==="limit"?false:isDone(b,todayStr);return ad===bd?0:ad?1:-1;});
   const catTasks=(tasks||[]).filter(t=>{
     if(t.catId!==cat.id) return false;
     if(t.subId) return false;
@@ -565,7 +618,10 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
   });
   const catSubcats=subcats.filter(s=>s.catId===cat.id);
   const allHabits=habits.filter(h=>h.catId===cat.id);
-  const doneCount=allHabits.filter(h=>isDone(h,todayStr)).length;
+  const doneCount=allHabits.filter(h=>{
+    if(h.habitType==="limit") return getCount(h,todayStr)<=(h.limit||5); // under limit = "done"
+    return isDone(h,todayStr);
+  }).length;
   const catTasksAll=(tasks||[]).filter(t=>t.catId===cat.id&&t.scheduledFor<=todayStr&&!t.done&&!t.doneDate);
   const allDone=doneCount===allHabits.length&&allHabits.length>0&&catTasksAll.length===0;
   const totalItems=allHabits.length+catTasksAll.length;
@@ -654,7 +710,7 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
                 onDrop={e=>{e.preventDefault();e.stopPropagation();const fromId=e.dataTransfer.getData("subcatId");if(fromId&&fromId!==sub.id)onReorderSubcat(fromId,sub.id);}}>
                 <SubcatBlock subcat={sub} habits={subHabits} tasks={tasks} todayStr={todayStr} theme={theme}
                   onComplete={onComplete} onUndoOne={onUndoOne} onDelete={onDeleteHabit} onRename={onRenameHabit} onOpenDrawer={onOpenDrawer}
-                  onDeleteSubcat={onDeleteSubcat} onRenameSubcat={onRenameSubcat}
+                  onDeleteSubcat={onDeleteSubcat} onRenameSubcat={onRenameSubcat} onCollapseSubcat={onCollapseSubcat}
                   onAddTask={onAddTask} onCompleteTask={onCompleteTask} onUncompleteTask={onUncompleteTask} onDeleteTask={onDeleteTask} onRenameTask={onRenameTask} onUpdateTask={onUpdateTask}/>
               </div>
             );
@@ -666,7 +722,11 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
               onDragStart={e=>{e.dataTransfer.setData("habitId",h.id);e.dataTransfer.effectAllowed="move";e.stopPropagation();}}
               onDragOver={e=>{e.preventDefault();e.stopPropagation();}}
               onDrop={e=>{e.preventDefault();e.stopPropagation();const fromId=e.dataTransfer.getData("habitId");if(fromId&&fromId!==h.id)onReorderHabit(fromId,h.id);}}>
-              <HabitRow habit={h} onComplete={onComplete} onUndoOne={onUndoOne} onDelete={onDeleteHabit} onRename={onRenameHabit} todayStr={todayStr} theme={theme} onOpenDrawer={onOpenDrawer}/>
+              {h.habitType==="limit"
+                ?<LimitHabitRow habit={h} todayStr={todayStr} theme={theme}
+                    onIncrement={(id)=>onComplete(id)}
+                    onDecrement={(id)=>onUndoOne(id)}/>
+                :<HabitRow habit={h} onComplete={onComplete} onUndoOne={onUndoOne} onDelete={onDeleteHabit} onRename={onRenameHabit} todayStr={todayStr} theme={theme} onOpenDrawer={onOpenDrawer}/>}
             </div>
           ))}
 
@@ -715,6 +775,8 @@ function AddHabitModal({catId,subId,cats,subcats,onAdd,onClose,theme}){
   const [emoji,setEmoji]=useState("💪");
   const [xp,setXp]=useState(10);
   const [repeat,setRepeat]=useState(1);
+  const [habitType,setHabitType]=useState("good"); // good | limit
+  const [limit,setLimit]=useState(5);
   const [schedulePreset,setSchedulePreset]=useState("daily");
   const [customDays,setCustomDays]=useState([]);
   const [selectedCat,setSelectedCat]=useState(catId||cats[0]?.id||"");
@@ -733,7 +795,7 @@ function AddHabitModal({catId,subId,cats,subcats,onAdd,onClose,theme}){
 
   const submit=()=>{
     if(!label.trim()||!selectedCat)return;
-    onAdd({id:uid(),emoji,label:label.trim().toUpperCase(),catId:selectedCat,subId:selectedSub==="none"?null:selectedSub,color:null,special:null,xp,streak:0,repeat,schedule:getSchedule(),createdDate:TODAY(),completedDates:[],isDefault:false});
+    onAdd({id:uid(),emoji,label:label.trim().toUpperCase(),catId:selectedCat,subId:selectedSub==="none"?null:selectedSub,color:null,special:null,xp,streak:0,repeat:habitType==="limit"?1:repeat,limit:habitType==="limit"?limit:null,habitType,schedule:getSchedule(),createdDate:TODAY(),completedDates:[],isDefault:false});
     onClose();
   };
 
@@ -3038,18 +3100,28 @@ export default function App(){
 
   const showToast=(msg,emoji)=>{setToast({show:true,msg,emoji});setTimeout(()=>setToast(s=>({...s,show:false})),2200);};
 
-  const completeHabit=(id)=>{ haptic(40);
+  const completeHabit=(id)=>{
+    haptic(40);
     const h=habits.find(x=>x.id===id);
-    if(!h||isDone(h,todayStr))return;
-    const cnt=getCount(h,todayStr)+1,nowDone=cnt>=h.repeat,newStreak=nowDone?h.streak+1:h.streak,isMilestone=nowDone&&MILESTONES.includes(newStreak);
-    if(h.special==="poop"){sounds.playPoop();setFlash(true);setTimeout(()=>setFlash(false),700);setConfetti(true);showToast("POOPED! KING BEHAVIOR","💩");}
-    else if(isMilestone){sounds.playMilestone();setConfetti(true);setMilestone({show:true,streak:newStreak});}
-    else if(nowDone){sounds.playSuccess();setConfetti(true);showToast("DONE",h.emoji);}
-    else{sounds.playTick();showToast(`${cnt}/${h.repeat} DONE`,h.emoji);}
-    setHabits(prev=>prev.map(x=>x.id===id?{...x,completedDates:addCount(x.completedDates,todayStr,x.repeat),streak:newStreak}:x));
-    setTotalXP(prev=>prev+(nowDone||h.repeat===1?h.xp:Math.floor(h.xp/h.repeat)));
+    if(!h) return;
+    if(h.habitType==="limit"){
+      // Limit habit: increment count, award small XP if still under limit
+      const today2=TODAY();
+      const curCount=getCount(h,today2);
+      setHabits(prev=>prev.map(x=>x.id===id?{...x,completedDates:addCount(x.completedDates,today2,999)}:x));
+      if(curCount<(h.limit||5)) setTotalXP(x=>x+Math.max(1,Math.floor(h.xp/(h.limit||5))));
+      showToast(`${curCount+1}/${h.limit||5} TODAY`,h.emoji);
+    } else {
+      if(isDone(h,todayStr)) return;
+      const cnt=getCount(h,todayStr)+1,nowDone=cnt>=h.repeat,newStreak=nowDone?h.streak+1:h.streak,isMilestone=nowDone&&MILESTONES.includes(newStreak);
+      if(h.special==="poop"){sounds.playPoop();setFlash(true);setTimeout(()=>setFlash(false),700);setConfetti(true);showToast("POOPED! KING BEHAVIOR","💩");}
+      else if(isMilestone){sounds.playMilestone();setConfetti(true);setMilestone({show:true,streak:newStreak});}
+      else if(nowDone){sounds.playSuccess();setConfetti(true);showToast("DONE",h.emoji);}
+      else{sounds.playTick();showToast(`${cnt}/${h.repeat} DONE`,h.emoji);}
+      setHabits(prev=>prev.map(x=>x.id===id?{...x,completedDates:addCount(x.completedDates,todayStr,x.repeat),streak:newStreak}:x));
+      setTotalXP(prev=>prev+(nowDone||h.repeat===1?h.xp:Math.floor(h.xp/h.repeat)));
+    }
   };
-
   const undoOne=(id)=>{
     const h=habits.find(x=>x.id===id);if(!h)return;
     const wasDone=isDone(h,todayStr),cnt=getCount(h,todayStr);if(cnt===0)return;
@@ -3103,6 +3175,8 @@ export default function App(){
     });
   };
   const colorCat=(id,color)=>setCats(p=>p.map(c=>c.id===id?{...c,color}:c));
+  const collapseCat=(id,val)=>setCats(p=>p.map(c=>c.id===id?{...c,collapsed:val}:c));
+  const collapseSubcat=(id,val)=>setSubcats(p=>p.map(s=>s.id===id?{...s,collapsed:val}:s));
   const toggleShoppingList=(id)=>setCats(p=>p.map(c=>c.id===id?{...c,isShoppingList:!c.isShoppingList}:c));
   const hideDaysCat=(id,hideDays)=>setCats(p=>p.map(c=>c.id===id?{...c,hideDays}:c));
   const addSubcat=(sub)=>setSubcats(prev=>[...prev,sub]);
@@ -3156,7 +3230,7 @@ export default function App(){
     if(data.theme) setTheme(data.theme);
     showToast("RESTORED FROM DRIVE","☁️");
   };
-  const renameHabit=(id,label,timeOfDay)=>setHabits(p=>p.map(h=>h.id===id?{...h,label,timeOfDay:timeOfDay!==undefined?timeOfDay:h.timeOfDay}:h));
+  const renameHabit=(id,label,timeOfDay,limit)=>setHabits(p=>p.map(h=>h.id===id?{...h,label,timeOfDay:timeOfDay!==undefined?timeOfDay:h.timeOfDay,limit:limit!==undefined?limit:h.limit}:h));
 
   // List CRUD
   const toggleList=(type,id)=>{if(type==="movie")setMovies(p=>p.map(m=>m.id===id?{...m,done:!m.done}:m));else setBooks(p=>p.map(b=>b.id===id?{...b,done:!b.done}:b));};
@@ -3279,7 +3353,7 @@ export default function App(){
                   onComplete={!isPast?completeHabit:()=>{}} onUndoOne={!isPast?undoOne:()=>{}}
                   onDeleteHabit={!isPast?deleteHabit:()=>{}} onRenameHabit={!isPast?renameHabit:()=>{}}
                   onOpenDrawer={!isPast?setOpenDrawer:()=>{}}
-                  onDeleteCat={!isPast?deleteCat:()=>{}} onRenameCat={!isPast?renameCat:()=>{}} onColorCat={colorCat} onHideDays={hideDaysCat} onToggleShopping={toggleShoppingList}
+                  onDeleteCat={!isPast?deleteCat:()=>{}} onRenameCat={!isPast?renameCat:()=>{}} onColorCat={colorCat} onHideDays={hideDaysCat} onToggleShopping={toggleShoppingList} onCollapseCat={collapseCat} onCollapseSubcat={collapseSubcat}
                   onAddSubcat={!isPast?addSubcat:()=>{}} onDeleteSubcat={!isPast?deleteSubcat:()=>{}} onRenameSubcat={!isPast?renameSubcat:()=>{}}
                   onAddHabit={!isPast?(catId,subId)=>setAddHabitCtx({catId,subId}):()=>{}}
                   onAddTask={(catId,subId)=>setAddTaskCtx({catId,subId})}
