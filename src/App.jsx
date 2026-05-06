@@ -512,7 +512,7 @@ function TaskRow({task, onComplete, onUncomplete, onDelete, onRename, onUpdate, 
           <input type="date" style={{...inp,flex:2}} value={newDate} onMouseDown={e=>e.stopPropagation()} onChange={e=>setNewDate(e.target.value)}/>
           <select style={{...inp,flex:1,appearance:"none",cursor:"pointer"}} value={newTime} onChange={e=>setNewTime(e.target.value)}>
             <option value="">ANY TIME</option>
-            {["12:00 AM","1:00 AM","2:00 AM","3:00 AM","4:00 AM","5:00 AM","6:00 AM","7:00 AM","8:00 AM","9:00 AM","10:00 AM","11:00 AM","12:00 PM","1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM","6:00 PM","7:00 PM","8:00 PM","9:00 PM","10:00 PM","11:00 PM"].map(t2=><option key={t2} value={t2}>{t2}</option>)}
+            {["12:00 AM","12:10 AM","12:15 AM","12:20 AM","12:25 AM","12:30 AM","12:35 AM","12:40 AM","12:45 AM","12:50 AM","1:00 AM","1:10 AM","1:15 AM","1:20 AM","1:25 AM","1:30 AM","1:35 AM","1:40 AM","1:45 AM","1:50 AM","2:00 AM","2:10 AM","2:15 AM","2:20 AM","2:25 AM","2:30 AM","2:35 AM","2:40 AM","2:45 AM","2:50 AM","3:00 AM","3:10 AM","3:15 AM","3:20 AM","3:25 AM","3:30 AM","3:35 AM","3:40 AM","3:45 AM","3:50 AM","4:00 AM","4:10 AM","4:15 AM","4:20 AM","4:25 AM","4:30 AM","4:35 AM","4:40 AM","4:45 AM","4:50 AM","5:00 AM","5:10 AM","5:15 AM","5:20 AM","5:25 AM","5:30 AM","5:35 AM","5:40 AM","5:45 AM","5:50 AM","6:00 AM","6:10 AM","6:15 AM","6:20 AM","6:25 AM","6:30 AM","6:35 AM","6:40 AM","6:45 AM","6:50 AM","7:00 AM","7:10 AM","7:15 AM","7:20 AM","7:25 AM","7:30 AM","7:35 AM","7:40 AM","7:45 AM","7:50 AM","8:00 AM","8:10 AM","8:15 AM","8:20 AM","8:25 AM","8:30 AM","8:35 AM","8:40 AM","8:45 AM","8:50 AM","9:00 AM","9:10 AM","9:15 AM","9:20 AM","9:25 AM","9:30 AM","9:35 AM","9:40 AM","9:45 AM","9:50 AM","10:00 AM","10:10 AM","10:15 AM","10:20 AM","10:25 AM","10:30 AM","10:35 AM","10:40 AM","10:45 AM","10:50 AM","11:00 AM","11:10 AM","11:15 AM","11:20 AM","11:25 AM","11:30 AM","11:35 AM","11:40 AM","11:45 AM","11:50 AM","12:00 PM","12:10 PM","12:15 PM","12:20 PM","12:25 PM","12:30 PM","12:35 PM","12:40 PM","12:45 PM","12:50 PM","1:00 PM","1:10 PM","1:15 PM","1:20 PM","1:25 PM","1:30 PM","1:35 PM","1:40 PM","1:45 PM","1:50 PM","2:00 PM","2:10 PM","2:15 PM","2:20 PM","2:25 PM","2:30 PM","2:35 PM","2:40 PM","2:45 PM","2:50 PM","3:00 PM","3:10 PM","3:15 PM","3:20 PM","3:25 PM","3:30 PM","3:35 PM","3:40 PM","3:45 PM","3:50 PM","4:00 PM","4:10 PM","4:15 PM","4:20 PM","4:25 PM","4:30 PM","4:35 PM","4:40 PM","4:45 PM","4:50 PM","5:00 PM","5:10 PM","5:15 PM","5:20 PM","5:25 PM","5:30 PM","5:35 PM","5:40 PM","5:45 PM","5:50 PM","6:00 PM","6:10 PM","6:15 PM","6:20 PM","6:25 PM","6:30 PM","6:35 PM","6:40 PM","6:45 PM","6:50 PM","7:00 PM","7:10 PM","7:15 PM","7:20 PM","7:25 PM","7:30 PM","7:35 PM","7:40 PM","7:45 PM","7:50 PM","8:00 PM","8:10 PM","8:15 PM","8:20 PM","8:25 PM","8:30 PM","8:35 PM","8:40 PM","8:45 PM","8:50 PM","9:00 PM","9:10 PM","9:15 PM","9:20 PM","9:25 PM","9:30 PM","9:35 PM","9:40 PM","9:45 PM","9:50 PM","10:00 PM","10:10 PM","10:15 PM","10:20 PM","10:25 PM","10:30 PM","10:35 PM","10:40 PM","10:45 PM","10:50 PM","11:00 PM","11:10 PM","11:15 PM","11:20 PM","11:25 PM","11:30 PM","11:35 PM","11:40 PM","11:45 PM","11:50 PM"].map(t2=><option key={t2} value={t2}>{t2}</option>)}
           </select>
           <button onClick={extend} disabled={!newDate} style={{padding:"6px 12px",border:`1.5px solid ${t.accent}`,background:newDate?t.accent:"transparent",color:newDate?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:10,cursor:newDate?"pointer":"default",letterSpacing:1}}>SET</button>
           <button onClick={()=>setExtending(false)} style={{padding:"6px 10px",border:`1.5px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,cursor:"pointer"}}>✕</button>
@@ -533,6 +533,7 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
   const [dueTime,setDueTime]=useState("");
   const [priority,setPriority]=useState(false);
   const [remind,setRemind]=useState(false);
+  const [remindTime,setRemindTime]=useState("");
   const [selectedCat,setSelectedCat]=useState(catId||cats[0]?.id||"");
   const [selectedSub,setSelectedSub]=useState(subId||"none");
   const availSubs=subcats.filter(s=>s.catId===selectedCat);
@@ -542,7 +543,7 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
   const submit=()=>{
     if(!label.trim()||!selectedCat)return;
     const taskId=uid();
-    if(remind&&dueDate&&dueTime){const fa=taskFireAt({dueDate,dueTime});if(fa&&fa>Date.now())scheduleNotif(taskId,label.trim(),fa);}
+    if(remind&&dueDate&&remindTime){const fa=taskFireAt({dueDate,dueTime:remindTime});if(fa&&fa>Date.now())scheduleNotif(taskId,label.trim(),fa);}
     onAdd({
       id:taskId, label:label.trim(), note:note.trim(),
       catId:selectedCat, subId:selectedSub==="none"?null:selectedSub,
@@ -580,7 +581,7 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
           <input type="date" style={{...inp,flex:2,marginBottom:0,colorScheme:"dark"}} value={dueDate} onMouseDown={e=>e.stopPropagation()} onChange={e=>{setDueDate(e.target.value);if(!e.target.value){setRepeatUntilDue(false);setDueTime("");}}}/>
           <select style={{...inp,flex:1,marginBottom:0,appearance:"none",cursor:"pointer"}} value={dueTime} onMouseDown={e=>e.stopPropagation()} onChange={e=>setDueTime(e.target.value)} disabled={!dueDate}>
             <option value="">ANY TIME</option>
-            {["12:00 AM","1:00 AM","2:00 AM","3:00 AM","4:00 AM","5:00 AM","6:00 AM","7:00 AM","8:00 AM","9:00 AM","10:00 AM","11:00 AM","12:00 PM","1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM","6:00 PM","7:00 PM","8:00 PM","9:00 PM","10:00 PM","11:00 PM"].map(t2=><option key={t2} value={t2}>{t2}</option>)}
+            {["12:00 AM","12:10 AM","12:15 AM","12:20 AM","12:25 AM","12:30 AM","12:35 AM","12:40 AM","12:45 AM","12:50 AM","1:00 AM","1:10 AM","1:15 AM","1:20 AM","1:25 AM","1:30 AM","1:35 AM","1:40 AM","1:45 AM","1:50 AM","2:00 AM","2:10 AM","2:15 AM","2:20 AM","2:25 AM","2:30 AM","2:35 AM","2:40 AM","2:45 AM","2:50 AM","3:00 AM","3:10 AM","3:15 AM","3:20 AM","3:25 AM","3:30 AM","3:35 AM","3:40 AM","3:45 AM","3:50 AM","4:00 AM","4:10 AM","4:15 AM","4:20 AM","4:25 AM","4:30 AM","4:35 AM","4:40 AM","4:45 AM","4:50 AM","5:00 AM","5:10 AM","5:15 AM","5:20 AM","5:25 AM","5:30 AM","5:35 AM","5:40 AM","5:45 AM","5:50 AM","6:00 AM","6:10 AM","6:15 AM","6:20 AM","6:25 AM","6:30 AM","6:35 AM","6:40 AM","6:45 AM","6:50 AM","7:00 AM","7:10 AM","7:15 AM","7:20 AM","7:25 AM","7:30 AM","7:35 AM","7:40 AM","7:45 AM","7:50 AM","8:00 AM","8:10 AM","8:15 AM","8:20 AM","8:25 AM","8:30 AM","8:35 AM","8:40 AM","8:45 AM","8:50 AM","9:00 AM","9:10 AM","9:15 AM","9:20 AM","9:25 AM","9:30 AM","9:35 AM","9:40 AM","9:45 AM","9:50 AM","10:00 AM","10:10 AM","10:15 AM","10:20 AM","10:25 AM","10:30 AM","10:35 AM","10:40 AM","10:45 AM","10:50 AM","11:00 AM","11:10 AM","11:15 AM","11:20 AM","11:25 AM","11:30 AM","11:35 AM","11:40 AM","11:45 AM","11:50 AM","12:00 PM","12:10 PM","12:15 PM","12:20 PM","12:25 PM","12:30 PM","12:35 PM","12:40 PM","12:45 PM","12:50 PM","1:00 PM","1:10 PM","1:15 PM","1:20 PM","1:25 PM","1:30 PM","1:35 PM","1:40 PM","1:45 PM","1:50 PM","2:00 PM","2:10 PM","2:15 PM","2:20 PM","2:25 PM","2:30 PM","2:35 PM","2:40 PM","2:45 PM","2:50 PM","3:00 PM","3:10 PM","3:15 PM","3:20 PM","3:25 PM","3:30 PM","3:35 PM","3:40 PM","3:45 PM","3:50 PM","4:00 PM","4:10 PM","4:15 PM","4:20 PM","4:25 PM","4:30 PM","4:35 PM","4:40 PM","4:45 PM","4:50 PM","5:00 PM","5:10 PM","5:15 PM","5:20 PM","5:25 PM","5:30 PM","5:35 PM","5:40 PM","5:45 PM","5:50 PM","6:00 PM","6:10 PM","6:15 PM","6:20 PM","6:25 PM","6:30 PM","6:35 PM","6:40 PM","6:45 PM","6:50 PM","7:00 PM","7:10 PM","7:15 PM","7:20 PM","7:25 PM","7:30 PM","7:35 PM","7:40 PM","7:45 PM","7:50 PM","8:00 PM","8:10 PM","8:15 PM","8:20 PM","8:25 PM","8:30 PM","8:35 PM","8:40 PM","8:45 PM","8:50 PM","9:00 PM","9:10 PM","9:15 PM","9:20 PM","9:25 PM","9:30 PM","9:35 PM","9:40 PM","9:45 PM","9:50 PM","10:00 PM","10:10 PM","10:15 PM","10:20 PM","10:25 PM","10:30 PM","10:35 PM","10:40 PM","10:45 PM","10:50 PM","11:00 PM","11:10 PM","11:15 PM","11:20 PM","11:25 PM","11:30 PM","11:35 PM","11:40 PM","11:45 PM","11:50 PM"].map(t2=><option key={t2} value={t2}>{t2}</option>)}
           </select>
         </div>
         {dueDate&&<div style={{marginBottom:16,display:"flex",flexDirection:"column",gap:6}}>
@@ -591,13 +592,20 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
               <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:2,fontWeight:400}}>Appears every day until done or due date passes</div>
             </div>
           </button>
-          {dueTime&&notifSupported()&&<button onClick={async()=>{const ok=await requestNotifPermission();setRemind(v=>{return!v;});if(!ok)alert("Enable notifications in your browser settings to use reminders.");}} style={{width:"100%",padding:"10px 14px",border:`2px solid ${remind?"#f1c40f":t.border}`,background:remind?"#f1c40f22":"transparent",color:remind?"#b8860b":t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,display:"flex",alignItems:"center",gap:10}}>
-            <div style={{width:18,height:18,border:`2px solid ${remind?"#f1c40f":t.border}`,background:remind?"#f1c40f":"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"#1a1a1a",flexShrink:0}}>{remind?"✓":""}</div>
-            <div>
-              <div>🔔 REMIND ME AT {dueTime}</div>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,letterSpacing:1,marginTop:2,fontWeight:400}}>Push notification when this is due</div>
-            </div>
-          </button>}
+          {notifSupported()&&<div style={{border:`2px solid ${remind?"#f1c40f":t.border}`,background:remind?"#f1c40f11":"transparent",overflow:"hidden"}}>
+            <button onClick={async()=>{if(!remind){const ok=await requestNotifPermission();if(!ok){alert("Enable notifications in your browser settings.");return;}setRemindTime(dueTime||"");}setRemind(v=>!v);}} style={{width:"100%",padding:"10px 14px",background:"transparent",border:"none",color:remind?"#b8860b":t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
+              <div style={{width:18,height:18,border:`2px solid ${remind?"#f1c40f":t.border}`,background:remind?"#f1c40f":"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"#1a1a1a",flexShrink:0}}>{remind?"✓":""}</div>
+              <div>🔔 SET A REMINDER</div>
+            </button>
+            {remind&&<div style={{padding:"0 14px 12px",borderTop:`1px solid #f1c40f44`}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:"#b8860b",letterSpacing:2,marginBottom:6,marginTop:8}}>REMIND ME AT:</div>
+              <select style={{width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"10px 12px",color:t.text,fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",appearance:"none"}} value={remindTime} onChange={e=>setRemindTime(e.target.value)}>
+                <option value="">PICK A TIME</option>
+                {["12:00 AM","12:10 AM","12:15 AM","12:20 AM","12:25 AM","12:30 AM","12:35 AM","12:40 AM","12:45 AM","12:50 AM","1:00 AM","1:10 AM","1:15 AM","1:20 AM","1:25 AM","1:30 AM","1:35 AM","1:40 AM","1:45 AM","1:50 AM","2:00 AM","2:10 AM","2:15 AM","2:20 AM","2:25 AM","2:30 AM","2:35 AM","2:40 AM","2:45 AM","2:50 AM","3:00 AM","3:10 AM","3:15 AM","3:20 AM","3:25 AM","3:30 AM","3:35 AM","3:40 AM","3:45 AM","3:50 AM","4:00 AM","4:10 AM","4:15 AM","4:20 AM","4:25 AM","4:30 AM","4:35 AM","4:40 AM","4:45 AM","4:50 AM","5:00 AM","5:10 AM","5:15 AM","5:20 AM","5:25 AM","5:30 AM","5:35 AM","5:40 AM","5:45 AM","5:50 AM","6:00 AM","6:10 AM","6:15 AM","6:20 AM","6:25 AM","6:30 AM","6:35 AM","6:40 AM","6:45 AM","6:50 AM","7:00 AM","7:10 AM","7:15 AM","7:20 AM","7:25 AM","7:30 AM","7:35 AM","7:40 AM","7:45 AM","7:50 AM","8:00 AM","8:10 AM","8:15 AM","8:20 AM","8:25 AM","8:30 AM","8:35 AM","8:40 AM","8:45 AM","8:50 AM","9:00 AM","9:10 AM","9:15 AM","9:20 AM","9:25 AM","9:30 AM","9:35 AM","9:40 AM","9:45 AM","9:50 AM","10:00 AM","10:10 AM","10:15 AM","10:20 AM","10:25 AM","10:30 AM","10:35 AM","10:40 AM","10:45 AM","10:50 AM","11:00 AM","11:10 AM","11:15 AM","11:20 AM","11:25 AM","11:30 AM","11:35 AM","11:40 AM","11:45 AM","11:50 AM","12:00 PM","12:10 PM","12:15 PM","12:20 PM","12:25 PM","12:30 PM","12:35 PM","12:40 PM","12:45 PM","12:50 PM","1:00 PM","1:10 PM","1:15 PM","1:20 PM","1:25 PM","1:30 PM","1:35 PM","1:40 PM","1:45 PM","1:50 PM","2:00 PM","2:10 PM","2:15 PM","2:20 PM","2:25 PM","2:30 PM","2:35 PM","2:40 PM","2:45 PM","2:50 PM","3:00 PM","3:10 PM","3:15 PM","3:20 PM","3:25 PM","3:30 PM","3:35 PM","3:40 PM","3:45 PM","3:50 PM","4:00 PM","4:10 PM","4:15 PM","4:20 PM","4:25 PM","4:30 PM","4:35 PM","4:40 PM","4:45 PM","4:50 PM","5:00 PM","5:10 PM","5:15 PM","5:20 PM","5:25 PM","5:30 PM","5:35 PM","5:40 PM","5:45 PM","5:50 PM","6:00 PM","6:10 PM","6:15 PM","6:20 PM","6:25 PM","6:30 PM","6:35 PM","6:40 PM","6:45 PM","6:50 PM","7:00 PM","7:10 PM","7:15 PM","7:20 PM","7:25 PM","7:30 PM","7:35 PM","7:40 PM","7:45 PM","7:50 PM","8:00 PM","8:10 PM","8:15 PM","8:20 PM","8:25 PM","8:30 PM","8:35 PM","8:40 PM","8:45 PM","8:50 PM","9:00 PM","9:10 PM","9:15 PM","9:20 PM","9:25 PM","9:30 PM","9:35 PM","9:40 PM","9:45 PM","9:50 PM","10:00 PM","10:10 PM","10:15 PM","10:20 PM","10:25 PM","10:30 PM","10:35 PM","10:40 PM","10:45 PM","10:50 PM","11:00 PM","11:10 PM","11:15 PM","11:20 PM","11:25 PM","11:30 PM","11:35 PM","11:40 PM","11:45 PM","11:50 PM"].map(t2=><option key={t2} value={t2}>{t2}</option>)}
+              </select>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:6}}>You'll get a push notification at this time on the due date.</div>
+            </div>}
+          </div>}
         </div>}
         <button onClick={()=>setPriority(v=>!v)} style={{width:"100%",padding:"10px",border:`2px solid ${priority?"#f1c40f":t.border}`,background:priority?"#f1c40f22":"transparent",color:priority?"#f1c40f":t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,marginBottom:10,display:"flex",alignItems:"center",gap:8,justifyContent:"center"}}>
           <span style={{fontSize:16}}>⭐</span>{priority?"MARKED AS IMPORTANT":"MARK AS IMPORTANT"}
@@ -1615,6 +1623,64 @@ function DateJumpCalendar({currentDate, onJump, onClose, theme, t}) {
           })}
         </div>
         <button onClick={()=>{onJump(today);onClose();}} style={{width:"100%",marginTop:12,padding:"8px",border:`2px solid ${t.accent}`,background:t.accent,color:t.textInv,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:3}}>JUMP TO TODAY</button>
+      </div>
+    </div>
+  );
+}
+
+
+// ─── ADD CATEGORY MODAL ───────────────────────────────────────────────────────
+function AddCategoryModal({onAdd, onClose, theme, t}) {
+  const [label, setLabel] = useState("");
+  const [color, setColor] = useState(null);
+  const [hideDays, setHideDays] = useState([]);
+  const [isShopping, setIsShopping] = useState(false);
+  const DAY_NAMES = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+  const inp = {width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"11px 13px",color:t.text,fontSize:16,fontFamily:"'Black Han Sans',sans-serif",letterSpacing:3,outline:"none",boxSizing:"border-box",marginBottom:14,textTransform:"uppercase"};
+
+  const submit = () => {
+    if(!label.trim()) return;
+    onAdd({id:uid(), label:label.trim().toUpperCase(), collapsed:false, color:color||null, hideDays, isShoppingList:isShopping});
+    onClose();
+  };
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
+      <div style={{background:t.bg,width:"100%",maxWidth:500,border:`3px solid ${t.border}`,borderBottom:"none",boxShadow:`-6px -6px 0 ${t.border}`,padding:24,maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:20,color:t.text,letterSpacing:4,marginBottom:16}}>NEW CATEGORY</div>
+
+        <input style={inp} placeholder="CATEGORY NAME" value={label} onChange={e=>setLabel(e.target.value.toUpperCase())} onKeyDown={e=>e.key==="Enter"&&submit()} autoFocus/>
+
+        {/* Color */}
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:8}}>COLOR (OPTIONAL)</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:16}}>
+          {HABIT_COLORS.map(c=>(
+            <button key={c} onClick={()=>setColor(color===c?null:c)} style={{width:28,height:28,background:c,border:`3px solid ${color===c?t.text:"transparent"}`,cursor:"pointer",boxShadow:color===c?`0 0 0 1px ${t.border}`:"none"}}/>
+          ))}
+        </div>
+
+        {/* Hide on days */}
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:8}}>HIDE ON DAYS (OPTIONAL)</div>
+        <div style={{display:"flex",gap:4,marginBottom:16}}>
+          {DAY_NAMES.map((day,i)=>{
+            const on=hideDays.includes(i);
+            return <button key={i} onClick={()=>setHideDays(prev=>on?prev.filter(d=>d!==i):[...prev,i].sort())} style={{flex:1,padding:"7px 0",border:`2px solid ${on?t.accent2:t.border}`,background:on?t.accent2:"transparent",color:on?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:9,cursor:"pointer",letterSpacing:0}}>{day}</button>;
+          })}
+        </div>
+
+        {/* Shopping mode */}
+        <button onClick={()=>setIsShopping(v=>!v)} style={{width:"100%",padding:"12px 14px",border:`2px solid ${isShopping?"#f1c40f":t.border}`,background:isShopping?"#f1c40f22":"transparent",color:isShopping?"#b8860b":t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+          <div style={{width:18,height:18,border:`2px solid ${isShopping?"#f1c40f":t.border}`,background:isShopping?"#f1c40f":"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"#1a1a1a",flexShrink:0}}>{isShopping?"✓":""}</div>
+          <div>
+            <div>🛒 SHOPPING LIST MODE</div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,letterSpacing:1,marginTop:2,fontWeight:400,color:t.textSub}}>Tasks become shopping items · checked items clear after 24hrs</div>
+          </div>
+        </button>
+
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={onClose} style={{flex:1,padding:"12px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,cursor:"pointer",letterSpacing:2}}>CANCEL</button>
+          <button onClick={submit} disabled={!label.trim()} style={{flex:2,padding:"12px",border:`2px solid ${t.border}`,background:label.trim()?t.addBtn:"transparent",color:label.trim()?t.addBtnText:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,cursor:label.trim()?"pointer":"default",letterSpacing:3,boxShadow:label.trim()?`3px 3px 0 ${t.border}`:"none",opacity:label.trim()?1:0.4}}>CREATE</button>
+        </div>
       </div>
     </div>
   );
@@ -3018,7 +3084,7 @@ function AddEventModal({onAdd, onClose, theme, t}) {
                 <div style={lbl}>TIME</div>
                 <select style={{...inp,appearance:"none"}} value={form.time} onChange={e=>fld("time",e.target.value)}>
                   <option value="">TBD</option>
-                  {["12:00 AM","1:00 AM","2:00 AM","3:00 AM","4:00 AM","5:00 AM","6:00 AM","7:00 AM","8:00 AM","9:00 AM","10:00 AM","11:00 AM","12:00 PM","1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM","6:00 PM","7:00 PM","8:00 PM","9:00 PM","10:00 PM","11:00 PM"].map(t2=><option key={t2} value={t2}>{t2}</option>)}
+                  {["12:00 AM","12:10 AM","12:15 AM","12:20 AM","12:25 AM","12:30 AM","12:35 AM","12:40 AM","12:45 AM","12:50 AM","1:00 AM","1:10 AM","1:15 AM","1:20 AM","1:25 AM","1:30 AM","1:35 AM","1:40 AM","1:45 AM","1:50 AM","2:00 AM","2:10 AM","2:15 AM","2:20 AM","2:25 AM","2:30 AM","2:35 AM","2:40 AM","2:45 AM","2:50 AM","3:00 AM","3:10 AM","3:15 AM","3:20 AM","3:25 AM","3:30 AM","3:35 AM","3:40 AM","3:45 AM","3:50 AM","4:00 AM","4:10 AM","4:15 AM","4:20 AM","4:25 AM","4:30 AM","4:35 AM","4:40 AM","4:45 AM","4:50 AM","5:00 AM","5:10 AM","5:15 AM","5:20 AM","5:25 AM","5:30 AM","5:35 AM","5:40 AM","5:45 AM","5:50 AM","6:00 AM","6:10 AM","6:15 AM","6:20 AM","6:25 AM","6:30 AM","6:35 AM","6:40 AM","6:45 AM","6:50 AM","7:00 AM","7:10 AM","7:15 AM","7:20 AM","7:25 AM","7:30 AM","7:35 AM","7:40 AM","7:45 AM","7:50 AM","8:00 AM","8:10 AM","8:15 AM","8:20 AM","8:25 AM","8:30 AM","8:35 AM","8:40 AM","8:45 AM","8:50 AM","9:00 AM","9:10 AM","9:15 AM","9:20 AM","9:25 AM","9:30 AM","9:35 AM","9:40 AM","9:45 AM","9:50 AM","10:00 AM","10:10 AM","10:15 AM","10:20 AM","10:25 AM","10:30 AM","10:35 AM","10:40 AM","10:45 AM","10:50 AM","11:00 AM","11:10 AM","11:15 AM","11:20 AM","11:25 AM","11:30 AM","11:35 AM","11:40 AM","11:45 AM","11:50 AM","12:00 PM","12:10 PM","12:15 PM","12:20 PM","12:25 PM","12:30 PM","12:35 PM","12:40 PM","12:45 PM","12:50 PM","1:00 PM","1:10 PM","1:15 PM","1:20 PM","1:25 PM","1:30 PM","1:35 PM","1:40 PM","1:45 PM","1:50 PM","2:00 PM","2:10 PM","2:15 PM","2:20 PM","2:25 PM","2:30 PM","2:35 PM","2:40 PM","2:45 PM","2:50 PM","3:00 PM","3:10 PM","3:15 PM","3:20 PM","3:25 PM","3:30 PM","3:35 PM","3:40 PM","3:45 PM","3:50 PM","4:00 PM","4:10 PM","4:15 PM","4:20 PM","4:25 PM","4:30 PM","4:35 PM","4:40 PM","4:45 PM","4:50 PM","5:00 PM","5:10 PM","5:15 PM","5:20 PM","5:25 PM","5:30 PM","5:35 PM","5:40 PM","5:45 PM","5:50 PM","6:00 PM","6:10 PM","6:15 PM","6:20 PM","6:25 PM","6:30 PM","6:35 PM","6:40 PM","6:45 PM","6:50 PM","7:00 PM","7:10 PM","7:15 PM","7:20 PM","7:25 PM","7:30 PM","7:35 PM","7:40 PM","7:45 PM","7:50 PM","8:00 PM","8:10 PM","8:15 PM","8:20 PM","8:25 PM","8:30 PM","8:35 PM","8:40 PM","8:45 PM","8:50 PM","9:00 PM","9:10 PM","9:15 PM","9:20 PM","9:25 PM","9:30 PM","9:35 PM","9:40 PM","9:45 PM","9:50 PM","10:00 PM","10:10 PM","10:15 PM","10:20 PM","10:25 PM","10:30 PM","10:35 PM","10:40 PM","10:45 PM","10:50 PM","11:00 PM","11:10 PM","11:15 PM","11:20 PM","11:25 PM","11:30 PM","11:35 PM","11:40 PM","11:45 PM","11:50 PM"].map(t2=><option key={t2} value={t2}>{t2}</option>)}
                 </select>
               </div>
             </div>
@@ -3264,8 +3330,7 @@ export default function App(){
   const [addTaskCtx,setAddTaskCtx]=useState(null); // {catId,subId}
   const [showTheme,setShowTheme]=useState(false);
   const [openDrawer,setOpenDrawer]=useState(null);
-  const [addingCat,setAddingCat]=useState(false);
-  const [newCatVal,setNewCatVal]=useState("");
+  const [showAddCat,setShowAddCat]=useState(false);
   const [loaded,setLoaded]=useState(false);
   const [showOnboarding,setShowOnboarding]=useState(false);
   const [notifPermission,setNotifPermission]=useState(notifSupported()?Notification.permission:"unsupported");
@@ -3288,7 +3353,6 @@ export default function App(){
   const isPast=viewOffset<0;
   const viewDateLabel=isToday?"TODAY":viewOffset===-1?"YESTERDAY":viewOffset===1?"TOMORROW":new Date(viewDate+"T12:00:00").toLocaleDateString("en-US",{weekday:"long"}).toUpperCase();
   const t=THEMES[theme]||THEMES.hawt;
-  const newCatRef=useRef(null);
   const importRef=useRef(null);
 
   useEffect(()=>{ rescheduleAllNotifs(); load().then(saved=>{if(saved){setCats(saved.cats||DEFAULT_DATA.categories);setSubcats(saved.subcats||DEFAULT_DATA.subcategories);setHabits(saved.habits||DEFAULT_DATA.habits);setTasks(saved.tasks||DEFAULT_DATA.tasks||[]);setEvents(saved.events||[]);setMovies(saved.movies||[]);setBooks(saved.books||[]);setTvshows(saved.tvshows||[]);setPlaces(saved.places||[]);setCityList(saved.cityList||STARTER_CITIES.map(c=>c.name));setCityEmojis(saved.cityEmojis||{});setTotalXP(saved.totalXP||0);setTheme(saved.theme||"hawt");}else{setShowOnboarding(true);}setLoaded(true);});},[]);
