@@ -3649,19 +3649,8 @@ export default function App(){
               ))}
 
               {/* Add category */}
-              {addingCat
-                ?<div style={{display:"flex",gap:6,marginTop:2}}>
-                  <input ref={newCatRef} value={newCatVal} onChange={e=>setNewCatVal(e.target.value.toUpperCase())}
-                    onKeyDown={e=>{
-                      if(e.key==="Enter"){const v=newCatVal.trim();if(v){addCat({id:uid(),label:v.toUpperCase(),collapsed:false});}setNewCatVal("");setAddingCat(false);}
-                      if(e.key==="Escape"){setAddingCat(false);setNewCatVal("");}
-                    }}
-                    placeholder="CATEGORY NAME" autoFocus
-                    style={{flex:1,background:t.bg,border:`2px solid ${t.accent}`,padding:"11px 12px",color:t.text,fontFamily:"'Black Han Sans',sans-serif",fontSize:14,letterSpacing:3,outline:"none"}}/>
-                  <button onClick={()=>{const v=newCatVal.trim();if(v){addCat({id:uid(),label:v.toUpperCase(),collapsed:false});}setNewCatVal("");setAddingCat(false);}} style={{padding:"11px 16px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,cursor:"pointer",letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`}}>ADD</button>
-                  <button onClick={()=>{setAddingCat(false);setNewCatVal("");}} style={{padding:"11px 12px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer"}}>✕</button>
-                </div>
-                :<button onClick={()=>{setAddingCat(true);setTimeout(()=>newCatRef.current?.focus(),50);}} style={{width:"100%",padding:"13px",border:`2px dashed ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:2,letterSpacing:4}}>+ ADD CATEGORY</button>}
+              {showAddCat&&<AddCategoryModal onAdd={(cat)=>{addCat(cat);}} onClose={()=>setShowAddCat(false)} theme={theme} t={t}/>}
+              <button onClick={()=>setShowAddCat(true)} style={{width:"100%",padding:"13px",border:`2px dashed ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:2,letterSpacing:4}}>+ ADD CATEGORY</button>
             </>
           )}
 
