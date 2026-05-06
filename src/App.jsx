@@ -443,6 +443,7 @@ function TaskRow({task, onComplete, onUncomplete, onDelete, onRename, onUpdate, 
   const [extending,setExtending]=useState(false);
   const [newDate,setNewDate]=useState("");
   const [newTime,setNewTime]=useState("");
+  const [extendRemind,setExtendRemind]=useState(false);
   const ref=useRef(null);
   const today=TODAY();
   const isOverdue=!task.done&&task.dueDate&&(()=>{
@@ -462,8 +463,10 @@ function TaskRow({task, onComplete, onUncomplete, onDelete, onRename, onUpdate, 
 
   const extend=()=>{
     if(!newDate)return;
-    onUpdate({...task,dueDate:newDate,dueTime:newTime||null,scheduledFor:task.scheduledFor});
-    setExtending(false);setNewDate("");setNewTime("");
+    const updated={...task,dueDate:newDate,dueTime:newTime||null,scheduledFor:task.scheduledFor};
+    onUpdate(updated);
+    if(extendRemind&&newDate&&newTime){const fa=taskFireAt({dueDate:newDate,dueTime:newTime});if(fa&&fa>Date.now())scheduleNotif(task.id,task.label,fa);}
+    setExtending(false);setNewDate("");setNewTime("");setExtendRemind(false);
   };
 
   const inp={background:t.bg,border:`1.5px solid ${t.border}`,padding:"6px 8px",color:t.text,fontSize:12,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,outline:"none",colorScheme:"dark"};
@@ -510,10 +513,7 @@ function TaskRow({task, onComplete, onUncomplete, onDelete, onRename, onUpdate, 
         <div style={{borderTop:`1px solid ${t.border}`,padding:"10px 12px",background:`${t.accent2}0a`,display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}} onMouseDown={e=>e.stopPropagation()} onDragStart={e=>e.preventDefault()}>
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.accent2,letterSpacing:1,flex:"0 0 100%",marginBottom:4}}>PICK NEW DUE DATE:</div>
           <input type="date" style={{...inp,flex:2}} value={newDate} onMouseDown={e=>e.stopPropagation()} onChange={e=>setNewDate(e.target.value)}/>
-          <select style={{...inp,flex:1,appearance:"none",cursor:"pointer"}} value={newTime} onChange={e=>setNewTime(e.target.value)}>
-            <option value="">ANY TIME</option>
-            {["12:00 AM","12:10 AM","12:15 AM","12:20 AM","12:25 AM","12:30 AM","12:35 AM","12:40 AM","12:45 AM","12:50 AM","1:00 AM","1:10 AM","1:15 AM","1:20 AM","1:25 AM","1:30 AM","1:35 AM","1:40 AM","1:45 AM","1:50 AM","2:00 AM","2:10 AM","2:15 AM","2:20 AM","2:25 AM","2:30 AM","2:35 AM","2:40 AM","2:45 AM","2:50 AM","3:00 AM","3:10 AM","3:15 AM","3:20 AM","3:25 AM","3:30 AM","3:35 AM","3:40 AM","3:45 AM","3:50 AM","4:00 AM","4:10 AM","4:15 AM","4:20 AM","4:25 AM","4:30 AM","4:35 AM","4:40 AM","4:45 AM","4:50 AM","5:00 AM","5:10 AM","5:15 AM","5:20 AM","5:25 AM","5:30 AM","5:35 AM","5:40 AM","5:45 AM","5:50 AM","6:00 AM","6:10 AM","6:15 AM","6:20 AM","6:25 AM","6:30 AM","6:35 AM","6:40 AM","6:45 AM","6:50 AM","7:00 AM","7:10 AM","7:15 AM","7:20 AM","7:25 AM","7:30 AM","7:35 AM","7:40 AM","7:45 AM","7:50 AM","8:00 AM","8:10 AM","8:15 AM","8:20 AM","8:25 AM","8:30 AM","8:35 AM","8:40 AM","8:45 AM","8:50 AM","9:00 AM","9:10 AM","9:15 AM","9:20 AM","9:25 AM","9:30 AM","9:35 AM","9:40 AM","9:45 AM","9:50 AM","10:00 AM","10:10 AM","10:15 AM","10:20 AM","10:25 AM","10:30 AM","10:35 AM","10:40 AM","10:45 AM","10:50 AM","11:00 AM","11:10 AM","11:15 AM","11:20 AM","11:25 AM","11:30 AM","11:35 AM","11:40 AM","11:45 AM","11:50 AM","12:00 PM","12:10 PM","12:15 PM","12:20 PM","12:25 PM","12:30 PM","12:35 PM","12:40 PM","12:45 PM","12:50 PM","1:00 PM","1:10 PM","1:15 PM","1:20 PM","1:25 PM","1:30 PM","1:35 PM","1:40 PM","1:45 PM","1:50 PM","2:00 PM","2:10 PM","2:15 PM","2:20 PM","2:25 PM","2:30 PM","2:35 PM","2:40 PM","2:45 PM","2:50 PM","3:00 PM","3:10 PM","3:15 PM","3:20 PM","3:25 PM","3:30 PM","3:35 PM","3:40 PM","3:45 PM","3:50 PM","4:00 PM","4:10 PM","4:15 PM","4:20 PM","4:25 PM","4:30 PM","4:35 PM","4:40 PM","4:45 PM","4:50 PM","5:00 PM","5:10 PM","5:15 PM","5:20 PM","5:25 PM","5:30 PM","5:35 PM","5:40 PM","5:45 PM","5:50 PM","6:00 PM","6:10 PM","6:15 PM","6:20 PM","6:25 PM","6:30 PM","6:35 PM","6:40 PM","6:45 PM","6:50 PM","7:00 PM","7:10 PM","7:15 PM","7:20 PM","7:25 PM","7:30 PM","7:35 PM","7:40 PM","7:45 PM","7:50 PM","8:00 PM","8:10 PM","8:15 PM","8:20 PM","8:25 PM","8:30 PM","8:35 PM","8:40 PM","8:45 PM","8:50 PM","9:00 PM","9:10 PM","9:15 PM","9:20 PM","9:25 PM","9:30 PM","9:35 PM","9:40 PM","9:45 PM","9:50 PM","10:00 PM","10:10 PM","10:15 PM","10:20 PM","10:25 PM","10:30 PM","10:35 PM","10:40 PM","10:45 PM","10:50 PM","11:00 PM","11:10 PM","11:15 PM","11:20 PM","11:25 PM","11:30 PM","11:35 PM","11:40 PM","11:45 PM","11:50 PM"].map(t2=><option key={t2} value={t2}>{t2}</option>)}
-          </select>
+<TimePicker value={newTime} onChange={setNewTime} t={t}/>
           <button onClick={extend} disabled={!newDate} style={{padding:"6px 12px",border:`1.5px solid ${t.accent}`,background:newDate?t.accent:"transparent",color:newDate?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:10,cursor:newDate?"pointer":"default",letterSpacing:1}}>SET</button>
           <button onClick={()=>setExtending(false)} style={{padding:"6px 10px",border:`1.5px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,cursor:"pointer"}}>✕</button>
         </div>
@@ -579,10 +579,7 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2,marginBottom:4}}>DUE DATE & TIME (OPTIONAL):</div>
         <div style={{display:"flex",gap:6,marginBottom:dueDate?8:16}}>
           <input type="date" style={{...inp,flex:2,marginBottom:0,colorScheme:"dark"}} value={dueDate} onMouseDown={e=>e.stopPropagation()} onChange={e=>{setDueDate(e.target.value);if(!e.target.value){setRepeatUntilDue(false);setDueTime("");}}}/>
-          <select style={{...inp,flex:1,marginBottom:0,appearance:"none",cursor:"pointer"}} value={dueTime} onMouseDown={e=>e.stopPropagation()} onChange={e=>setDueTime(e.target.value)} disabled={!dueDate}>
-            <option value="">ANY TIME</option>
-            {["12:00 AM","12:10 AM","12:15 AM","12:20 AM","12:25 AM","12:30 AM","12:35 AM","12:40 AM","12:45 AM","12:50 AM","1:00 AM","1:10 AM","1:15 AM","1:20 AM","1:25 AM","1:30 AM","1:35 AM","1:40 AM","1:45 AM","1:50 AM","2:00 AM","2:10 AM","2:15 AM","2:20 AM","2:25 AM","2:30 AM","2:35 AM","2:40 AM","2:45 AM","2:50 AM","3:00 AM","3:10 AM","3:15 AM","3:20 AM","3:25 AM","3:30 AM","3:35 AM","3:40 AM","3:45 AM","3:50 AM","4:00 AM","4:10 AM","4:15 AM","4:20 AM","4:25 AM","4:30 AM","4:35 AM","4:40 AM","4:45 AM","4:50 AM","5:00 AM","5:10 AM","5:15 AM","5:20 AM","5:25 AM","5:30 AM","5:35 AM","5:40 AM","5:45 AM","5:50 AM","6:00 AM","6:10 AM","6:15 AM","6:20 AM","6:25 AM","6:30 AM","6:35 AM","6:40 AM","6:45 AM","6:50 AM","7:00 AM","7:10 AM","7:15 AM","7:20 AM","7:25 AM","7:30 AM","7:35 AM","7:40 AM","7:45 AM","7:50 AM","8:00 AM","8:10 AM","8:15 AM","8:20 AM","8:25 AM","8:30 AM","8:35 AM","8:40 AM","8:45 AM","8:50 AM","9:00 AM","9:10 AM","9:15 AM","9:20 AM","9:25 AM","9:30 AM","9:35 AM","9:40 AM","9:45 AM","9:50 AM","10:00 AM","10:10 AM","10:15 AM","10:20 AM","10:25 AM","10:30 AM","10:35 AM","10:40 AM","10:45 AM","10:50 AM","11:00 AM","11:10 AM","11:15 AM","11:20 AM","11:25 AM","11:30 AM","11:35 AM","11:40 AM","11:45 AM","11:50 AM","12:00 PM","12:10 PM","12:15 PM","12:20 PM","12:25 PM","12:30 PM","12:35 PM","12:40 PM","12:45 PM","12:50 PM","1:00 PM","1:10 PM","1:15 PM","1:20 PM","1:25 PM","1:30 PM","1:35 PM","1:40 PM","1:45 PM","1:50 PM","2:00 PM","2:10 PM","2:15 PM","2:20 PM","2:25 PM","2:30 PM","2:35 PM","2:40 PM","2:45 PM","2:50 PM","3:00 PM","3:10 PM","3:15 PM","3:20 PM","3:25 PM","3:30 PM","3:35 PM","3:40 PM","3:45 PM","3:50 PM","4:00 PM","4:10 PM","4:15 PM","4:20 PM","4:25 PM","4:30 PM","4:35 PM","4:40 PM","4:45 PM","4:50 PM","5:00 PM","5:10 PM","5:15 PM","5:20 PM","5:25 PM","5:30 PM","5:35 PM","5:40 PM","5:45 PM","5:50 PM","6:00 PM","6:10 PM","6:15 PM","6:20 PM","6:25 PM","6:30 PM","6:35 PM","6:40 PM","6:45 PM","6:50 PM","7:00 PM","7:10 PM","7:15 PM","7:20 PM","7:25 PM","7:30 PM","7:35 PM","7:40 PM","7:45 PM","7:50 PM","8:00 PM","8:10 PM","8:15 PM","8:20 PM","8:25 PM","8:30 PM","8:35 PM","8:40 PM","8:45 PM","8:50 PM","9:00 PM","9:10 PM","9:15 PM","9:20 PM","9:25 PM","9:30 PM","9:35 PM","9:40 PM","9:45 PM","9:50 PM","10:00 PM","10:10 PM","10:15 PM","10:20 PM","10:25 PM","10:30 PM","10:35 PM","10:40 PM","10:45 PM","10:50 PM","11:00 PM","11:10 PM","11:15 PM","11:20 PM","11:25 PM","11:30 PM","11:35 PM","11:40 PM","11:45 PM","11:50 PM"].map(t2=><option key={t2} value={t2}>{t2}</option>)}
-          </select>
+          <div onMouseDown={e=>e.stopPropagation()} style={{flex:1}}><TimePicker value={dueTime} onChange={setDueTime} t={t}/></div>
         </div>
         {dueDate&&<div style={{marginBottom:16,display:"flex",flexDirection:"column",gap:6}}>
           <button onClick={()=>setRepeatUntilDue(v=>!v)} style={{width:"100%",padding:"10px 14px",border:`2px solid ${repeatUntilDue?t.accent:t.border}`,background:repeatUntilDue?`${t.accent}18`:"transparent",color:repeatUntilDue?t.accent:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
@@ -599,10 +596,7 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
             </button>
             {remind&&<div style={{padding:"0 14px 12px",borderTop:`1px solid #f1c40f44`}}>
               <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:"#b8860b",letterSpacing:2,marginBottom:6,marginTop:8}}>REMIND ME AT:</div>
-              <select style={{width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"10px 12px",color:t.text,fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,outline:"none",appearance:"none"}} value={remindTime} onChange={e=>setRemindTime(e.target.value)}>
-                <option value="">PICK A TIME</option>
-                {["12:00 AM","12:10 AM","12:15 AM","12:20 AM","12:25 AM","12:30 AM","12:35 AM","12:40 AM","12:45 AM","12:50 AM","1:00 AM","1:10 AM","1:15 AM","1:20 AM","1:25 AM","1:30 AM","1:35 AM","1:40 AM","1:45 AM","1:50 AM","2:00 AM","2:10 AM","2:15 AM","2:20 AM","2:25 AM","2:30 AM","2:35 AM","2:40 AM","2:45 AM","2:50 AM","3:00 AM","3:10 AM","3:15 AM","3:20 AM","3:25 AM","3:30 AM","3:35 AM","3:40 AM","3:45 AM","3:50 AM","4:00 AM","4:10 AM","4:15 AM","4:20 AM","4:25 AM","4:30 AM","4:35 AM","4:40 AM","4:45 AM","4:50 AM","5:00 AM","5:10 AM","5:15 AM","5:20 AM","5:25 AM","5:30 AM","5:35 AM","5:40 AM","5:45 AM","5:50 AM","6:00 AM","6:10 AM","6:15 AM","6:20 AM","6:25 AM","6:30 AM","6:35 AM","6:40 AM","6:45 AM","6:50 AM","7:00 AM","7:10 AM","7:15 AM","7:20 AM","7:25 AM","7:30 AM","7:35 AM","7:40 AM","7:45 AM","7:50 AM","8:00 AM","8:10 AM","8:15 AM","8:20 AM","8:25 AM","8:30 AM","8:35 AM","8:40 AM","8:45 AM","8:50 AM","9:00 AM","9:10 AM","9:15 AM","9:20 AM","9:25 AM","9:30 AM","9:35 AM","9:40 AM","9:45 AM","9:50 AM","10:00 AM","10:10 AM","10:15 AM","10:20 AM","10:25 AM","10:30 AM","10:35 AM","10:40 AM","10:45 AM","10:50 AM","11:00 AM","11:10 AM","11:15 AM","11:20 AM","11:25 AM","11:30 AM","11:35 AM","11:40 AM","11:45 AM","11:50 AM","12:00 PM","12:10 PM","12:15 PM","12:20 PM","12:25 PM","12:30 PM","12:35 PM","12:40 PM","12:45 PM","12:50 PM","1:00 PM","1:10 PM","1:15 PM","1:20 PM","1:25 PM","1:30 PM","1:35 PM","1:40 PM","1:45 PM","1:50 PM","2:00 PM","2:10 PM","2:15 PM","2:20 PM","2:25 PM","2:30 PM","2:35 PM","2:40 PM","2:45 PM","2:50 PM","3:00 PM","3:10 PM","3:15 PM","3:20 PM","3:25 PM","3:30 PM","3:35 PM","3:40 PM","3:45 PM","3:50 PM","4:00 PM","4:10 PM","4:15 PM","4:20 PM","4:25 PM","4:30 PM","4:35 PM","4:40 PM","4:45 PM","4:50 PM","5:00 PM","5:10 PM","5:15 PM","5:20 PM","5:25 PM","5:30 PM","5:35 PM","5:40 PM","5:45 PM","5:50 PM","6:00 PM","6:10 PM","6:15 PM","6:20 PM","6:25 PM","6:30 PM","6:35 PM","6:40 PM","6:45 PM","6:50 PM","7:00 PM","7:10 PM","7:15 PM","7:20 PM","7:25 PM","7:30 PM","7:35 PM","7:40 PM","7:45 PM","7:50 PM","8:00 PM","8:10 PM","8:15 PM","8:20 PM","8:25 PM","8:30 PM","8:35 PM","8:40 PM","8:45 PM","8:50 PM","9:00 PM","9:10 PM","9:15 PM","9:20 PM","9:25 PM","9:30 PM","9:35 PM","9:40 PM","9:45 PM","9:50 PM","10:00 PM","10:10 PM","10:15 PM","10:20 PM","10:25 PM","10:30 PM","10:35 PM","10:40 PM","10:45 PM","10:50 PM","11:00 PM","11:10 PM","11:15 PM","11:20 PM","11:25 PM","11:30 PM","11:35 PM","11:40 PM","11:45 PM","11:50 PM"].map(t2=><option key={t2} value={t2}>{t2}</option>)}
-              </select>
+<TimePicker value={remindTime} onChange={setRemindTime} t={t}/>
               <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:6}}>You'll get a push notification at this time on the due date.</div>
             </div>}
           </div>}
@@ -1577,6 +1571,62 @@ const taskFireAt = (task) => {
   const h24=(ampm==="PM"&&h!==12)?h+12:(ampm==="AM"&&h===12)?0:h;
   return new Date(task.dueDate+"T"+String(h24).padStart(2,"0")+":"+String(m).padStart(2,"0")+":00").getTime();
 };
+
+
+// ─── TIME PICKER ──────────────────────────────────────────────────────────────
+function TimePicker({value, onChange, t, placeholder="ANY TIME"}) {
+  // value is like "3:30 PM" or ""
+  const parseVal = (v) => {
+    if(!v) return {h:"",m:"00",ampm:"AM"};
+    const [time,ap]=v.split(" ");
+    const [h,m]=time.split(":");
+    return {h,m,ampm:ap||"AM"};
+  };
+  const {h,m,ampm} = parseVal(value);
+  const MINUTES = ["00","10","15","20","25","30","35","40","45","50"];
+  const HOURS = ["12","1","2","3","4","5","6","7","8","9","10","11"];
+
+  // Default open near current time
+  const nowH = new Date().getHours();
+  const defaultAmpm = nowH < 12 ? "AM" : "PM";
+  const [selAmpm, setSelAmpm] = useState(ampm||defaultAmpm);
+
+  const emit = (newH, newM, newAmpm) => {
+    if(!newH) { onChange(""); return; }
+    onChange(`${newH}:${newM} ${newAmpm}`);
+  };
+
+  const selH = h || "";
+  const selM = m || "00";
+
+  return(
+    <div style={{display:"flex",gap:4,alignItems:"center"}}>
+      {/* Hour */}
+      <select value={selH} onChange={e=>emit(e.target.value,selM,selAmpm)}
+        style={{flex:1,background:"transparent",border:`2px solid ${t.border}`,padding:"9px 6px",color:selH?t.text:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,outline:"none",cursor:"pointer",appearance:"none",textAlign:"center"}}>
+        <option value="">--</option>
+        {HOURS.map(hh=><option key={hh} value={hh}>{hh}</option>)}
+      </select>
+      <span style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,color:t.textSub}}>:</span>
+      {/* Minute */}
+      <select value={selM} onChange={e=>emit(selH,e.target.value,selAmpm)}
+        style={{flex:1,background:"transparent",border:`2px solid ${t.border}`,padding:"9px 6px",color:t.text,fontFamily:"'Black Han Sans',sans-serif",fontSize:13,outline:"none",cursor:"pointer",appearance:"none",textAlign:"center"}}>
+        {MINUTES.map(mm=><option key={mm} value={mm}>{mm}</option>)}
+      </select>
+      {/* AM/PM toggle */}
+      <div style={{display:"flex",border:`2px solid ${t.border}`,overflow:"hidden",flexShrink:0}}>
+        {["AM","PM"].map(ap=>(
+          <button key={ap} onClick={()=>{setSelAmpm(ap);emit(selH,selM,ap);}}
+            style={{padding:"9px 10px",border:"none",background:selAmpm===ap?t.accent:"transparent",color:selAmpm===ap?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:1}}>
+            {ap}
+          </button>
+        ))}
+      </div>
+      {/* Clear */}
+      {value&&<button onClick={()=>onChange("")} style={{padding:"9px 8px",border:`2px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>✕</button>}
+    </div>
+  );
+}
 
 // ─── DATE JUMP CALENDAR ───────────────────────────────────────────────────────
 function DateJumpCalendar({currentDate, onJump, onClose, theme, t}) {
@@ -3082,10 +3132,7 @@ function AddEventModal({onAdd, onClose, theme, t}) {
               </div>
               <div style={{flex:1}}>
                 <div style={lbl}>TIME</div>
-                <select style={{...inp,appearance:"none"}} value={form.time} onChange={e=>fld("time",e.target.value)}>
-                  <option value="">TBD</option>
-                  {["12:00 AM","12:10 AM","12:15 AM","12:20 AM","12:25 AM","12:30 AM","12:35 AM","12:40 AM","12:45 AM","12:50 AM","1:00 AM","1:10 AM","1:15 AM","1:20 AM","1:25 AM","1:30 AM","1:35 AM","1:40 AM","1:45 AM","1:50 AM","2:00 AM","2:10 AM","2:15 AM","2:20 AM","2:25 AM","2:30 AM","2:35 AM","2:40 AM","2:45 AM","2:50 AM","3:00 AM","3:10 AM","3:15 AM","3:20 AM","3:25 AM","3:30 AM","3:35 AM","3:40 AM","3:45 AM","3:50 AM","4:00 AM","4:10 AM","4:15 AM","4:20 AM","4:25 AM","4:30 AM","4:35 AM","4:40 AM","4:45 AM","4:50 AM","5:00 AM","5:10 AM","5:15 AM","5:20 AM","5:25 AM","5:30 AM","5:35 AM","5:40 AM","5:45 AM","5:50 AM","6:00 AM","6:10 AM","6:15 AM","6:20 AM","6:25 AM","6:30 AM","6:35 AM","6:40 AM","6:45 AM","6:50 AM","7:00 AM","7:10 AM","7:15 AM","7:20 AM","7:25 AM","7:30 AM","7:35 AM","7:40 AM","7:45 AM","7:50 AM","8:00 AM","8:10 AM","8:15 AM","8:20 AM","8:25 AM","8:30 AM","8:35 AM","8:40 AM","8:45 AM","8:50 AM","9:00 AM","9:10 AM","9:15 AM","9:20 AM","9:25 AM","9:30 AM","9:35 AM","9:40 AM","9:45 AM","9:50 AM","10:00 AM","10:10 AM","10:15 AM","10:20 AM","10:25 AM","10:30 AM","10:35 AM","10:40 AM","10:45 AM","10:50 AM","11:00 AM","11:10 AM","11:15 AM","11:20 AM","11:25 AM","11:30 AM","11:35 AM","11:40 AM","11:45 AM","11:50 AM","12:00 PM","12:10 PM","12:15 PM","12:20 PM","12:25 PM","12:30 PM","12:35 PM","12:40 PM","12:45 PM","12:50 PM","1:00 PM","1:10 PM","1:15 PM","1:20 PM","1:25 PM","1:30 PM","1:35 PM","1:40 PM","1:45 PM","1:50 PM","2:00 PM","2:10 PM","2:15 PM","2:20 PM","2:25 PM","2:30 PM","2:35 PM","2:40 PM","2:45 PM","2:50 PM","3:00 PM","3:10 PM","3:15 PM","3:20 PM","3:25 PM","3:30 PM","3:35 PM","3:40 PM","3:45 PM","3:50 PM","4:00 PM","4:10 PM","4:15 PM","4:20 PM","4:25 PM","4:30 PM","4:35 PM","4:40 PM","4:45 PM","4:50 PM","5:00 PM","5:10 PM","5:15 PM","5:20 PM","5:25 PM","5:30 PM","5:35 PM","5:40 PM","5:45 PM","5:50 PM","6:00 PM","6:10 PM","6:15 PM","6:20 PM","6:25 PM","6:30 PM","6:35 PM","6:40 PM","6:45 PM","6:50 PM","7:00 PM","7:10 PM","7:15 PM","7:20 PM","7:25 PM","7:30 PM","7:35 PM","7:40 PM","7:45 PM","7:50 PM","8:00 PM","8:10 PM","8:15 PM","8:20 PM","8:25 PM","8:30 PM","8:35 PM","8:40 PM","8:45 PM","8:50 PM","9:00 PM","9:10 PM","9:15 PM","9:20 PM","9:25 PM","9:30 PM","9:35 PM","9:40 PM","9:45 PM","9:50 PM","10:00 PM","10:10 PM","10:15 PM","10:20 PM","10:25 PM","10:30 PM","10:35 PM","10:40 PM","10:45 PM","10:50 PM","11:00 PM","11:10 PM","11:15 PM","11:20 PM","11:25 PM","11:30 PM","11:35 PM","11:40 PM","11:45 PM","11:50 PM"].map(t2=><option key={t2} value={t2}>{t2}</option>)}
-                </select>
+                <TimePicker value={form.time} onChange={(v)=>fld("time",v)} t={t}/>
               </div>
             </div>
             <div style={lbl}>CATEGORY</div>
