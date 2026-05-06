@@ -3333,7 +3333,7 @@ export default function App(){
   const [showAddCat,setShowAddCat]=useState(false);
   const [loaded,setLoaded]=useState(false);
   const [showOnboarding,setShowOnboarding]=useState(false);
-  const [notifPermission,setNotifPermission]=useState(notifSupported()?Notification.permission:"unsupported");
+  const [notifPermission,setNotifPermission]=useState(()=>{try{return notifSupported()?Notification.permission:"unsupported";}catch{return "unsupported";}});
   const [gdriveStatus,setGdriveStatus]=useState("idle"); // idle|connecting|connected|error
   const [showBackup,setShowBackup]=useState(false);
   const [pendingDelete,setPendingDelete]=useState(null);
@@ -3355,7 +3355,7 @@ export default function App(){
   const t=THEMES[theme]||THEMES.hawt;
   const importRef=useRef(null);
 
-  useEffect(()=>{ rescheduleAllNotifs(); load().then(saved=>{if(saved){setCats(saved.cats||DEFAULT_DATA.categories);setSubcats(saved.subcats||DEFAULT_DATA.subcategories);setHabits(saved.habits||DEFAULT_DATA.habits);setTasks(saved.tasks||DEFAULT_DATA.tasks||[]);setEvents(saved.events||[]);setMovies(saved.movies||[]);setBooks(saved.books||[]);setTvshows(saved.tvshows||[]);setPlaces(saved.places||[]);setCityList(saved.cityList||STARTER_CITIES.map(c=>c.name));setCityEmojis(saved.cityEmojis||{});setTotalXP(saved.totalXP||0);setTheme(saved.theme||"hawt");}else{setShowOnboarding(true);}setLoaded(true);});},[]);
+  useEffect(()=>{ try{rescheduleAllNotifs();}catch(e){} load().then(saved=>{if(saved){setCats(saved.cats||DEFAULT_DATA.categories);setSubcats(saved.subcats||DEFAULT_DATA.subcategories);setHabits(saved.habits||DEFAULT_DATA.habits);setTasks(saved.tasks||DEFAULT_DATA.tasks||[]);setEvents(saved.events||[]);setMovies(saved.movies||[]);setBooks(saved.books||[]);setTvshows(saved.tvshows||[]);setPlaces(saved.places||[]);setCityList(saved.cityList||STARTER_CITIES.map(c=>c.name));setCityEmojis(saved.cityEmojis||{});setTotalXP(saved.totalXP||0);setTheme(saved.theme||"hawt");}else{setShowOnboarding(true);}setLoaded(true);});},[]);
   useEffect(()=>{
     if(!loaded)return;
     const state={cats,subcats,habits,tasks,events,movies,books,tvshows,places,cityList,cityEmojis,totalXP,theme};
