@@ -532,6 +532,7 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
   const [repeatUntilDue,setRepeatUntilDue]=useState(false);
   const [dueTime,setDueTime]=useState("");
   const [priority,setPriority]=useState(false);
+  const [remind,setRemind]=useState(false);
   const [selectedCat,setSelectedCat]=useState(catId||cats[0]?.id||"");
   const [selectedSub,setSelectedSub]=useState(subId||"none");
   const availSubs=subcats.filter(s=>s.catId===selectedCat);
@@ -540,8 +541,10 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
 
   const submit=()=>{
     if(!label.trim()||!selectedCat)return;
+    const taskId=uid();
+    if(remind&&dueDate&&dueTime){const fa=taskFireAt({dueDate,dueTime});if(fa&&fa>Date.now())scheduleNotif(taskId,label.trim(),fa);}
     onAdd({
-      id:uid(), label:label.trim(), note:note.trim(),
+      id:taskId, label:label.trim(), note:note.trim(),
       catId:selectedCat, subId:selectedSub==="none"?null:selectedSub,
       scheduledFor:defaultDate||TODAY(),
       dueDate:dueDate||null,
@@ -580,7 +583,7 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
             {["12:00 AM","1:00 AM","2:00 AM","3:00 AM","4:00 AM","5:00 AM","6:00 AM","7:00 AM","8:00 AM","9:00 AM","10:00 AM","11:00 AM","12:00 PM","1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM","6:00 PM","7:00 PM","8:00 PM","9:00 PM","10:00 PM","11:00 PM"].map(t2=><option key={t2} value={t2}>{t2}</option>)}
           </select>
         </div>
-        {dueDate&&<div style={{marginBottom:16}}>
+        {dueDate&&<div style={{marginBottom:16,display:"flex",flexDirection:"column",gap:6}}>
           <button onClick={()=>setRepeatUntilDue(v=>!v)} style={{width:"100%",padding:"10px 14px",border:`2px solid ${repeatUntilDue?t.accent:t.border}`,background:repeatUntilDue?`${t.accent}18`:"transparent",color:repeatUntilDue?t.accent:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
             <div style={{width:18,height:18,border:`2px solid ${repeatUntilDue?t.accent:t.border}`,background:repeatUntilDue?t.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:t.textInv,flexShrink:0}}>{repeatUntilDue?"✓":""}</div>
             <div>
@@ -588,6 +591,13 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
               <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:2,fontWeight:400}}>Appears every day until done or due date passes</div>
             </div>
           </button>
+          {dueTime&&notifSupported()&&<button onClick={async()=>{const ok=await requestNotifPermission();setRemind(v=>{return!v;});if(!ok)alert("Enable notifications in your browser settings to use reminders.");}} style={{width:"100%",padding:"10px 14px",border:`2px solid ${remind?"#f1c40f":t.border}`,background:remind?"#f1c40f22":"transparent",color:remind?"#b8860b":t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:18,height:18,border:`2px solid ${remind?"#f1c40f":t.border}`,background:remind?"#f1c40f":"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"#1a1a1a",flexShrink:0}}>{remind?"✓":""}</div>
+            <div>
+              <div>🔔 REMIND ME AT {dueTime}</div>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,letterSpacing:1,marginTop:2,fontWeight:400}}>Push notification when this is due</div>
+            </div>
+          </button>}
         </div>}
         <button onClick={()=>setPriority(v=>!v)} style={{width:"100%",padding:"10px",border:`2px solid ${priority?"#f1c40f":t.border}`,background:priority?"#f1c40f22":"transparent",color:priority?"#f1c40f":t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,marginBottom:10,display:"flex",alignItems:"center",gap:8,justifyContent:"center"}}>
           <span style={{fontSize:16}}>⭐</span>{priority?"MARKED AS IMPORTANT":"MARK AS IMPORTANT"}
@@ -1495,6 +1505,117 @@ function CompletedTasksSection({days, grouped, fmtDay, doneTasks, t}) {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+
+
+// ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
+const NOTIF_KEY = "hm_notifs";
+
+const notifSupported = () => "Notification" in window;
+
+const requestNotifPermission = async () => {
+  if(!notifSupported()) return false;
+  if(Notification.permission === "granted") return true;
+  const r = await Notification.requestPermission();
+  return r === "granted";
+};
+
+const getScheduledNotifs = () => {
+  try { return JSON.parse(localStorage.getItem(NOTIF_KEY)||"[]"); } catch { return []; }
+};
+
+const saveScheduledNotifs = (notifs) => {
+  try { localStorage.setItem(NOTIF_KEY, JSON.stringify(notifs)); } catch {}
+};
+
+const scheduleNotif = (id, label, fireAt) => {
+  const notifs = getScheduledNotifs().filter(n=>n.id!==id);
+  notifs.push({id, label, fireAt});
+  saveScheduledNotifs(notifs);
+  const delay = fireAt - Date.now();
+  if(delay > 0) {
+    setTimeout(()=>{
+      if(Notification.permission==="granted") {
+        new Notification("⏰ "+label, {body:"Due now · Habit Mode", icon:"/icon.png", tag:id});
+      }
+    }, delay);
+  }
+};
+
+const cancelNotif = (id) => {
+  saveScheduledNotifs(getScheduledNotifs().filter(n=>n.id!==id));
+};
+
+const rescheduleAllNotifs = () => {
+  if(!notifSupported()||Notification.permission!=="granted") return;
+  const now = Date.now();
+  const future = getScheduledNotifs().filter(n=>n.fireAt>now);
+  saveScheduledNotifs(future);
+  future.forEach(n=>{
+    setTimeout(()=>{
+      if(Notification.permission==="granted")
+        new Notification("⏰ "+n.label, {body:"Due now · Habit Mode", icon:"/icon.png", tag:n.id});
+    }, n.fireAt-now);
+  });
+};
+
+const taskFireAt = (task) => {
+  if(!task.dueDate||!task.dueTime) return null;
+  const [timePart,ampm]=task.dueTime.split(" ");
+  const [h,m]=timePart.split(":").map(Number);
+  const h24=(ampm==="PM"&&h!==12)?h+12:(ampm==="AM"&&h===12)?0:h;
+  return new Date(task.dueDate+"T"+String(h24).padStart(2,"0")+":"+String(m).padStart(2,"0")+":00").getTime();
+};
+
+// ─── DATE JUMP CALENDAR ───────────────────────────────────────────────────────
+function DateJumpCalendar({currentDate, onJump, onClose, theme, t}) {
+  const [calOffset, setCalOffset] = useState(0);
+  const refDate = new Date();
+  refDate.setDate(1);
+  refDate.setMonth(refDate.getMonth() + calOffset);
+  const year = refDate.getFullYear(), month = refDate.getMonth();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const firstDow = new Date(year, month, 1).getDay();
+  const today = TODAY();
+  const toStr = (d) => `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+  const monthLabel = refDate.toLocaleDateString("en-US",{month:"long",year:"numeric"}).toUpperCase();
+
+  return(
+    <div style={{position:"fixed",inset:0,zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 20px"}} onClick={onClose}>
+      <div style={{background:t.bg,border:`3px solid ${t.border}`,boxShadow:`6px 6px 0 ${t.border}`,width:"100%",maxWidth:340,padding:16}} onClick={e=>e.stopPropagation()}>
+        {/* Month nav */}
+        <div style={{display:"flex",alignItems:"center",marginBottom:10}}>
+          <button onClick={()=>setCalOffset(o=>o-1)} style={{background:"transparent",border:`1.5px solid ${t.border}`,padding:"4px 10px",cursor:"pointer",color:t.textSub,fontSize:13}}>◀</button>
+          <div style={{flex:1,textAlign:"center",fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:t.text,letterSpacing:2}}>{monthLabel}</div>
+          <button onClick={()=>setCalOffset(o=>o+1)} style={{background:"transparent",border:`1.5px solid ${t.border}`,padding:"4px 10px",cursor:"pointer",color:t.textSub,fontSize:13}}>▶</button>
+        </div>
+        {/* Day headers */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:4}}>
+          {["S","M","T","W","T","F","S"].map((d,i)=><div key={i} style={{textAlign:"center",fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,color:t.textSub,padding:"2px 0"}}>{d}</div>)}
+        </div>
+        {/* Grid */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
+          {Array.from({length:firstDow},(_,i)=><div key={`e${i}`}/>)}
+          {Array.from({length:daysInMonth},(_,i)=>{
+            const day=i+1, dateStr=toStr(day);
+            const isToday=dateStr===today;
+            const isCurrent=dateStr===currentDate;
+            return(
+              <button key={day} onClick={()=>{onJump(dateStr);onClose();}} style={{
+                aspectRatio:"1",border:`${isToday||isCurrent?"2px":"1px"} solid ${isCurrent?t.accent:isToday?t.accent+"88":t.border}`,
+                background:isCurrent?t.accent:isToday?`${t.accent}18`:"transparent",
+                color:isCurrent?t.textInv:t.text,
+                fontFamily:"'Black Han Sans',sans-serif",fontSize:11,
+                cursor:"pointer",transition:"all 0.1s"
+              }}>{day}</button>
+            );
+          })}
+        </div>
+        <button onClick={()=>{onJump(today);onClose();}} style={{width:"100%",marginTop:12,padding:"8px",border:`2px solid ${t.accent}`,background:t.accent,color:t.textInv,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:3}}>JUMP TO TODAY</button>
+      </div>
     </div>
   );
 }
@@ -3147,12 +3268,14 @@ export default function App(){
   const [newCatVal,setNewCatVal]=useState("");
   const [loaded,setLoaded]=useState(false);
   const [showOnboarding,setShowOnboarding]=useState(false);
+  const [notifPermission,setNotifPermission]=useState(notifSupported()?Notification.permission:"unsupported");
   const [gdriveStatus,setGdriveStatus]=useState("idle"); // idle|connecting|connected|error
   const [showBackup,setShowBackup]=useState(false);
   const [pendingDelete,setPendingDelete]=useState(null);
   const pendingDeleteTimer=useRef(null);
   const [showWeekly,setShowWeekly]=useState(false);
-  const [viewOffset,setViewOffset]=useState(0); // 0=today, -1=yesterday, etc.
+  const [viewOffset,setViewOffset]=useState(0);
+  const [showDateJump,setShowDateJump]=useState(false); // 0=today, -1=yesterday, etc.
   const sounds=useSounds();
   const todayStr=TODAY();
   // viewDate: the date currently being viewed — uses local time to match todayStr
@@ -3168,7 +3291,7 @@ export default function App(){
   const newCatRef=useRef(null);
   const importRef=useRef(null);
 
-  useEffect(()=>{load().then(saved=>{if(saved){setCats(saved.cats||DEFAULT_DATA.categories);setSubcats(saved.subcats||DEFAULT_DATA.subcategories);setHabits(saved.habits||DEFAULT_DATA.habits);setTasks(saved.tasks||DEFAULT_DATA.tasks||[]);setEvents(saved.events||[]);setMovies(saved.movies||[]);setBooks(saved.books||[]);setTvshows(saved.tvshows||[]);setPlaces(saved.places||[]);setCityList(saved.cityList||STARTER_CITIES.map(c=>c.name));setCityEmojis(saved.cityEmojis||{});setTotalXP(saved.totalXP||0);setTheme(saved.theme||"hawt");}else{setShowOnboarding(true);}setLoaded(true);});},[]);
+  useEffect(()=>{ rescheduleAllNotifs(); load().then(saved=>{if(saved){setCats(saved.cats||DEFAULT_DATA.categories);setSubcats(saved.subcats||DEFAULT_DATA.subcategories);setHabits(saved.habits||DEFAULT_DATA.habits);setTasks(saved.tasks||DEFAULT_DATA.tasks||[]);setEvents(saved.events||[]);setMovies(saved.movies||[]);setBooks(saved.books||[]);setTvshows(saved.tvshows||[]);setPlaces(saved.places||[]);setCityList(saved.cityList||STARTER_CITIES.map(c=>c.name));setCityEmojis(saved.cityEmojis||{});setTotalXP(saved.totalXP||0);setTheme(saved.theme||"hawt");}else{setShowOnboarding(true);}setLoaded(true);});},[]);
   useEffect(()=>{
     if(!loaded)return;
     const state={cats,subcats,habits,tasks,events,movies,books,tvshows,places,cityList,cityEmojis,totalXP,theme};
@@ -3287,9 +3410,9 @@ export default function App(){
   // Habit CRUD
   const addHabit=(h)=>{setHabits(prev=>[...prev,h]);showToast("HABIT ADDED",h.emoji);};
   const addTask=(task)=>setTasks(prev=>[...prev,task]);
-  const completeTask=(id)=>{haptic(40);setTasks(prev=>prev.map(t=>t.id===id?{...t,done:true,doneDate:TODAY()}:t));};
+  const completeTask=(id)=>{haptic(40);cancelNotif(id);setTasks(prev=>prev.map(t=>t.id===id?{...t,done:true,doneDate:TODAY()}:t));};
   const uncompleteTask=(id)=>setTasks(prev=>prev.map(t=>t.id===id?{...t,done:false,doneDate:null}:t));
-  const deleteTask=(id)=>setTasks(prev=>prev.filter(t=>t.id!==id));
+  const deleteTask=(id)=>{cancelNotif(id);setTasks(prev=>prev.filter(t=>t.id!==id));};
   const renameTask=(id,label)=>setTasks(prev=>prev.map(t=>t.id===id?{...t,label}:t));
   const updateTask=(task)=>setTasks(prev=>prev.map(t=>t.id===task.id?task:t));
   const deleteHabit=(id)=>{
@@ -3361,6 +3484,7 @@ export default function App(){
       `}</style>
 
       <div className="grain"/>
+      {showDateJump&&<DateJumpCalendar currentDate={viewDate} onJump={(d)=>{const today2=TODAY();const diff=Math.round((new Date(d+"T12:00:00")-new Date(today2+"T12:00:00"))/(1000*60*60*24));setViewOffset(diff);}} onClose={()=>setShowDateJump(false)} theme={theme} t={t}/>}
       {showOnboarding&&<OnboardingTour theme={theme} onDone={()=>setShowOnboarding(false)}/>}
       {pendingDelete&&(
         <div style={{position:"fixed",bottom:90,left:"50%",transform:"translateX(-50%)",zIndex:10001,display:"flex",alignItems:"center",border:`2px solid ${t.border}`,boxShadow:`3px 3px 0 ${t.border}`,whiteSpace:"nowrap",overflow:"hidden"}}>
@@ -3392,7 +3516,7 @@ export default function App(){
           {tab==="today"&&(
             <div style={{display:"flex",alignItems:"center",gap:0}}>
               <button onClick={()=>setViewOffset(o=>o-1)} style={{background:"transparent",border:`2px solid ${t.border}`,borderRight:"none",padding:"7px 12px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:t.text,boxShadow:`2px 2px 0 ${t.border}`}}>◀</button>
-              <div style={{flex:1,textAlign:"center",border:`2px solid ${t.border}`,borderRight:"none",padding:"7px 12px",background:isToday?t.accent:t.bgCard,boxShadow:`2px 2px 0 ${t.border}`}}>
+              <div onClick={()=>setShowDateJump(v=>!v)} style={{flex:1,textAlign:"center",border:`2px solid ${t.border}`,borderRight:"none",padding:"7px 12px",background:isToday?t.accent:t.bgCard,boxShadow:`2px 2px 0 ${t.border}`,cursor:"pointer"}}>
                 <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:13,color:isToday?t.textInv:t.text,letterSpacing:3}}>{viewDateLabel}</div>
                 <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:isToday?t.textInv:t.textSub,letterSpacing:2,marginTop:1}}>{new Date(viewDate+"T12:00:00").toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</div>
               </div>
@@ -3594,6 +3718,17 @@ export default function App(){
               {/* Settings section */}
               <div id="settings-section" style={{marginTop:24,paddingTop:16,borderTop:`2px solid ${t.border}`}}>
                 <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:16,color:t.text,letterSpacing:4,marginBottom:12}}>⚙️ SETTINGS</div>
+                {/* Notifications */}
+                {notifSupported()&&<div style={{marginBottom:16}}>
+                  <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:3,marginBottom:8}}>🔔 NOTIFICATIONS</div>
+                  {notifPermission==="granted"
+                    ?<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:"#2ecc71",letterSpacing:2,padding:"10px 12px",border:"2px solid #2ecc71",background:"#2ecc7111"}}>✓ NOTIFICATIONS ENABLED</div>
+                    :<button onClick={async()=>{const ok=await requestNotifPermission();setNotifPermission(ok?"granted":"denied");}} style={{width:"100%",padding:"12px",border:`2px solid ${t.border}`,background:t.addBtn,color:t.addBtnText,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,cursor:"pointer",letterSpacing:2,boxShadow:`2px 2px 0 ${t.border}`}}>
+                      🔔 ENABLE PUSH NOTIFICATIONS
+                    </button>
+                  }
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginTop:6,lineHeight:1.5}}>Required for task reminders. Must add app to home screen on iOS.</div>
+                </div>}
                 <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,letterSpacing:3,marginBottom:8}}>🎨 THEME</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:16}}>
                   {Object.entries(THEMES).map(([key,th])=>(
