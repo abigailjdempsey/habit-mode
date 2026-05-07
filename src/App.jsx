@@ -384,7 +384,7 @@ function HabitRow({habit,onComplete,onUndoOne,onDelete,onRename,todayStr,theme,o
 }
 
 // ─── SUBCATEGORY BLOCK ────────────────────────────────────────────────────────
-function SubcatBlock({subcat,habits,tasks,todayStr,theme,onComplete,onUndoOne,onDelete,onRename,onOpenDrawer,onDeleteSubcat,onRenameSubcat,onCollapseSubcat,onAddTask,onCompleteTask,onUncompleteTask,onDeleteTask,onRenameTask,onUpdateTask,readOnly}){
+function SubcatBlock({subcat,habits,tasks,todayStr,theme,onComplete,onUndoOne,onDelete,onRename,onOpenDrawer,onDeleteSubcat,onRenameSubcat,onCollapseSubcat,onAddTask,onCompleteTask,onUncompleteTask,onDeleteTask,onRenameTask,onUpdateTask,readOnly,isShoppingList}){
   const t=THEMES[theme]||THEMES.hawt;
   const collapsed=subcat.collapsed||false;
   const setCollapsed=(fn)=>onCollapseSubcat(subcat.id,typeof fn==="function"?fn(collapsed):fn);
@@ -430,7 +430,9 @@ function SubcatBlock({subcat,habits,tasks,todayStr,theme,onComplete,onUndoOne,on
         <div style={{paddingLeft:12,borderLeft:`2px solid ${t.border}`}}>
           {habits.map(h=><HabitRow key={h.id} habit={h} onComplete={onComplete} onUndoOne={onUndoOne} onDelete={onDelete} onRename={onRename} todayStr={todayStr} theme={theme} onOpenDrawer={onOpenDrawer}/>)}
           {subcatTasks.map(task=><TaskRow key={task.id} task={task} theme={theme} readOnly={readOnly} onComplete={onCompleteTask} onUncomplete={onUncompleteTask} onDelete={onDeleteTask} onRename={onRenameTask} onUpdate={onUpdateTask}/>)}
-          <button onClick={e=>{e.stopPropagation();onAddTask(subcat.catId,subcat.id);}} style={{width:"100%",padding:"5px",border:`1px dashed ${t.accent}44`,background:"transparent",color:t.accent,fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,cursor:"pointer",letterSpacing:2,marginTop:3}}>+ TASK</button>
+          {isShoppingList
+            ?<ShoppingItemInput catId={subcat.catId} subId={subcat.id} onAdd={onAddTask} t={t}/>
+            :<button onClick={e=>{e.stopPropagation();onAddTask(subcat.catId,subcat.id);}} style={{width:"100%",padding:"5px",border:`1px dashed ${t.accent}44`,background:"transparent",color:t.accent,fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,cursor:"pointer",letterSpacing:2,marginTop:3}}>+ TASK</button>}
         </div>
       )}
     </div>
@@ -617,6 +619,29 @@ function AddTaskModal({catId, subId, cats, subcats, onAdd, onClose, theme, defau
   );
 }
 
+
+// ─── SHOPPING ITEM INPUT ──────────────────────────────────────────────────────
+function ShoppingItemInput({catId, subId, onAdd, t}) {
+  const [val, setVal] = useState("");
+  const ref = useRef(null);
+  const submit = () => {
+    if(!val.trim()) return;
+    onAdd(catId, subId, val.trim());
+    setVal("");
+    ref.current?.focus();
+  };
+  return(
+    <div style={{display:"flex",gap:0,marginTop:4,border:`1.5px dashed ${t.accent}66`,overflow:"hidden"}}>
+      <input ref={ref} value={val} onChange={e=>setVal(e.target.value)}
+        onKeyDown={e=>{if(e.key==="Enter")submit();}}
+        placeholder="ADD ITEM..."
+        style={{flex:1,background:"transparent",border:"none",padding:"8px 10px",color:t.text,fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,letterSpacing:1,outline:"none"}}
+      />
+      <button onClick={submit} disabled={!val.trim()} style={{background:val.trim()?t.accent:"transparent",border:"none",borderLeft:`1.5px solid ${t.accent}66`,padding:"8px 12px",cursor:val.trim()?"pointer":"default",fontSize:16,color:val.trim()?t.textInv:t.accent+"44",flexShrink:0}}>✓</button>
+    </div>
+  );
+}
+
 // ─── CATEGORY BLOCK ──────────────────────────────────────────────────────────
 function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,onDeleteHabit,onRenameHabit,onOpenDrawer,onDeleteCat,onRenameCat,onColorCat,onHideDays,onToggleShopping,onCollapseCat,onCollapseSubcat,onAddSubcat,onDeleteSubcat,onRenameSubcat,onAddHabit,onAddTask,tasks,onCompleteTask,onUncompleteTask,onDeleteTask,onRenameTask,onUpdateTask,onReorderCat,onReorderHabit,onReorderSubcat,readOnly}){
   const t=THEMES[theme]||THEMES.hawt;
@@ -737,7 +762,7 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
                 <SubcatBlock subcat={sub} habits={subHabits} tasks={tasks} todayStr={todayStr} theme={theme}
                   onComplete={onComplete} onUndoOne={onUndoOne} onDelete={onDeleteHabit} onRename={onRenameHabit} onOpenDrawer={onOpenDrawer}
                   onDeleteSubcat={onDeleteSubcat} onRenameSubcat={onRenameSubcat} onCollapseSubcat={onCollapseSubcat}
-                  onAddTask={onAddTask} onCompleteTask={onCompleteTask} onUncompleteTask={onUncompleteTask} onDeleteTask={onDeleteTask} onRenameTask={onRenameTask} onUpdateTask={onUpdateTask} readOnly={readOnly}/>
+                  onAddTask={onAddTask} onCompleteTask={onCompleteTask} onUncompleteTask={onUncompleteTask} onDeleteTask={onDeleteTask} onRenameTask={onRenameTask} onUpdateTask={onUpdateTask} readOnly={readOnly} isShoppingList={cat.isShoppingList}/>
               </div>
             );
           })}
@@ -765,6 +790,9 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
               onDelete={onDeleteTask} onRename={onRenameTask} onUpdate={onUpdateTask}/>
           ))}
 
+          {/* Shopping mode inline add */}
+          {cat.isShoppingList&&!readOnly&&<ShoppingItemInput catId={cat.id} subId={null} onAdd={onAddTask} t={t}/>}
+
           {/* Done tasks at bottom — not shown in shopping mode (auto-clears) */}
           {!cat.isShoppingList&&catTasks.filter(t=>t.done).map(task=>(
             <TaskRow key={task.id} task={task} theme={theme} shopping={cat.isShoppingList} readOnly={readOnly}
@@ -785,7 +813,7 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
               </div>
               :<>
                 {!cat.isShoppingList&&<button onClick={e=>{e.stopPropagation();onAddHabit(cat.id,null);}} style={{flex:1,padding:"8px",border:`1.5px dashed ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>+ HABIT</button>}
-                <button onClick={e=>{e.stopPropagation();onAddTask(cat.id,null);}} style={{flex:1,padding:"8px",border:`1.5px dashed ${t.accent}66`,background:"transparent",color:t.accent,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>{cat.isShoppingList?"+ ITEM":"+ TASK"}</button>
+                {!cat.isShoppingList&&<button onClick={e=>{e.stopPropagation();onAddTask(cat.id,null);}} style={{flex:1,padding:"8px",border:`1.5px dashed ${t.accent}66`,background:"transparent",color:t.accent,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>+ TASK</button>}
                 <button onClick={e=>{e.stopPropagation();setAddingSubcat(true);setTimeout(()=>newSubcatRef.current?.focus(),50);}} style={{flex:1,padding:"8px",border:`1.5px dashed ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>+ SUBCAT</button>
               </>}
           </div>
@@ -3703,7 +3731,7 @@ export default function App(){
                   onDeleteCat={!isPast?deleteCat:()=>{}} onRenameCat={!isPast?renameCat:()=>{}} onColorCat={colorCat} onHideDays={hideDaysCat} onToggleShopping={toggleShoppingList} onCollapseCat={collapseCat} onCollapseSubcat={collapseSubcat}
                   onAddSubcat={!isPast?addSubcat:()=>{}} onDeleteSubcat={!isPast?deleteSubcat:()=>{}} onRenameSubcat={!isPast?renameSubcat:()=>{}}
                   onAddHabit={!isPast?(catId,subId)=>setAddHabitCtx({catId,subId}):()=>{}}
-                  onAddTask={(catId,subId)=>setAddTaskCtx({catId,subId})}
+                  onAddTask={(catId,subId,label)=>{if(label){addTask({id:uid(),label,note:"",catId,subId:subId||null,scheduledFor:"2000-01-01",dueDate:null,dueTime:null,priority:false,repeatUntilDue:false,done:false,doneDate:null,createdDate:TODAY(),isTask:true});}else{setAddTaskCtx({catId,subId});}}}
                   tasks={tasks||[]}
                   onCompleteTask={!isPast?completeTask:()=>{}} onUncompleteTask={!isPast?uncompleteTask:()=>{}}
                   onDeleteTask={deleteTask} onRenameTask={renameTask} onUpdateTask={updateTask}
