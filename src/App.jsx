@@ -765,8 +765,8 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
               onDelete={onDeleteTask} onRename={onRenameTask} onUpdate={onUpdateTask}/>
           ))}
 
-          {/* Done tasks at bottom */}
-          {catTasks.filter(t=>t.done).map(task=>(
+          {/* Done tasks at bottom — not shown in shopping mode (auto-clears) */}
+          {!cat.isShoppingList&&catTasks.filter(t=>t.done).map(task=>(
             <TaskRow key={task.id} task={task} theme={theme} shopping={cat.isShoppingList} readOnly={readOnly}
               onComplete={onCompleteTask} onUncomplete={onUncompleteTask}
               onDelete={onDeleteTask} onRename={onRenameTask} onUpdate={onUpdateTask}/>
@@ -784,8 +784,8 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
                 <button onClick={()=>{setAddingSubcat(false);setNewSubcatVal("");}} style={{padding:"8px 12px",border:`1.5px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer"}}>✕</button>
               </div>
               :<>
-                <button onClick={e=>{e.stopPropagation();onAddHabit(cat.id,null);}} style={{flex:1,padding:"8px",border:`1.5px dashed ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>+ HABIT</button>
-                <button onClick={e=>{e.stopPropagation();onAddTask(cat.id,null);}} style={{flex:1,padding:"8px",border:`1.5px dashed ${t.accent}66`,background:"transparent",color:t.accent,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>+ TASK</button>
+                {!cat.isShoppingList&&<button onClick={e=>{e.stopPropagation();onAddHabit(cat.id,null);}} style={{flex:1,padding:"8px",border:`1.5px dashed ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>+ HABIT</button>}
+                <button onClick={e=>{e.stopPropagation();onAddTask(cat.id,null);}} style={{flex:1,padding:"8px",border:`1.5px dashed ${t.accent}66`,background:"transparent",color:t.accent,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>{cat.isShoppingList?"+ ITEM":"+ TASK"}</button>
                 <button onClick={e=>{e.stopPropagation();setAddingSubcat(true);setTimeout(()=>newSubcatRef.current?.focus(),50);}} style={{flex:1,padding:"8px",border:`1.5px dashed ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2}}>+ SUBCAT</button>
               </>}
           </div>
