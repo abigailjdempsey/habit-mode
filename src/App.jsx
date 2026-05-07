@@ -407,7 +407,11 @@ function SubcatBlock({subcat,habits,tasks,todayStr,theme,onComplete,onUndoOne,on
     if(t2.done) return t2.doneDate===todayStr;
     if(t2.dueDate) return t2.scheduledFor<=todayStr;
     return t2.scheduledFor<=todayStr;
-  }).sort((a,b)=>(a.done===b.done)?0:a.done?1:-1);
+  }).sort((a,b)=>{
+    if(a.done!==b.done) return a.done?1:-1;
+    if(a.priority!==b.priority) return a.priority?-1:1;
+    return 0;
+  });
   return(
     <div style={{marginBottom:8}}>
       <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:collapsed?0:4}}>
@@ -2655,6 +2659,7 @@ function ManageCitiesView({cityList, setCityList, cityEmojis, setCityEmojis, pla
 function FriendsModeView({places, city, cityEmoji, onClose, theme, t}) {
   const [mode, setMode] = useState(null); // null | "city" | "neighborhood" | "type"
   const [selected, setSelected] = useState([]);
+  const [listFilter, setListFilter] = useState("all"); // all | favorites | wishlist
 
   // Derived options
   const neighborhoods = [...new Set(places.map(p=>p.neighborhood).filter(Boolean))].sort();
@@ -2664,21 +2669,30 @@ function FriendsModeView({places, city, cityEmoji, onClose, theme, t}) {
     prev.includes(val) ? prev.filter(x=>x!==val) : [...prev, val]
   );
 
-  // Compute the places to share based on mode + selection
+  // Apply list filter
+  const applyFilter = (ps) => {
+    if(listFilter === "favorites") return ps.filter(p=>p.listType==="favorite");
+    if(listFilter === "wishlist") return ps.filter(p=>!p.listType||p.listType==="wishlist");
+    return ps;
+  };
+
+  // Compute the places to share based on mode + selection + filter
   const sharePlaces = (() => {
     if (!mode) return [];
-    if (mode === "city") return places;
-    if (mode === "neighborhood") return selected.length ? places.filter(p => selected.includes(p.neighborhood)) : [];
-    if (mode === "type") return selected.length ? places.filter(p => selected.includes(p.category)) : [];
-    return [];
+    let base = [];
+    if (mode === "city") base = places;
+    else if (mode === "neighborhood") base = selected.length ? places.filter(p => selected.includes(p.neighborhood)) : [];
+    else if (mode === "type") base = selected.length ? places.filter(p => selected.includes(p.category)) : [];
+    return applyFilter(base);
   })();
 
   // Build share title
+  const filterLabel = listFilter==="favorites"?" ❤️ FAVES":listFilter==="wishlist"?" 🔖 WISHLIST":"";
   const shareTitle = (() => {
-    if (mode === "city") return `${cityEmoji} ${city}`;
-    if (mode === "neighborhood") return selected.length === 1 ? `${cityEmoji} ${selected[0]}` : `${cityEmoji} ${city} — ${selected.join(", ")}`;
-    if (mode === "type") return `${cityEmoji} ${city} — ${selected.map(c=>c.split(" ").slice(1).join(" ")||c).join(" + ")}`;
-    return `${cityEmoji} ${city}`;
+    if (mode === "city") return `${cityEmoji} ${city}${filterLabel}`;
+    if (mode === "neighborhood") return selected.length === 1 ? `${cityEmoji} ${selected[0]}${filterLabel}` : `${cityEmoji} ${city} — ${selected.join(", ")}${filterLabel}`;
+    if (mode === "type") return `${cityEmoji} ${city} — ${selected.map(c=>c.split(" ").slice(1).join(" ")||c).join(" + ")}${filterLabel}`;
+    return `${cityEmoji} ${city}${filterLabel}`;
   })();
 
   const doShare = () => {
@@ -2746,6 +2760,16 @@ function FriendsModeView({places, city, cityEmoji, onClose, theme, t}) {
         </div>
 
         <div style={{padding:"14px 18px",overflowY:"auto",flex:1}}>
+
+          {/* List filter — always visible */}
+          <div style={{marginBottom:12}}>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:6}}>WHAT TO SHARE:</div>
+            <div style={{display:"flex",gap:6}}>
+              {[["all","ALL PLACES"],["favorites","❤️ FAVORITES"],["wishlist","🔖 WISHLIST"]].map(([id,lbl])=>(
+                <button key={id} onClick={()=>setListFilter(id)} style={{flex:1,padding:"8px 4px",border:`2px solid ${listFilter===id?t.accent:t.border}`,background:listFilter===id?t.accent:"transparent",color:listFilter===id?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:9,cursor:"pointer",letterSpacing:1,textAlign:"center",boxShadow:listFilter===id?`2px 2px 0 ${t.border}`:"none"}}>{lbl}</button>
+              ))}
+            </div>
+          </div>
 
           {/* Mode picker */}
           {!mode&&<>
