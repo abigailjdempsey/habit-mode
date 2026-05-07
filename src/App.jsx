@@ -2405,7 +2405,6 @@ function CityView({city, places, setPlaces, theme, t, uid, onBack, cityEmoji}) {
   const [filterNeighborhood,setFilterNeighborhood]=useState("ALL");
   const [filterCat,setFilterCat]=useState("ALL");
   const [search,setSearch]=useState("");
-  const [showVisited,setShowVisited]=useState(false);
 
   const cityPlaces=places.filter(p=>p.city===city);
   const neighborhoods=["ALL",...[...new Set(cityPlaces.map(p=>p.neighborhood).filter(Boolean))].sort()];
@@ -2413,7 +2412,6 @@ function CityView({city, places, setPlaces, theme, t, uid, onBack, cityEmoji}) {
 
   const [filterList,setFilterList]=useState("ALL"); // ALL | wishlist | favorite
   const filtered=cityPlaces.filter(p=>{
-    if(!showVisited&&p.visited) return false;
     if(filterNeighborhood!=="ALL"&&p.neighborhood!==filterNeighborhood) return false;
     if(filterCat!=="ALL"&&p.category!==filterCat) return false;
     if(filterList==="favorite"&&p.listType!=="favorite") return false;
@@ -2509,7 +2507,6 @@ function CityView({city, places, setPlaces, theme, t, uid, onBack, cityEmoji}) {
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
           <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,letterSpacing:2}}>{filtered.length} SHOWING</span>
-          <button onClick={()=>setShowVisited(v=>!v)} style={{padding:"5px 10px",border:`1.5px solid ${t.border}`,background:showVisited?t.bgCard:"transparent",color:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,cursor:"pointer",letterSpacing:1}}>{showVisited?"HIDE VISITED ✓":"SHOW VISITED"}</button>
         </div>
       </>}
 
@@ -3149,16 +3146,10 @@ function AddEventModal({onAdd, onClose, theme, t}) {
           </>}
           {mode==="manual"&&<>
             <input style={{...inp,fontFamily:"'Black Han Sans',sans-serif",fontSize:14}} placeholder="EVENT TITLE" value={form.title} onChange={e=>fld("title",e.target.value)} autoFocus/>
-            <div style={{display:"flex",gap:8}}>
-              <div style={{flex:2}}>
-                <div style={lbl}>DATE</div>
-                <input type="date" style={{...inp,colorScheme:"dark"}} value={form.date} onChange={e=>fld("date",e.target.value)}/>
-              </div>
-              <div style={{flex:1}}>
-                <div style={lbl}>TIME</div>
-                <TimePicker value={form.time} onChange={(v)=>fld("time",v)} t={t}/>
-              </div>
-            </div>
+            <div style={lbl}>DATE</div>
+            <input type="date" style={{...inp,colorScheme:"dark"}} value={form.date} onChange={e=>fld("date",e.target.value)}/>
+            <div style={lbl}>TIME</div>
+            <div style={{marginBottom:10}}><TimePicker value={form.time} onChange={(v)=>fld("time",v)} t={t}/></div>
             <div style={lbl}>CATEGORY</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:10}}>
               {EVENT_CATS.map(c=>{
