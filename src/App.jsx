@@ -240,7 +240,7 @@ function LimitHabitRow({habit, onIncrement, onDecrement, onDelete, onRename, tod
   return(
     <>
     {showEdit&&<EditHabitModal habit={habit} theme={theme}
-      onSave={(id,label,timeOfDay,limit)=>{onRename(id,label,timeOfDay,limit);setShowEdit(false);}}
+      onSave={(id,label,timeOfDay,limit,anchorShift)=>{onRename(id,label,timeOfDay,limit,anchorShift);setShowEdit(false);}}
       onDelete={(id)=>{setShowEdit(false);onDelete(id);}}
       onClose={()=>setShowEdit(false)}/>}
     <div style={{border:`1.5px solid ${over?t.accent2:t.border}`,marginBottom:6,background:t.bg,boxShadow:`2px 2px 0 ${t.border}`,overflow:"hidden"}}>
@@ -281,9 +281,10 @@ function EditHabitModal({habit, onSave, onDelete, onClose, theme}) {
   const [label,setLabel]=useState(habit.label);
   const [timeOfDay,setTimeOfDay]=useState(habit.timeOfDay||null);
   const [limit,setLimit]=useState(habit.limit||5);
+  const [anchorShift,setAnchorShift]=useState(0);
   const commit=()=>{
     if(!label.trim())return;
-    onSave(habit.id, label.trim().toUpperCase(), timeOfDay, limit);
+    onSave(habit.id, label.trim().toUpperCase(), timeOfDay, limit, anchorShift);
     onClose();
   };
   const inp={width:"100%",background:t.bg,border:`2px solid ${t.border}`,padding:"11px 13px",color:t.text,fontSize:14,fontFamily:"'Black Han Sans',sans-serif",letterSpacing:2,outline:"none",boxSizing:"border-box",marginBottom:10};
@@ -303,6 +304,17 @@ function EditHabitModal({habit, onSave, onDelete, onClose, theme}) {
             <div style={{flex:1,textAlign:"center",fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.accent2,letterSpacing:2}}>{limit}x</div>
             <button onClick={()=>setLimit(l=>l+1)} style={{width:36,height:36,border:`2px solid ${t.border}`,background:"transparent",color:t.text,fontFamily:"'Black Han Sans',sans-serif",fontSize:18,cursor:"pointer"}}>+</button>
           </div>
+        </>}
+        {isEveryOtherDay(habit.schedule)&&<>
+          <div style={lbl}>SHIFT SCHEDULE</div>
+          <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:8,border:`2px solid ${t.border}`,boxShadow:`2px 2px 0 ${t.border}`}}>
+            <button onClick={()=>setAnchorShift(s=>s-1)} style={{flex:1,padding:"10px 6px",background:"transparent",border:"none",borderRight:`2px solid ${t.border}`,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,cursor:"pointer",letterSpacing:1}}>◀ BACK</button>
+            <div style={{flex:1,textAlign:"center",fontFamily:"'Black Han Sans',sans-serif",fontSize:14,color:anchorShift===0?t.textSub:t.accent,padding:"10px 4px",letterSpacing:1}}>
+              {anchorShift===0?"NO SHIFT":anchorShift>0?`+${anchorShift}d`:`${anchorShift}d`}
+            </div>
+            <button onClick={()=>setAnchorShift(s=>s+1)} style={{flex:1,padding:"10px 6px",background:"transparent",border:"none",borderLeft:`2px solid ${t.border}`,fontFamily:"'Black Han Sans',sans-serif",fontSize:12,color:t.text,cursor:"pointer",letterSpacing:1}}>FWD ▶</button>
+          </div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:1,marginBottom:12,lineHeight:1.5}}>Shifts all future every-other-day occurrences. Past completions unaffected.</div>
         </>}
         <div style={lbl}>TIME OF DAY</div>
         <div style={{display:"flex",gap:6,marginBottom:16}}>
@@ -3604,7 +3616,16 @@ export default function App(){
     if(data.theme) setTheme(data.theme);
     showToast("RESTORED FROM DRIVE","☁️");
   };
-  const renameHabit=(id,label,timeOfDay,limit)=>setHabits(p=>p.map(h=>h.id===id?{...h,label,timeOfDay:timeOfDay!==undefined?timeOfDay:h.timeOfDay,limit:limit!==undefined?limit:h.limit}:h));
+  const renameHabit=(id,label,timeOfDay,limit,anchorShift)=>setHabits(p=>p.map(h=>{
+    if(h.id!==id) return h;
+    let newCreatedDate=h.createdDate||"2025-01-01";
+    if(anchorShift){
+      const d=new Date(newCreatedDate+"T12:00:00");
+      d.setDate(d.getDate()+anchorShift);
+      newCreatedDate=d.toISOString().split("T")[0];
+    }
+    return {...h,label,timeOfDay:timeOfDay!==undefined?timeOfDay:h.timeOfDay,limit:limit!==undefined?limit:h.limit,createdDate:newCreatedDate};
+  }));
 
   // List CRUD
   const toggleList=(type,id)=>{if(type==="movie")setMovies(p=>p.map(m=>m.id===id?{...m,done:!m.done}:m));else setBooks(p=>p.map(b=>b.id===id?{...b,done:!b.done}:b));};
