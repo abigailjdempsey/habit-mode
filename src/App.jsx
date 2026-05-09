@@ -350,7 +350,7 @@ function HabitRow({habit,onComplete,onUndoOne,onDelete,onRename,todayStr,theme,o
   return(
     <>
     {showEdit&&<EditHabitModal habit={habit} theme={theme}
-      onSave={(id,label,timeOfDay,limit)=>{onRename(id,label,timeOfDay);if(limit!==undefined)onRename(id,label,timeOfDay,limit);}}
+      onSave={(id,label,timeOfDay,limit,anchorShift)=>{onRename(id,label,timeOfDay,limit,anchorShift);}}
       onDelete={(id)=>{setShowEdit(false);onDelete(id);}}
       onClose={()=>setShowEdit(false)}/>}
     <div style={{position:"relative",marginBottom:6,overflow:"hidden",borderRadius:0}}>
