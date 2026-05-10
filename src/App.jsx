@@ -2451,11 +2451,14 @@ function CityView({city, places, setPlaces, theme, t, uid, onBack, cityEmoji}) {
   const cats=[...new Set(cityPlaces.map(p=>p.category).filter(Boolean))].sort();
 
   const [filterList,setFilterList]=useState("ALL"); // ALL | wishlist | favorite
+  const [filterVibe,setFilterVibe]=useState("ALL");
+  const allVibes=["ALL",...[...new Set(cityPlaces.flatMap(p=>p.vibes||[]).filter(Boolean))].sort()];
   const filtered=cityPlaces.filter(p=>{
     if(filterNeighborhood!=="ALL"&&p.neighborhood!==filterNeighborhood) return false;
     if(filterCat!=="ALL"&&p.category!==filterCat) return false;
     if(filterList==="favorite"&&p.listType!=="favorite") return false;
     if(filterList==="wishlist"&&p.listType==="favorite") return false;
+    if(filterVibe!=="ALL"&&!(p.vibes||[]).includes(filterVibe)) return false;
     if(search.trim()&&!`${p.name} ${p.neighborhood} ${p.category} ${p.description}`.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
