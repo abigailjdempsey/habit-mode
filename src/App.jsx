@@ -2533,11 +2533,22 @@ function CityView({city, places, setPlaces, theme, t, uid, onBack, cityEmoji}) {
         </div>
       </div>}
 
-      {/* Category pills — improved design */}
-      {cats.length>0&&<div style={{marginBottom:10}}>
+      {/* Category pills */}
+      {cats.length>0&&<div style={{marginBottom:8}}>
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:5}}>TYPE</div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
           {cats.map(c=><CatPill key={c} cat={c} active={filterCat===c}/>)}
+        </div>
+      </div>}
+      {/* Vibe filter pills */}
+      {allVibes.length>1&&<div style={{marginBottom:8}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2,marginBottom:5}}>VIBE</div>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+          {allVibes.map(v=>(
+            <button key={v} onClick={()=>setFilterVibe(filterVibe===v&&v!=="ALL"?"ALL":v)} style={{padding:"4px 10px",border:`1.5px solid ${filterVibe===v?t.accent2:t.border}`,background:filterVibe===v?t.accent2:"transparent",color:filterVibe===v?t.textInv:t.textSub,fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,cursor:"pointer",letterSpacing:1}}>
+              {v==="ALL"?"ALL VIBES":v}
+            </button>
+          ))}
         </div>
       </div>}
 
