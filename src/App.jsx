@@ -3666,6 +3666,16 @@ export default function App(){
         @keyframes milestoneIn{0%{transform:scale(0.3) rotate(-8deg);opacity:0}100%{transform:scale(1) rotate(0deg);opacity:1}}
         input,select{font-family:'Barlow Condensed',sans-serif;}
         input::placeholder{color:${t.textSub};letter-spacing:2px;}
+        @media(min-width:860px){
+          .hm-wrap{max-width:860px!important;display:flex!important;align-items:stretch!important;padding-bottom:0!important;min-height:100vh;}
+          .hm-sidebar{width:220px;flex-shrink:0;border-right:2px solid ${t.border};display:flex;flex-direction:column;padding:24px 0 24px;position:sticky;top:0;height:100vh;overflow-y:auto;}
+          .hm-content{flex:1;overflow-y:auto;height:100vh;padding:24px 28px 40px;}
+          .hm-nav-bottom{display:none!important;}
+          .hm-header{display:none!important;}
+        }
+        @media(max-width:859px){
+          .hm-sidebar{display:none!important;}
+        }
         select{color:${t.text};background:${t.bg};}
         ::-webkit-scrollbar{width:4px;height:4px;}
         ::-webkit-scrollbar-thumb{background:${t.border};}
@@ -3692,9 +3702,9 @@ export default function App(){
       {showWeekly&&<WeeklySummary habits={habits} totalXP={totalXP} onClose={()=>setShowWeekly(false)} theme={theme} t={t}/>}
       {drawerHabit&&<RepeatDrawer habit={drawerHabit} todayStr={viewDate} count={getCount(drawerHabit,viewDate)} onIncrement={!isPast?completeHabit:()=>{}} onDecrement={!isPast?undoOne:()=>{}} onRename={!isPast?renameHabit:()=>{}} onClose={()=>setOpenDrawer(null)} theme={theme}/>}
 
-      <div style={{background:t.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:90}}>
+      <div className="hm-wrap" style={{background:t.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:90}}>
         {/* Header */}
-        <div style={{padding:"22px 16px 12px",borderBottom:`2px solid ${t.border}`}}>
+        <div className="hm-header" style={{padding:"22px 16px 12px",borderBottom:`2px solid ${t.border}`}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:tab==="today"?10:0}}>
             <div>
               <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:32,color:t.text,letterSpacing:5,lineHeight:1}}>HABIT MODE</div>
@@ -3716,6 +3726,30 @@ export default function App(){
           {tab!=="today"&&<div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:t.textSub,marginTop:3,letterSpacing:3}}>{new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}).toUpperCase()}</div>}
         </div>
 
+        {/* Desktop sidebar */}
+        <div className="hm-sidebar">
+          <div style={{padding:"0 20px 20px",borderBottom:`2px solid ${t.border}`,marginBottom:16}}>
+            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4,lineHeight:1}}>HABIT</div>
+            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.accent,letterSpacing:4}}>MODE</div>
+          </div>
+          {/* Sidebar nav */}
+          <div style={{padding:"0 12px",flex:1}}>
+            {navItems.map(n=>(
+              <button key={n.id} onClick={()=>setTab(n.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"11px 12px",marginBottom:4,border:`2px solid ${tab===n.id?t.accent:t.border}`,background:tab===n.id?t.accent:"transparent",color:tab===n.id?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,textAlign:"left",boxShadow:tab===n.id?`2px 2px 0 ${t.border}`:"none"}}>
+                <span style={{fontSize:16}}>{n.emoji}</span>
+                <span>{n.label}</span>
+              </button>
+            ))}
+          </div>
+          {/* Today date in sidebar */}
+          {tab==="today"&&<div style={{padding:"12px 20px",borderTop:`2px solid ${t.border}`,marginTop:"auto"}}>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:t.textSub,letterSpacing:2}}>{new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}).toUpperCase()}</div>
+          </div>}
+          <div style={{padding:"12px 20px",borderTop:`2px solid ${t.border}`}}>
+            <button onClick={()=>{setTab("log");setTimeout(()=>document.getElementById("settings-section")?.scrollIntoView({behavior:"smooth"}),150);}} style={{background:"transparent",border:`1.5px solid ${t.border}`,padding:"6px 10px",cursor:"pointer",fontFamily:"'Black Han Sans',sans-serif",fontSize:11,color:t.textSub,letterSpacing:1,width:"100%"}}>⚙️ SETTINGS</button>
+          </div>
+        </div>
+        <div className="hm-content" style={{padding:"14px 14px 0"}}>
         <div style={{padding:"14px 14px 0"}}>
           {tab==="today"&&(
             <>
@@ -3962,9 +3996,10 @@ export default function App(){
             </>
           )}
         </div>
+        </div>
 
         {/* Bottom Nav */}
-        <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:t.nav,borderTop:`2px solid ${t.border}`,display:"flex",padding:"10px 0 14px",backdropFilter:"blur(20px)"}}>
+        <div className="hm-nav-bottom" style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:t.nav,borderTop:`2px solid ${t.border}`,display:"flex",padding:"10px 0 14px",backdropFilter:"blur(20px)"}}>
           {navItems.map(n=>(
             <button key={n.id} onClick={()=>setTab(n.id)} style={{flex:1,background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,opacity:tab===n.id?1:0.3,transition:"all 0.15s",transform:tab===n.id?"translateY(-1px)":"none"}}>
               <span style={{fontSize:18}}>{n.emoji}</span>
