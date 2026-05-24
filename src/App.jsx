@@ -795,9 +795,9 @@ function CategoryBlock({cat,subcats,habits,todayStr,theme,onComplete,onUndoOne,o
             </div>
           ))}
 
-          {/* Tasks for this category */}
-          {catTasks.map(task=>(
-            <TaskRow key={task.id} task={task} theme={theme} shopping={cat.isShoppingList}
+          {/* Undone tasks for this category */}
+          {catTasks.filter(t=>!t.done).map(task=>(
+            <TaskRow key={task.id} task={task} theme={theme} shopping={cat.isShoppingList} readOnly={readOnly}
               onComplete={onCompleteTask} onUncomplete={onUncompleteTask}
               onDelete={onDeleteTask} onRename={onRenameTask} onUpdate={onUpdateTask}/>
           ))}
@@ -3448,6 +3448,12 @@ export default function App(){
   const [openDrawer,setOpenDrawer]=useState(null);
   const [showAddCat,setShowAddCat]=useState(false);
   const [loaded,setLoaded]=useState(false);
+  const [isDesktop,setIsDesktop]=useState(()=>typeof window!=="undefined"&&window.innerWidth>=860);
+  useEffect(()=>{
+    const h=()=>setIsDesktop(window.innerWidth>=860);
+    window.addEventListener("resize",h);
+    return()=>window.removeEventListener("resize",h);
+  },[]);
   const [showOnboarding,setShowOnboarding]=useState(false);
   const [notifPermission,setNotifPermission]=useState(()=>{try{return notifSupported()?Notification.permission:"unsupported";}catch{return "unsupported";}});
   const [gdriveStatus,setGdriveStatus]=useState("idle"); // idle|connecting|connected|error
@@ -3703,6 +3709,28 @@ export default function App(){
       {drawerHabit&&<RepeatDrawer habit={drawerHabit} todayStr={viewDate} count={getCount(drawerHabit,viewDate)} onIncrement={!isPast?completeHabit:()=>{}} onDecrement={!isPast?undoOne:()=>{}} onRename={!isPast?renameHabit:()=>{}} onClose={()=>setOpenDrawer(null)} theme={theme}/>}
 
       <div className="hm-wrap" style={{background:t.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:90}}>
+        {/* Desktop sidebar */}
+        <div style={{display:isDesktop?"flex":"none",width:200,flexShrink:0,borderRight:`2px solid ${t.border}`,flexDirection:"column",position:"sticky",top:0,height:"100vh",overflowY:"auto"}}>
+          <div style={{padding:"24px 20px 20px",borderBottom:`2px solid ${t.border}`,marginBottom:12}}>
+            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.text,letterSpacing:4,lineHeight:1.1}}>HABIT</div>
+            <div style={{fontFamily:"'Black Han Sans',sans-serif",fontSize:22,color:t.accent,letterSpacing:4}}>MODE</div>
+          </div>
+          <div style={{padding:"0 10px",flex:1}}>
+            {navItems.map(n=>(
+              <button key={n.id} onClick={()=>setTab(n.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"10px 12px",marginBottom:3,border:`2px solid ${tab===n.id?t.accent:t.border}`,background:tab===n.id?t.accent:"transparent",color:tab===n.id?t.textInv:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:11,cursor:"pointer",letterSpacing:2,textAlign:"left",boxShadow:tab===n.id?`2px 2px 0 ${t.border}`:"none"}}>
+                <span style={{fontSize:16}}>{n.emoji}</span><span>{n.label}</span>
+              </button>
+            ))}
+          </div>
+          <div style={{padding:"12px",borderTop:`2px solid ${t.border}`}}>
+            <button onClick={()=>{setTab("log");setTimeout(()=>document.getElementById("settings-section")?.scrollIntoView({behavior:"smooth"}),150);}} style={{width:"100%",padding:"8px",border:`1.5px solid ${t.border}`,background:"transparent",color:t.textSub,fontFamily:"'Black Han Sans',sans-serif",fontSize:10,cursor:"pointer",letterSpacing:1}}>⚙️ SETTINGS</button>
+          </div>
+        </div>
+
+        {/* Main content */}
+        <div style={{flex:1,overflowY:isDesktop?"auto":"visible",height:isDesktop?"100vh":"auto"}}>
+
+        {/* Header — mobile only */}
         {/* Header */}
         <div className="hm-header" style={{padding:"22px 16px 12px",borderBottom:`2px solid ${t.border}`}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:tab==="today"?10:0}}>
@@ -3995,6 +4023,7 @@ export default function App(){
               />
             </>
           )}
+        </div>
         </div>
         </div>
 
